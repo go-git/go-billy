@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/src-d/go-git.v4/utils/fs/test"
+	"srcd.works/billy.v0/test"
 )
 
 func Test(t *testing.T) { TestingT(t) }

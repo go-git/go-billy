@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/utils/fs"
+	"srcd.works/billy.v0"
 )
 
 const separator = '/'
@@ -29,15 +29,15 @@ func New() *Memory {
 	}
 }
 
-func (fs *Memory) Create(filename string) (fs.File, error) {
+func (fs *Memory) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0)
 }
 
-func (fs *Memory) Open(filename string) (fs.File, error) {
+func (fs *Memory) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (fs.File, error) {
+func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
 	fullpath := fs.Join(fs.base, filename)
 	f, ok := fs.s.files[fullpath]
 
@@ -64,7 +64,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (fs.File
 	return n, nil
 }
 
-func (fs *Memory) Stat(filename string) (fs.FileInfo, error) {
+func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	fullpath := fs.Join(fs.base, filename)
 
 	if _, ok := fs.s.files[filename]; ok {
@@ -79,7 +79,7 @@ func (fs *Memory) Stat(filename string) (fs.FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
-func (fs *Memory) ReadDir(base string) (entries []fs.FileInfo, err error) {
+func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 	base = fs.Join(fs.base, base)
 
 	appendedDirs := make(map[string]bool, 0)
@@ -109,7 +109,7 @@ func (fs *Memory) ReadDir(base string) (entries []fs.FileInfo, err error) {
 
 var maxTempFiles = 1024 * 4
 
-func (fs *Memory) TempFile(dir, prefix string) (fs.File, error) {
+func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
 	var fullpath string
 	for {
 		if fs.tempCount >= maxTempFiles {
@@ -160,7 +160,7 @@ func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-func (fs *Memory) Dir(path string) fs.Filesystem {
+func (fs *Memory) Dir(path string) billy.Filesystem {
 	return &Memory{
 		base: fs.Join(fs.base, path),
 		s:    fs.s,
@@ -172,7 +172,7 @@ func (fs *Memory) Base() string {
 }
 
 type file struct {
-	fs.BaseFile
+	billy.BaseFile
 
 	content  *content
 	position int64
@@ -183,7 +183,7 @@ func newFile(base, fullpath string, flag int) *file {
 	filename, _ := filepath.Rel(base, fullpath)
 
 	return &file{
-		BaseFile: fs.BaseFile{BaseFilename: filename},
+		BaseFile: billy.BaseFile{BaseFilename: filename},
 		content:  &content{},
 		flag:     flag,
 	}
@@ -200,7 +200,7 @@ func (f *file) Read(b []byte) (int, error) {
 
 func (f *file) ReadAt(b []byte, off int64) (int, error) {
 	if f.IsClosed() {
-		return 0, fs.ErrClosed
+		return 0, billy.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isReadOnly(f.flag) {
@@ -215,7 +215,7 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
 	if f.IsClosed() {
-		return 0, fs.ErrClosed
+		return 0, billy.ErrClosed
 	}
 
 	switch whence {
@@ -232,7 +232,7 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 
 func (f *file) Write(p []byte) (int, error) {
 	if f.IsClosed() {
-		return 0, fs.ErrClosed
+		return 0, billy.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isWriteOnly(f.flag) {

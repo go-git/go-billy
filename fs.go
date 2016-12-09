@@ -1,5 +1,5 @@
-// Package fs interace and implementations used by storage/filesystem
-package fs
+// FS abstraction interfaces
+package billy
 
 import (
 	"errors"
