@@ -6,7 +6,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"srcd.works/billy.v0"
+	"srcd.works/go-billy.v0"
 )
 
 // OS a filesystem base on the os filesystem

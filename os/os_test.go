@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"srcd.works/billy.v0/os"
-	"srcd.works/billy.v0/test"
+	"srcd.works/go-billy.v0/os"
+	"srcd.works/go-billy.v0/test"
 )
 
 func Test(t *testing.T) { TestingT(t) }

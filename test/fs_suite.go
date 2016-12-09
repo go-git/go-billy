@@ -11,7 +11,7 @@ import (
 	"bytes"
 
 	. "gopkg.in/check.v1"
-	. "srcd.works/billy.v0"
+	. "srcd.works/go-billy.v0"
 )
 
 func Test(t *testing.T) { TestingT(t) }
