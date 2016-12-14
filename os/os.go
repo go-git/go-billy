@@ -1,3 +1,4 @@
+// Provides a billy filesystem for the OS.
 package os
 
 import (
@@ -9,7 +10,7 @@ import (
 	"srcd.works/go-billy.v0"
 )
 
-// OS a filesystem base on the os filesystem
+// OS is a filesystem based on the os filesystem
 type OS struct {
 	base string
 }
@@ -80,6 +81,7 @@ func (ofs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
 	return s, nil
 }
 
+// Rename moves a file in disk from _from_ to _to_.
 func (fs *OS) Rename(from, to string) error {
 	from = fs.Join(fs.base, from)
 	to = fs.Join(fs.base, to)
@@ -102,11 +104,13 @@ func (fs *OS) Stat(filename string) (billy.FileInfo, error) {
 	return os.Stat(fullpath)
 }
 
+// Remove deletes a file in disk.
 func (fs *OS) Remove(filename string) error {
 	fullpath := fs.Join(fs.base, filename)
 	return os.Remove(fullpath)
 }
 
+// TempFile creates a new temporal file.
 func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
 	fullpath := fs.Join(fs.base, dir)
 	if err := fs.createDir(fullpath + string(os.PathSeparator)); err != nil {

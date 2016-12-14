@@ -13,6 +13,20 @@ var (
 	ErrNotSupported = errors.New("feature not supported")
 )
 
+// Filesystem abstract the operations in a storage-agnostic interface.
+// It allows you to:
+// * Create files.
+// * Open existing files.
+// * Get info about files.
+// * List files in a directory.
+// * Get a temporal file.
+// * Rename files.
+// * Remove files.
+// * Join parts of path.
+// * Obtain a filesystem starting on a subdirectory in the current filesystem.
+// * Get the base path for the filesystem.
+// Each method implementation varies from implementation to implementation. Refer to
+// the specific documentation for more info.
 type Filesystem interface {
 	Create(filename string) (File, error)
 	Open(filename string) (File, error)
@@ -27,6 +41,8 @@ type Filesystem interface {
 	Base() string
 }
 
+// File implements io.Closer, io.Reader, io.Seeker, and io.Writer>
+// Provides method to obtain the file name and the state of the file (open or closed).
 type File interface {
 	Filename() string
 	IsClosed() bool

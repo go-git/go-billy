@@ -29,14 +29,17 @@ func New() *Memory {
 	}
 }
 
+// Create returns a new file in memory from a given filename.
 func (fs *Memory) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0)
 }
 
+// Open returns a readonly file from a given name.
 func (fs *Memory) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
+// OpenFile returns the file from a given name with given flag and permits.
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
 	fullpath := fs.Join(fs.base, filename)
 	f, ok := fs.s.files[fullpath]
@@ -64,6 +67,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 	return n, nil
 }
 
+// Stat returns a billy.FileInfo with the information of the requested file.
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	fullpath := fs.Join(fs.base, filename)
 
@@ -79,6 +83,7 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	return nil, os.ErrNotExist
 }
 
+// ReadDir returns a list of billy.FileInfo in the given directory.
 func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 	base = fs.Join(fs.base, base)
 
@@ -109,6 +114,7 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 
 var maxTempFiles = 1024 * 4
 
+// TempFile creates a new temporary file.
 func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
 	var fullpath string
 	for {
@@ -131,6 +137,7 @@ func (fs *Memory) getTempFilename(dir, prefix string) string {
 	return fs.Join(fs.base, dir, filename)
 }
 
+// Rename moves a the `from` file to the `to` file.
 func (fs *Memory) Rename(from, to string) error {
 	from = fs.Join(fs.base, from)
 	to = fs.Join(fs.base, to)
@@ -146,6 +153,7 @@ func (fs *Memory) Rename(from, to string) error {
 	return nil
 }
 
+// Remove deletes a given file from storage.
 func (fs *Memory) Remove(filename string) error {
 	fullpath := fs.Join(fs.base, filename)
 	if _, ok := fs.s.files[fullpath]; !ok {
@@ -156,10 +164,13 @@ func (fs *Memory) Remove(filename string) error {
 	return nil
 }
 
+// Join concatenatess part of a path together.
 func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
+// Dir creates a new memory filesystem whose root is the given path inside the current
+// filesystem.
 func (fs *Memory) Dir(path string) billy.Filesystem {
 	return &Memory{
 		base: fs.Join(fs.base, path),
@@ -167,6 +178,7 @@ func (fs *Memory) Dir(path string) billy.Filesystem {
 	}
 }
 
+// Base returns the base path for the filesystem.
 func (fs *Memory) Base() string {
 	return fs.base
 }
