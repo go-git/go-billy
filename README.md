@@ -8,7 +8,7 @@ This library was extracted from
 ## Installation
 
 ```go
-go get -u srcd.works/go-billy.v0
+go get -u srcd.works/go-billy.v1
 ```
 
 ## Why billy?
