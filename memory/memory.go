@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"srcd.works/go-billy.v0"
+	"srcd.works/go-billy.v1"
 )
 
 const separator = '/'
