@@ -1,4 +1,4 @@
-# go-billy
+# go-billy [![GoDoc](https://godoc.org/srcd.works/go-billy.v1?status.svg)](https://godoc.org/srcd.works/go-billy.v1) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
 
 An interface to abstract several storages.
 
