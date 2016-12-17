@@ -1,5 +1,5 @@
-// Provides a billy filesystem for the OS.
-package os
+// Package os provides a billy filesystem for the OS.
+package os // import "srcd.works/go-billy.v1/memory"
 
 import (
 	"io/ioutil"

@@ -1,4 +1,3 @@
-// FS abstraction interfaces
 package billy
 
 import (
