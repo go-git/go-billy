@@ -7,3 +7,14 @@ go:
 matrix:
     allow_failures:
         - go: tip
+
+install:
+  - rm -rf $GOPATH/src/srcd.works
+  - mkdir -p $GOPATH/src/srcd.works
+  - ln -s $PWD $GOPATH/src/srcd.works/go-billy.v1
+  - cd $GOPATH/src/srcd.works/go-billy.v1
+  - go get -v -t ./...
+
+script:
+  - cd $GOPATH/src/srcd.works/go-billy.v1
+  - go test -v ./...
