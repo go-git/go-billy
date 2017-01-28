@@ -1,14 +1,13 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
-
-	"bytes"
 
 	. "gopkg.in/check.v1"
 	. "srcd.works/go-billy.v1"
@@ -379,6 +378,8 @@ func (s *FilesystemSuite) TestOpenAndWrite(c *C) {
 func (s *FilesystemSuite) TestOpenAndStat(c *C) {
 	f, err := s.Fs.Create("foo")
 	c.Assert(err, IsNil)
+	_, err = f.Write([]byte("foo"))
+	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
 	foo, err := s.Fs.Open("foo")
@@ -390,6 +391,7 @@ func (s *FilesystemSuite) TestOpenAndStat(c *C) {
 	c.Assert(stat, NotNil)
 	c.Assert(err, IsNil)
 	c.Assert(stat.Name(), Equals, "foo")
+	c.Assert(stat.Size(), Equals, int64(3))
 }
 
 func (s *FilesystemSuite) TestRemove(c *C) {

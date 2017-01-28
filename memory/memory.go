@@ -72,13 +72,13 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	fullpath := fs.Join(fs.base, filename)
 
-	if _, ok := fs.s.files[filename]; ok {
-		return newFileInfo(fs.base, fullpath, fs.s.files[filename].content.Len()), nil
+	if _, ok := fs.s.files[fullpath]; ok {
+		return newFileInfo(fs.base, fullpath, fs.s.files[fullpath].content.Len()), nil
 	}
 
-	info, err := fs.ReadDir(filename)
+	info, err := fs.ReadDir(fullpath)
 	if err == nil && len(info) != 0 {
-		return newFileInfo(fs.base, fullpath, len(info)), nil
+		return newFileInfo(fs.base, fullpath, len(info)+100), nil
 	}
 
 	return nil, os.ErrNotExist
