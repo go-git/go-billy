@@ -1,5 +1,5 @@
 // Package os provides a billy filesystem for the OS.
-package os // import "srcd.works/go-billy.v1/os"
+package osfs // import "srcd.works/go-billy.v1/osfs"
 
 import (
 	"io/ioutil"

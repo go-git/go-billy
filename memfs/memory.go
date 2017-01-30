@@ -1,5 +1,5 @@
-// Package memory provides a billy filesystem base on meomry.
-package memory // import "srcd.works/go-billy.v1/memory"
+// Package memfs provides a billy filesystem base on memory.
+package memfs // import "srcd.works/go-billy.v1/memfs"
 
 import (
 	"errors"
