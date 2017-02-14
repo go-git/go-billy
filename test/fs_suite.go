@@ -511,3 +511,34 @@ func (s *FilesystemSuite) TestReadWriteLargeFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(b), Equals, size)
 }
+
+func (s *FilesystemSuite) TestRemoveAllNonExistent(c *C) {
+	c.Assert(RemoveAll(s.Fs, "non-existent"), IsNil)
+}
+
+func (s *FilesystemSuite) TestRemoveAll(c *C) {
+	fnames := []string{
+		"foo/1",
+		"foo/2",
+		"foo/bar/1",
+		"foo/bar/2",
+		"foo/bar/baz/1",
+		"foo/bar/baz/qux/1",
+		"foo/bar/baz/qux/2",
+		"foo/bar/baz/qux/3",
+	}
+
+	for _, fname := range fnames {
+		f, err := s.Fs.Create(fname)
+		c.Assert(err, IsNil)
+		c.Assert(f.Close(), IsNil)
+	}
+
+	c.Assert(RemoveAll(s.Fs, "foo"), IsNil)
+
+	for _, fname := range fnames {
+		_, err := s.Fs.Stat(fname)
+		comment := Commentf("not removed: %s %s", fname, err)
+		c.Assert(os.IsNotExist(err), Equals, true, comment)
+	}
+}
