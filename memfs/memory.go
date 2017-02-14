@@ -78,7 +78,9 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 
 	info, err := fs.ReadDir(fullpath)
 	if err == nil && len(info) != 0 {
-		return newFileInfo(fs.base, fullpath, len(info)+100), nil
+		fi := newFileInfo(fs.base, fullpath, len(info))
+		fi.isDir = true
+		return fi, nil
 	}
 
 	return nil, os.ErrNotExist
