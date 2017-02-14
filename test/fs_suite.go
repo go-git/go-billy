@@ -314,7 +314,13 @@ func (s *FilesystemSuite) TestDirStat(c *C) {
 		c.Assert(f.Close(), IsNil)
 	}
 
-	fi, err := s.Fs.Stat("qux")
+	// Some implementations detect directories based on a prefix
+	// for all files; it's easy to miss path separator handling there.
+	fi, err := s.Fs.Stat("qu")
+	c.Assert(os.IsNotExist(err), Equals, true, Commentf("error: %s", err))
+	c.Assert(fi, IsNil)
+
+	fi, err = s.Fs.Stat("qux")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "qux")
 	c.Assert(fi.IsDir(), Equals, true)
@@ -419,7 +425,18 @@ func (s *FilesystemSuite) TestRemove(c *C) {
 }
 
 func (s *FilesystemSuite) TestRemoveNonExisting(c *C) {
-	c.Assert(s.Fs.Remove("NON-EXISTING"), NotNil)
+	err := s.Fs.Remove("NON-EXISTING")
+	c.Assert(err, NotNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
+}
+
+func (s *FilesystemSuite) TestRemoveNotEmptyDir(c *C) {
+	f, err := s.Fs.Create("foo/bar")
+	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
+	err = s.Fs.Remove("foo")
+	c.Assert(err, NotNil)
 }
 
 func (s *FilesystemSuite) TestRemoveTempFile(c *C) {
