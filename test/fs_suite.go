@@ -299,6 +299,13 @@ func (s *FilesystemSuite) TestReadDirFileInfoDirs(c *C) {
 	c.Assert(info[0].Name(), Equals, "foo")
 }
 
+func (s *FilesystemSuite) TestStatNonExistent(c *C) {
+	fi, err := s.Fs.Stat("non-existent")
+	comment := Commentf("error: %s", err)
+	c.Assert(os.IsNotExist(err), Equals, true, comment)
+	c.Assert(fi, IsNil)
+}
+
 func (s *FilesystemSuite) TestDirStat(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
@@ -343,7 +350,7 @@ func (s *FilesystemSuite) TestRename(c *C) {
 
 	foo, err := s.Fs.Stat("foo")
 	c.Assert(foo, IsNil)
-	c.Assert(err, NotNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
 
 	bar, err := s.Fs.Stat("bar")
 	c.Assert(bar, NotNil)
