@@ -18,3 +18,7 @@ install:
 script:
   - cd $GOPATH/src/srcd.works/go-billy.v1
   - go test -v ./...
+  - make test-coverage
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
