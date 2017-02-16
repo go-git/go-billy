@@ -46,13 +46,17 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 	fullpath := fs.Join(fs.base, filename)
 	f, ok := fs.s.files[fullpath]
 
-	if !ok && !isCreate(flag) {
-		return nil, os.ErrNotExist
-	}
+	if !ok {
+		if !isCreate(flag) {
+			return nil, os.ErrNotExist
+		}
 
-	if f == nil {
 		fs.s.files[fullpath] = newFile(fs.base, fullpath, flag)
 		return fs.s.files[fullpath], nil
+	}
+
+	if f.isDir {
+		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
 	n := newFile(fs.base, fullpath, flag)
@@ -73,12 +77,13 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	fullpath := fs.Join(fs.base, filename)
 
-	if _, ok := fs.s.files[fullpath]; ok {
+	f, ok := fs.s.files[fullpath]
+	if ok && !f.isDir {
 		return newFileInfo(fs.base, fullpath, fs.s.files[fullpath].content.Len()), nil
 	}
 
 	info, err := fs.ReadDir(fullpath)
-	if err == nil && len(info) != 0 {
+	if err == nil && len(info) != 0 || f != nil && f.isDir {
 		fi := newFileInfo(fs.base, fullpath, len(info))
 		fi.isDir = true
 		return fi, nil
@@ -101,6 +106,10 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 		parts := strings.Split(fullpath, string(separator))
 
 		if len(parts) == 1 {
+			if f.isDir {
+				entries = append(entries, &fileInfo{name: parts[0], isDir: true})
+			}
+
 			entries = append(entries, &fileInfo{name: parts[0], size: f.content.Len()})
 			continue
 		}
@@ -114,6 +123,22 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 	}
 
 	return
+}
+
+// MkdirAll creates a directory.
+func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
+	fullpath := fs.Join(fs.base, path)
+	f, ok := fs.s.files[fullpath]
+	if ok {
+		if !f.isDir {
+			return fmt.Errorf("%s is a file", path)
+		}
+
+		return nil
+	}
+
+	fs.s.files[fullpath] = &file{isDir: true}
+	return nil
 }
 
 var maxTempFiles = 1024 * 4
@@ -207,6 +232,7 @@ type file struct {
 	content  *content
 	position int64
 	flag     int
+	isDir    bool
 }
 
 func newFile(base, fullpath string, flag int) *file {

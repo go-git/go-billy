@@ -516,6 +516,14 @@ func (s *FilesystemSuite) TestRemoveAllNonExistent(c *C) {
 	c.Assert(RemoveAll(s.Fs, "non-existent"), IsNil)
 }
 
+func (s *FilesystemSuite) TestRemoveAllEmptyDir(c *C) {
+	c.Assert(s.Fs.MkdirAll("empty", os.FileMode(0755)), IsNil)
+	c.Assert(RemoveAll(s.Fs, "empty"), IsNil)
+	_, err := s.Fs.Stat("empty")
+	c.Assert(err, NotNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
+}
+
 func (s *FilesystemSuite) TestRemoveAll(c *C) {
 	fnames := []string{
 		"foo/1",
@@ -568,4 +576,61 @@ func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
 		comment := Commentf("not removed: %s %s", fname, err)
 		c.Assert(os.IsNotExist(err), Equals, true, comment)
 	}
+}
+
+func (s *FilesystemSuite) TestMkdirAll(c *C) {
+	err := s.Fs.MkdirAll("empty", os.FileMode(0755))
+	c.Assert(err, IsNil)
+	fi, err := s.Fs.Stat("empty")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+}
+
+func (s *FilesystemSuite) TestMkdirAllNested(c *C) {
+	err := s.Fs.MkdirAll("foo/bar/baz", os.FileMode(0755))
+	c.Assert(err, IsNil)
+	fi, err := s.Fs.Stat("foo/bar/baz")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+}
+
+func (s *FilesystemSuite) TestMkdirAllIdempotent(c *C) {
+	err := s.Fs.MkdirAll("empty", os.FileMode(0755))
+	c.Assert(err, IsNil)
+	fi, err := s.Fs.Stat("empty")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+
+	// idempotent
+	err = s.Fs.MkdirAll("empty", os.FileMode(0755))
+	c.Assert(err, IsNil)
+	fi, err = s.Fs.Stat("empty")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+}
+
+func (s *FilesystemSuite) TestMkdirAllAndOpenFile(c *C) {
+	err := s.Fs.MkdirAll("dir", os.FileMode(0755))
+	c.Assert(err, IsNil)
+
+	f, err := s.Fs.Create("dir/bar/foo")
+	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
+	fi, err := s.Fs.Stat("dir/bar/foo")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, false)
+}
+
+func (s *FilesystemSuite) TestMkdirAllWithExistingFile(c *C) {
+	f, err := s.Fs.Create("dir/foo")
+	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
+	err = s.Fs.MkdirAll("dir/foo", os.FileMode(0755))
+	c.Assert(err, NotNil)
+
+	fi, err := s.Fs.Stat("dir/foo")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, false)
 }
