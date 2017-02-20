@@ -151,6 +151,13 @@ func (fs *OS) Base() string {
 	return fs.base
 }
 
+// RemoveAll removes a file or directory recursively. Removes everything it can,
+// but returns the first error.
+func (fs *OS) RemoveAll(path string) error {
+	fullpath := fs.Join(fs.base, path)
+	return os.RemoveAll(fullpath)
+}
+
 // osFile represents a file in the os filesystem
 type osFile struct {
 	billy.BaseFile

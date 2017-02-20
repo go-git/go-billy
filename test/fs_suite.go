@@ -299,6 +299,13 @@ func (s *FilesystemSuite) TestReadDirFileInfoDirs(c *C) {
 	c.Assert(info[0].Name(), Equals, "foo")
 }
 
+func (s *FilesystemSuite) TestStatNonExistent(c *C) {
+	fi, err := s.Fs.Stat("non-existent")
+	comment := Commentf("error: %s", err)
+	c.Assert(os.IsNotExist(err), Equals, true, comment)
+	c.Assert(fi, IsNil)
+}
+
 func (s *FilesystemSuite) TestDirStat(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
@@ -307,14 +314,28 @@ func (s *FilesystemSuite) TestDirStat(c *C) {
 		c.Assert(f.Close(), IsNil)
 	}
 
+	// Some implementations detect directories based on a prefix
+	// for all files; it's easy to miss path separator handling there.
+	fi, err := s.Fs.Stat("qu")
+	c.Assert(os.IsNotExist(err), Equals, true, Commentf("error: %s", err))
+	c.Assert(fi, IsNil)
+
+	fi, err = s.Fs.Stat("qux")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "qux")
+	c.Assert(fi.IsDir(), Equals, true)
+
 	qux := s.Fs.Dir("qux")
-	fi, err := qux.Stat("baz")
+
+	fi, err = qux.Stat("baz")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "baz")
+	c.Assert(fi.IsDir(), Equals, false)
 
 	fi, err = qux.Stat("/baz")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "baz")
+	c.Assert(fi.IsDir(), Equals, false)
 }
 
 func (s *FilesystemSuite) TestCreateInDir(c *C) {
@@ -335,7 +356,7 @@ func (s *FilesystemSuite) TestRename(c *C) {
 
 	foo, err := s.Fs.Stat("foo")
 	c.Assert(foo, IsNil)
-	c.Assert(err, NotNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
 
 	bar, err := s.Fs.Stat("bar")
 	c.Assert(bar, NotNil)
@@ -404,7 +425,18 @@ func (s *FilesystemSuite) TestRemove(c *C) {
 }
 
 func (s *FilesystemSuite) TestRemoveNonExisting(c *C) {
-	c.Assert(s.Fs.Remove("NON-EXISTING"), NotNil)
+	err := s.Fs.Remove("NON-EXISTING")
+	c.Assert(err, NotNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
+}
+
+func (s *FilesystemSuite) TestRemoveNotEmptyDir(c *C) {
+	f, err := s.Fs.Create("foo/bar")
+	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
+	err = s.Fs.Remove("foo")
+	c.Assert(err, NotNil)
 }
 
 func (s *FilesystemSuite) TestRemoveTempFile(c *C) {
@@ -478,4 +510,62 @@ func (s *FilesystemSuite) TestReadWriteLargeFile(c *C) {
 	b, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
 	c.Assert(len(b), Equals, size)
+}
+
+func (s *FilesystemSuite) TestRemoveAllNonExistent(c *C) {
+	c.Assert(RemoveAll(s.Fs, "non-existent"), IsNil)
+}
+
+func (s *FilesystemSuite) TestRemoveAll(c *C) {
+	fnames := []string{
+		"foo/1",
+		"foo/2",
+		"foo/bar/1",
+		"foo/bar/2",
+		"foo/bar/baz/1",
+		"foo/bar/baz/qux/1",
+		"foo/bar/baz/qux/2",
+		"foo/bar/baz/qux/3",
+	}
+
+	for _, fname := range fnames {
+		f, err := s.Fs.Create(fname)
+		c.Assert(err, IsNil)
+		c.Assert(f.Close(), IsNil)
+	}
+
+	c.Assert(RemoveAll(s.Fs, "foo"), IsNil)
+
+	for _, fname := range fnames {
+		_, err := s.Fs.Stat(fname)
+		comment := Commentf("not removed: %s %s", fname, err)
+		c.Assert(os.IsNotExist(err), Equals, true, comment)
+	}
+}
+
+func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
+	fnames := []string{
+		"foo/1",
+		"foo/2",
+		"foo/bar/1",
+		"foo/bar/2",
+		"foo/bar/baz/1",
+		"foo/bar/baz/qux/1",
+		"foo/bar/baz/qux/2",
+		"foo/bar/baz/qux/3",
+	}
+
+	for _, fname := range fnames {
+		f, err := s.Fs.Create(fname)
+		c.Assert(err, IsNil)
+		c.Assert(f.Close(), IsNil)
+	}
+
+	c.Assert(RemoveAll(s.Fs, "foo/bar/.."), IsNil)
+
+	for _, fname := range fnames {
+		_, err := s.Fs.Stat(fname)
+		comment := Commentf("not removed: %s %s", fname, err)
+		c.Assert(os.IsNotExist(err), Equals, true, comment)
+	}
 }

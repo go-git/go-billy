@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -78,7 +79,9 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 
 	info, err := fs.ReadDir(fullpath)
 	if err == nil && len(info) != 0 {
-		return newFileInfo(fs.base, fullpath, len(info)+100), nil
+		fi := newFileInfo(fs.base, fullpath, len(info))
+		fi.isDir = true
+		return fi, nil
 	}
 
 	return nil, os.ErrNotExist
@@ -90,7 +93,7 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 
 	appendedDirs := make(map[string]bool, 0)
 	for fullpath, f := range fs.s.files {
-		if !strings.HasPrefix(fullpath, base) {
+		if !isInDir(base, fullpath) {
 			continue
 		}
 
@@ -158,6 +161,10 @@ func (fs *Memory) Rename(from, to string) error {
 func (fs *Memory) Remove(filename string) error {
 	fullpath := fs.Join(fs.base, filename)
 	if _, ok := fs.s.files[fullpath]; !ok {
+		if fs.isDir(fullpath) {
+			return fmt.Errorf("directory not empty: %s", filename)
+		}
+
 		return os.ErrNotExist
 	}
 
@@ -182,6 +189,16 @@ func (fs *Memory) Dir(path string) billy.Filesystem {
 // Base returns the base path for the filesystem.
 func (fs *Memory) Base() string {
 	return fs.base
+}
+
+func (fs *Memory) isDir(path string) bool {
+	for fpath := range fs.s.files {
+		if isInDir(path, fpath) {
+			return true
+		}
+	}
+
+	return false
 }
 
 type file struct {
@@ -374,4 +391,20 @@ func isReadOnly(flag int) bool {
 
 func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
+}
+
+func isInDir(dir, other string) bool {
+	dir = path.Clean(dir)
+	dir = toTrailingSlash(dir)
+	other = path.Clean(other)
+
+	return strings.HasPrefix(other, dir)
+}
+
+func toTrailingSlash(p string) string {
+	if strings.HasSuffix(p, "/") {
+		return p
+	}
+
+	return p + "/"
 }
