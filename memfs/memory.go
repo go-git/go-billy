@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -392,15 +393,18 @@ func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
 }
 
-func isInDir(dir, path string) bool {
-	p, err := filepath.Rel(dir, path)
-	if err != nil {
-		return false
+func isInDir(dir, other string) bool {
+	dir = path.Clean(dir)
+	dir = toTrailingSlash(dir)
+	other = path.Clean(other)
+
+	return strings.HasPrefix(other, dir)
+}
+
+func toTrailingSlash(p string) string {
+	if strings.HasSuffix(p, "/") {
+		return p
 	}
 
-	if p == "." || p == ".." {
-		return false
-	}
-
-	return !strings.HasPrefix(p, "../")
+	return p + "/"
 }
