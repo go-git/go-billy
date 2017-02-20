@@ -21,6 +21,7 @@ var (
 // * Get a temporal file.
 // * Rename files.
 // * Remove files.
+// * Create directories.
 // * Join parts of path.
 // * Obtain a filesystem starting on a subdirectory in the current filesystem.
 // * Get the base path for the filesystem.
@@ -35,6 +36,7 @@ type Filesystem interface {
 	TempFile(dir, prefix string) (File, error)
 	Rename(from, to string) error
 	Remove(filename string) error
+	MkdirAll(filename string, perm os.FileMode) error
 	Join(elem ...string) string
 	Dir(path string) Filesystem
 	Base() string

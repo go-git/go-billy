@@ -10,6 +10,11 @@ import (
 	"srcd.works/go-billy.v1"
 )
 
+const (
+	defaultDirectoryMode = 0755
+	defaultCreateMode    = 0666
+)
+
 // OS is a filesystem based on the os filesystem
 type OS struct {
 	base string
@@ -25,7 +30,7 @@ func New(baseDir string) *OS {
 // Create creates a file and opens it with standard permissions
 // and modes O_RDWR, O_CREATE and O_TRUNC.
 func (fs *OS) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
 // OpenFile is equivalent to standard os.OpenFile.
@@ -55,7 +60,7 @@ func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File,
 func (fs *OS) createDir(fullpath string) error {
 	dir := filepath.Dir(fullpath)
 	if dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, defaultDirectoryMode); err != nil {
 			return err
 		}
 	}
@@ -91,6 +96,12 @@ func (fs *OS) Rename(from, to string) error {
 	}
 
 	return os.Rename(from, to)
+}
+
+// MkdirAll creates a directory.
+func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
+	fullpath := fs.Join(fs.base, path)
+	return os.MkdirAll(fullpath, defaultDirectoryMode)
 }
 
 // Open opens a file in read-only mode.
