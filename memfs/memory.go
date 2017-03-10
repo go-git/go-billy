@@ -1,5 +1,5 @@
 // Package memfs provides a billy filesystem base on memory.
-package memfs // import "gopkg.in/src-d/go-billy.v1/memfs"
+package memfs // import "gopkg.in/src-d/go-billy.v2/memfs"
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-billy.v1"
+	"gopkg.in/src-d/go-billy.v2"
 )
 
 const separator = '/'

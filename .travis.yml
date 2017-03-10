@@ -11,12 +11,12 @@ matrix:
 install:
   - rm -rf $GOPATH/src/gopkg.in/src-d
   - mkdir -p $GOPATH/src/gopkg.in/src-d
-  - ln -s $PWD $GOPATH/src/gopkg.in/src-d/go-billy.v1
-  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v1
+  - ln -s $PWD $GOPATH/src/gopkg.in/src-d/go-billy.v2
+  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v2
   - go get -v -t ./...
 
 script:
-  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v1
+  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v2
   - go test -v ./...
   - make test-coverage
 
