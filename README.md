@@ -1,4 +1,4 @@
-# go-billy [![GoDoc](https://godoc.org/gopkg.in/src-d/go-billy.v1?status.svg)](https://godoc.org/gopkg.in/src-d/go-billy.v1) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
+# go-billy [![GoDoc](https://godoc.org/gopkg.in/src-d/go-billy.v2?status.svg)](https://godoc.org/gopkg.in/src-d/go-billy.v2) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
 
 An interface to abstract several storages.
 
@@ -8,7 +8,7 @@ This library was extracted from
 ## Installation
 
 ```go
-go get -u gopkg.in/src-d/go-billy.v1/...
+go get -u gopkg.in/src-d/go-billy.v2/...
 ```
 
 ## Why billy?
