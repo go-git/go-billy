@@ -9,14 +9,14 @@ matrix:
         - go: tip
 
 install:
-  - rm -rf $GOPATH/src/srcd.works
-  - mkdir -p $GOPATH/src/srcd.works
-  - ln -s $PWD $GOPATH/src/srcd.works/go-billy.v1
-  - cd $GOPATH/src/srcd.works/go-billy.v1
+  - rm -rf $GOPATH/src/gopkg.in/src-d
+  - mkdir -p $GOPATH/src/gopkg.in/src-d
+  - ln -s $PWD $GOPATH/src/gopkg.in/src-d/go-billy.v1
+  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v1
   - go get -v -t ./...
 
 script:
-  - cd $GOPATH/src/srcd.works/go-billy.v1
+  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v1
   - go test -v ./...
   - make test-coverage
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	. "srcd.works/go-billy.v1"
+	. "gopkg.in/src-d/go-billy.v1"
 )
 
 func Test(t *testing.T) { TestingT(t) }
