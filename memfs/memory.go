@@ -33,7 +33,7 @@ func New() *Memory {
 
 // Create returns a new file in memory from a given filename.
 func (fs *Memory) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0)
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 }
 
 // Open returns a readonly file from a given name.
@@ -51,7 +51,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 			return nil, os.ErrNotExist
 		}
 
-		fs.s.files[fullpath] = newFile(fs.base, fullpath, flag)
+		fs.s.files[fullpath] = newFile(fs.base, fullpath, perm, flag)
 		return fs.s.files[fullpath], nil
 	}
 
@@ -59,7 +59,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	n := newFile(fs.base, fullpath, flag)
+	n := newFile(fs.base, fullpath, perm, flag)
 	n.content = f.content
 
 	if isAppend(flag) {
@@ -79,12 +79,12 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 
 	f, ok := fs.s.files[fullpath]
 	if ok && !f.isDir {
-		return newFileInfo(fs.base, fullpath, fs.s.files[fullpath].content.Len()), nil
+		return newFileInfo(fs.base, fullpath, f.mode, fs.s.files[fullpath].content.Len()), nil
 	}
 
 	info, err := fs.ReadDir(fullpath)
 	if err == nil && len(info) != 0 || f != nil && f.isDir {
-		fi := newFileInfo(fs.base, fullpath, len(info))
+		fi := newFileInfo(fs.base, fullpath, 0, len(info))
 		fi.isDir = true
 		return fi, nil
 	}
@@ -110,7 +110,7 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 				entries = append(entries, &fileInfo{name: parts[0], isDir: true})
 			}
 
-			entries = append(entries, &fileInfo{name: parts[0], size: f.content.Len()})
+			entries = append(entries, &fileInfo{name: parts[0], mode: f.mode, size: f.content.Len()})
 			continue
 		}
 
@@ -118,7 +118,7 @@ func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
 			continue
 		}
 
-		entries = append(entries, &fileInfo{name: parts[0], isDir: true})
+		entries = append(entries, &fileInfo{name: parts[0], mode: f.mode, isDir: true})
 		appendedDirs[parts[0]] = true
 	}
 
@@ -232,15 +232,17 @@ type file struct {
 	content  *content
 	position int64
 	flag     int
+	mode     os.FileMode
 	isDir    bool
 }
 
-func newFile(base, fullpath string, flag int) *file {
+func newFile(base, fullpath string, mode os.FileMode, flag int) *file {
 	filename, _ := filepath.Rel(base, fullpath)
 
 	return &file{
 		BaseFile: billy.BaseFile{BaseFilename: filename},
 		content:  &content{},
+		mode:     mode,
 		flag:     flag,
 	}
 }
@@ -318,14 +320,16 @@ func (f *file) Open() error {
 type fileInfo struct {
 	name  string
 	size  int
+	mode  os.FileMode
 	isDir bool
 }
 
-func newFileInfo(base, fullpath string, size int) *fileInfo {
+func newFileInfo(base, fullpath string, mode os.FileMode, size int) *fileInfo {
 	filename, _ := filepath.Rel(base, fullpath)
 
 	return &fileInfo{
 		name: filename,
+		mode: mode,
 		size: size,
 	}
 }
@@ -339,7 +343,7 @@ func (fi *fileInfo) Size() int64 {
 }
 
 func (fi *fileInfo) Mode() os.FileMode {
-	return os.FileMode(0)
+	return fi.mode
 }
 
 func (*fileInfo) ModTime() time.Time {
