@@ -26,7 +26,7 @@ func (s *FilesystemSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(stdos.TempDir(), "go-git-fs-test")
 	osFs := osfs.New(s.path)
 	s.cfs = New(osFs, "test-subdir")
-	s.FilesystemSuite.Fs = s.cfs
+	s.FilesystemSuite.FS = s.cfs
 }
 
 func (s *FilesystemSuite) TearDownTest(c *C) {
