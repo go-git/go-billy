@@ -215,16 +215,10 @@ func (s *FilesystemSuite) TestFileCreateReadSeek(c *C) {
 }
 
 func (s *FilesystemSuite) TestFileOpenReadSeek(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", []byte("0123456789abcdefghijklmnopqrstuvwxyz"), 0644)
 	c.Assert(err, IsNil)
 
-	n, err := f.Write([]byte("0123456789abcdefghijklmnopqrstuvwxyz"))
-	c.Assert(err, IsNil)
-	c.Assert(n, Equals, 36)
-
-	c.Assert(f.Close(), IsNil)
-
-	f, err = s.FS.Open("foo")
+	f, err := s.FS.Open("foo")
 	c.Assert(err, IsNil)
 
 	p, err := f.Seek(10, io.SeekStart)
@@ -248,9 +242,8 @@ func (s *FilesystemSuite) TestFileCloseTwice(c *C) {
 func (s *FilesystemSuite) TestReadDirAndDir(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		f, err := s.FS.Create(name)
+		err := WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
 	}
 
 	info, err := s.FS.ReadDir("/")
@@ -268,12 +261,8 @@ func (s *FilesystemSuite) TestReadDirAndDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestReadDirFileInfo(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", []byte{'F', 'O', 'O'}, 0644)
 	c.Assert(err, IsNil)
-	n, err := f.Write([]byte{'F', 'O', 'O'})
-	c.Assert(n, Equals, 3)
-	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
 	info, err := s.FS.ReadDir("/")
 	c.Assert(err, IsNil)
@@ -287,12 +276,8 @@ func (s *FilesystemSuite) TestReadDirFileInfo(c *C) {
 func (s *FilesystemSuite) TestReadDirFileInfoDirs(c *C) {
 	files := []string{"qux/baz/foo"}
 	for _, name := range files {
-		f, err := s.FS.Create(name)
+		err := WriteFile(s.FS, name, []byte{'F', 'O', 'O'}, 0644)
 		c.Assert(err, IsNil)
-		n, err := f.Write([]byte{'F', 'O', 'O'})
-		c.Assert(n, Equals, 3)
-		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
 	}
 
 	info, err := s.FS.ReadDir("qux")
@@ -320,9 +305,8 @@ func (s *FilesystemSuite) TestStatNonExistent(c *C) {
 func (s *FilesystemSuite) TestDirStat(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		f, err := s.FS.Create(name)
+		err := WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
 	}
 
 	// Some implementations detect directories based on a prefix
@@ -358,9 +342,8 @@ func (s *FilesystemSuite) TestCreateInDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestRename(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
 	err = s.FS.Rename("foo", "bar")
 	c.Assert(err, IsNil)
@@ -394,9 +377,8 @@ func (s *FilesystemSuite) TestTempFileFullWithPath(c *C) {
 }
 
 func (s *FilesystemSuite) TestOpenAndWrite(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
 	foo, err := s.FS.Open("foo")
 	c.Assert(foo, NotNil)
@@ -408,11 +390,8 @@ func (s *FilesystemSuite) TestOpenAndWrite(c *C) {
 }
 
 func (s *FilesystemSuite) TestOpenAndStat(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
-	_, err = f.Write([]byte("foo"))
-	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
 	foo, err := s.FS.Open("foo")
 	c.Assert(foo, NotNil)
@@ -442,11 +421,10 @@ func (s *FilesystemSuite) TestRemoveNonExisting(c *C) {
 }
 
 func (s *FilesystemSuite) TestRemoveNotEmptyDir(c *C) {
-	f, err := s.FS.Create("foo/bar")
+	err := WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
-	err = s.FS.Remove("foo")
+	err = s.FS.Remove("no-exists")
 	c.Assert(err, NotNil)
 }
 
@@ -474,8 +452,10 @@ func (s *FilesystemSuite) TestReadAtOnReadWrite(c *C) {
 	c.Assert(err, IsNil)
 	_, err = f.Write([]byte("abcdefg"))
 	c.Assert(err, IsNil)
+
 	rf, ok := f.(io.ReaderAt)
 	c.Assert(ok, Equals, true)
+
 	b := make([]byte, 3)
 	n, err := rf.ReadAt(b, 2)
 	c.Assert(err, IsNil)
@@ -485,16 +465,15 @@ func (s *FilesystemSuite) TestReadAtOnReadWrite(c *C) {
 }
 
 func (s *FilesystemSuite) TestReadAtOnReadOnly(c *C) {
-	f, err := s.FS.Create("foo")
+	err := WriteFile(s.FS, "foo", []byte("abcdefg"), 0644)
 	c.Assert(err, IsNil)
-	_, err = f.Write([]byte("abcdefg"))
-	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
-	f, err = s.FS.Open("foo")
+	f, err := s.FS.Open("foo")
 	c.Assert(err, IsNil)
+
 	rf, ok := f.(io.ReaderAt)
 	c.Assert(ok, Equals, true)
+
 	b := make([]byte, 3)
 	n, err := rf.ReadAt(b, 2)
 	c.Assert(err, IsNil)
@@ -548,9 +527,8 @@ func (s *FilesystemSuite) TestRemoveAll(c *C) {
 	}
 
 	for _, fname := range fnames {
-		f, err := s.FS.Create(fname)
+		err := WriteFile(s.FS, fname, nil, 0644)
 		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
 	}
 
 	c.Assert(RemoveAll(s.FS, "foo"), IsNil)
@@ -575,9 +553,8 @@ func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
 	}
 
 	for _, fname := range fnames {
-		f, err := s.FS.Create(fname)
+		err := WriteFile(s.FS, fname, nil, 0644)
 		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
 	}
 
 	c.Assert(RemoveAll(s.FS, "foo/bar/.."), IsNil)
@@ -592,6 +569,7 @@ func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
 func (s *FilesystemSuite) TestMkdirAll(c *C) {
 	err := s.FS.MkdirAll("empty", os.FileMode(0755))
 	c.Assert(err, IsNil)
+
 	fi, err := s.FS.Stat("empty")
 	c.Assert(err, IsNil)
 	c.Assert(fi.IsDir(), Equals, true)
@@ -600,6 +578,7 @@ func (s *FilesystemSuite) TestMkdirAll(c *C) {
 func (s *FilesystemSuite) TestMkdirAllNested(c *C) {
 	err := s.FS.MkdirAll("foo/bar/baz", os.FileMode(0755))
 	c.Assert(err, IsNil)
+
 	fi, err := s.FS.Stat("foo/bar/baz")
 	c.Assert(err, IsNil)
 	c.Assert(fi.IsDir(), Equals, true)
@@ -644,4 +623,16 @@ func (s *FilesystemSuite) TestMkdirAllWithExistingFile(c *C) {
 	fi, err := s.FS.Stat("dir/foo")
 	c.Assert(err, IsNil)
 	c.Assert(fi.IsDir(), Equals, false)
+}
+
+func (s *FilesystemSuite) TestWriteFile(c *C) {
+	err := WriteFile(s.FS, "foo", []byte("bar"), 0777)
+	c.Assert(err, IsNil)
+
+	f, err := s.FS.Open("foo")
+	c.Assert(err, IsNil)
+
+	wrote, err := ioutil.ReadAll(f)
+	c.Assert(err, IsNil)
+	c.Assert(string(wrote), DeepEquals, "bar")
 }
