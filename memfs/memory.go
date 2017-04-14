@@ -12,7 +12,7 @@ import (
 	"gopkg.in/src-d/go-billy.v2"
 )
 
-const separator = '/'
+const separator = filepath.Separator
 
 // Memory a very convenient filesystem based on memory files
 type Memory struct {

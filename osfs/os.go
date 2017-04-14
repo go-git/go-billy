@@ -4,7 +4,6 @@ package osfs // import "gopkg.in/src-d/go-billy.v2/osfs"
 import (
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	"gopkg.in/src-d/go-billy.v2"
@@ -36,7 +35,7 @@ func (fs *OS) Create(filename string) (billy.File, error) {
 // OpenFile is equivalent to standard os.OpenFile.
 // If flag os.O_CREATE is set, all parent directories will be created.
 func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := path.Join(fs.base, filename)
+	fullpath := fs.Join(fs.base, filename)
 
 	if flag&os.O_CREATE != 0 {
 		if err := fs.createDir(fullpath); err != nil {
@@ -70,8 +69,8 @@ func (fs *OS) createDir(fullpath string) error {
 
 // ReadDir returns the filesystem info for all the archives under the specified
 // path.
-func (ofs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
-	fullpath := ofs.Join(ofs.base, path)
+func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
+	fullpath := fs.Join(fs.base, path)
 
 	l, err := ioutil.ReadDir(fullpath)
 	if err != nil {

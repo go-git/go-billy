@@ -23,6 +23,7 @@ func (s *OSSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(os.TempDir(), "go-git-os-fs-test")
 	s.FilesystemSuite.FS = New(s.path)
 }
+
 func (s *OSSuite) TearDownTest(c *C) {
 	err := os.RemoveAll(s.path)
 	c.Assert(err, IsNil)
@@ -31,6 +32,7 @@ func (s *OSSuite) TearDownTest(c *C) {
 func (s *OSSuite) TestOpenDoesNotCreateDir(c *C) {
 	_, err := s.FS.Open("dir/non-existent")
 	c.Assert(err, NotNil)
+
 	_, err = os.Stat(filepath.Join(s.path, "dir"))
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
