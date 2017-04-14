@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gopkg.in/src-d/go-billy.v2"
@@ -18,16 +16,17 @@ const separator = '/'
 
 // Memory a very convenient filesystem based on memory files
 type Memory struct {
-	base      string
-	s         *storage
+	base string
+	s    *storage
+
 	tempCount int
 }
 
 //New returns a new Memory filesystem
 func New() *Memory {
 	return &Memory{
-		base: "/",
-		s:    &storage{make(map[string]*file, 0)},
+		base: string(separator),
+		s:    newStorage(),
 	}
 }
 
@@ -43,102 +42,63 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 
 // OpenFile returns the file from a given name with given flag and permits.
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := fs.Join(fs.base, filename)
-	f, ok := fs.s.files[fullpath]
+	path := fs.Join(fs.base, filename)
 
-	if !ok {
+	f, has := fs.s.Get(path)
+	if !has {
 		if !isCreate(flag) {
 			return nil, os.ErrNotExist
 		}
 
-		fs.s.files[fullpath] = newFile(fs.base, fullpath, perm, flag)
-		return fs.s.files[fullpath], nil
+		var err error
+		f, err = fs.s.New(path, perm, flag)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if f.isDir {
+	if f.mode.IsDir() {
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	n := newFile(fs.base, fullpath, perm, flag)
-	n.content = f.content
-
-	if isAppend(flag) {
-		n.position = int64(n.content.Len())
+	filename, err := filepath.Rel(fs.base, path)
+	if err != nil {
+		return nil, err
 	}
 
-	if isTruncate(flag) {
-		n.content.Truncate()
-	}
-
-	return n, nil
+	return f.Duplicate(filename, perm, flag), nil
 }
 
 // Stat returns a billy.FileInfo with the information of the requested file.
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	fullpath := fs.Join(fs.base, filename)
 
-	f, ok := fs.s.files[fullpath]
-	if ok && !f.isDir {
-		return newFileInfo(fs.base, fullpath, f.mode, fs.s.files[fullpath].content.Len()), nil
+	f, has := fs.s.Get(fullpath)
+	if !has {
+		return nil, os.ErrNotExist
 	}
 
-	info, err := fs.ReadDir(fullpath)
-	if err == nil && len(info) != 0 || f != nil && f.isDir {
-		fi := newFileInfo(fs.base, fullpath, 0, len(info))
-		fi.isDir = true
-		return fi, nil
-	}
-
-	return nil, os.ErrNotExist
+	return f.Stat(), nil
 }
 
 // ReadDir returns a list of billy.FileInfo in the given directory.
-func (fs *Memory) ReadDir(base string) (entries []billy.FileInfo, err error) {
-	base = fs.Join(fs.base, base)
+func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
+	path = fs.Join(fs.base, path)
 
-	appendedDirs := make(map[string]bool, 0)
-	for fullpath, f := range fs.s.files {
-		if !isInDir(base, fullpath) {
-			continue
-		}
-
-		fullpath, _ = filepath.Rel(base, fullpath)
-		parts := strings.Split(fullpath, string(separator))
-
-		if len(parts) == 1 {
-			if f.isDir {
-				entries = append(entries, &fileInfo{name: parts[0], isDir: true})
-			}
-
-			entries = append(entries, &fileInfo{name: parts[0], mode: f.mode, size: f.content.Len()})
-			continue
-		}
-
-		if _, ok := appendedDirs[parts[0]]; ok {
-			continue
-		}
-
-		entries = append(entries, &fileInfo{name: parts[0], mode: f.mode, isDir: true})
-		appendedDirs[parts[0]] = true
+	var entries []billy.FileInfo
+	for _, f := range fs.s.Children(path) {
+		entries = append(entries, f.Stat())
 	}
 
-	return
+	return entries, nil
 }
 
 // MkdirAll creates a directory.
 func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
 	fullpath := fs.Join(fs.base, path)
-	f, ok := fs.s.files[fullpath]
-	if ok {
-		if !f.isDir {
-			return fmt.Errorf("%s is a file", path)
-		}
 
-		return nil
-	}
-
-	fs.s.files[fullpath] = &file{isDir: true}
-	return nil
+	_, err := fs.s.New(fullpath, perm|os.ModeDir, 0)
+	return err
 }
 
 var maxTempFiles = 1024 * 4
@@ -171,33 +131,16 @@ func (fs *Memory) Rename(from, to string) error {
 	from = fs.Join(fs.base, from)
 	to = fs.Join(fs.base, to)
 
-	if _, ok := fs.s.files[from]; !ok {
-		return os.ErrNotExist
-	}
-
-	fs.s.files[to] = fs.s.files[from]
-	fs.s.files[to].BaseFilename = to
-	delete(fs.s.files, from)
-
-	return nil
+	return fs.s.Rename(from, to)
 }
 
 // Remove deletes a given file from storage.
 func (fs *Memory) Remove(filename string) error {
 	fullpath := fs.Join(fs.base, filename)
-	if _, ok := fs.s.files[fullpath]; !ok {
-		if fs.isDir(fullpath) {
-			return fmt.Errorf("directory not empty: %s", filename)
-		}
-
-		return os.ErrNotExist
-	}
-
-	delete(fs.s.files, fullpath)
-	return nil
+	return fs.s.Remove(fullpath)
 }
 
-// Join concatenatess part of a path together.
+// Join joins any number of path elements into a single path, adding a Separator if necessary.
 func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
@@ -216,16 +159,6 @@ func (fs *Memory) Base() string {
 	return fs.base
 }
 
-func (fs *Memory) isDir(path string) bool {
-	for fpath := range fs.s.files {
-		if isInDir(path, fpath) {
-			return true
-		}
-	}
-
-	return false
-}
-
 type file struct {
 	billy.BaseFile
 
@@ -233,18 +166,6 @@ type file struct {
 	position int64
 	flag     int
 	mode     os.FileMode
-	isDir    bool
-}
-
-func newFile(base, fullpath string, mode os.FileMode, flag int) *file {
-	filename, _ := filepath.Rel(base, fullpath)
-
-	return &file{
-		BaseFile: billy.BaseFile{BaseFilename: filename},
-		content:  &content{},
-		mode:     mode,
-		flag:     flag,
-	}
 }
 
 func (f *file) Read(b []byte) (int, error) {
@@ -312,26 +233,37 @@ func (f *file) Close() error {
 	return nil
 }
 
-func (f *file) Open() error {
-	f.Closed = false
-	return nil
+func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
+	new := &file{
+		BaseFile: billy.BaseFile{BaseFilename: filename},
+		content:  f.content,
+		mode:     mode,
+		flag:     flag,
+	}
+
+	if isAppend(flag) {
+		new.position = int64(new.content.Len())
+	}
+
+	if isTruncate(flag) {
+		new.content.Truncate()
+	}
+
+	return new
+}
+
+func (f *file) Stat() billy.FileInfo {
+	return &fileInfo{
+		name: f.Filename(),
+		mode: f.mode,
+		size: f.content.Len(),
+	}
 }
 
 type fileInfo struct {
-	name  string
-	size  int
-	mode  os.FileMode
-	isDir bool
-}
-
-func newFileInfo(base, fullpath string, mode os.FileMode, size int) *fileInfo {
-	filename, _ := filepath.Rel(base, fullpath)
-
-	return &fileInfo{
-		name: filename,
-		mode: mode,
-		size: size,
-	}
+	name string
+	size int
+	mode os.FileMode
 }
 
 func (fi *fileInfo) Name() string {
@@ -351,44 +283,11 @@ func (*fileInfo) ModTime() time.Time {
 }
 
 func (fi *fileInfo) IsDir() bool {
-	return fi.isDir
+	return fi.mode.IsDir()
 }
 
 func (*fileInfo) Sys() interface{} {
 	return nil
-}
-
-type storage struct {
-	files map[string]*file
-}
-
-type content struct {
-	bytes []byte
-}
-
-func (c *content) WriteAt(p []byte, off int64) (int, error) {
-	prev := len(c.bytes)
-	c.bytes = append(c.bytes[:off], p...)
-	if len(c.bytes) < prev {
-		c.bytes = c.bytes[:prev]
-	}
-
-	return len(p), nil
-}
-
-func (c *content) ReadAt(b []byte, off int64) (int, error) {
-	size := int64(len(c.bytes))
-	if off >= size {
-		return 0, io.EOF
-	}
-
-	l := int64(len(b))
-	if off+l > size {
-		l = size - off
-	}
-
-	n := copy(b, c.bytes[off:off+l])
-	return n, nil
 }
 
 func (c *content) Truncate() {
@@ -421,20 +320,4 @@ func isReadOnly(flag int) bool {
 
 func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
-}
-
-func isInDir(dir, other string) bool {
-	dir = path.Clean(dir)
-	dir = toTrailingSlash(dir)
-	other = path.Clean(other)
-
-	return strings.HasPrefix(other, dir)
-}
-
-func toTrailingSlash(p string) string {
-	if strings.HasSuffix(p, "/") {
-		return p
-	}
-
-	return p + "/"
 }
