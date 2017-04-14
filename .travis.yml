@@ -4,20 +4,16 @@ go:
     - 1.8
     - tip
 
+go_import_path: gopkg.in/src-d/go-billy.v2
+
 matrix:
     allow_failures:
         - go: tip
 
 install:
-  - rm -rf $GOPATH/src/gopkg.in/src-d
-  - mkdir -p $GOPATH/src/gopkg.in/src-d
-  - ln -s $PWD $GOPATH/src/gopkg.in/src-d/go-billy.v2
-  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v2
   - go get -v -t ./...
 
 script:
-  - cd $GOPATH/src/gopkg.in/src-d/go-billy.v2
-  - go test -v ./...
   - make test-coverage
 
 after_success:
