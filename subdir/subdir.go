@@ -33,7 +33,7 @@ func (s *subdirFs) Create(filename string) (billy.File, error) {
 		return nil, err
 	}
 
-	return newFile(f, filename), nil
+	return newFile(s, f, filename), nil
 }
 
 func (s *subdirFs) Open(filename string) (billy.File, error) {
@@ -42,7 +42,7 @@ func (s *subdirFs) Open(filename string) (billy.File, error) {
 		return nil, err
 	}
 
-	return newFile(f, filename), nil
+	return newFile(s, f, filename), nil
 }
 
 func (s *subdirFs) OpenFile(filename string, flag int, mode os.FileMode) (
@@ -53,7 +53,7 @@ func (s *subdirFs) OpenFile(filename string, flag int, mode os.FileMode) (
 		return nil, err
 	}
 
-	return newFile(f, filename), nil
+	return newFile(s, f, filename), nil
 }
 
 func (s *subdirFs) TempFile(dir, prefix string) (billy.File, error) {
@@ -62,7 +62,7 @@ func (s *subdirFs) TempFile(dir, prefix string) (billy.File, error) {
 		return nil, err
 	}
 
-	return newFile(f, s.Join(dir, filepath.Base(f.Filename()))), nil
+	return newFile(s, f, s.Join(dir, filepath.Base(f.Filename()))), nil
 }
 
 func (s *subdirFs) Rename(from, to string) error {
@@ -79,8 +79,13 @@ func (s *subdirFs) MkdirAll(filename string, perm os.FileMode) error {
 }
 
 func (s *subdirFs) Stat(filename string) (billy.FileInfo, error) {
-	filename = removeLeadingSlash(filename)
-	fi, err := s.underlying.Stat(s.underlyingPath(filename))
+	fullpath := s.underlyingPath(filename)
+	fi, err := s.underlying.Stat(fullpath)
+	if err != nil {
+		return nil, err
+	}
+
+	filename, err = filepath.Rel(s.Base(), fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -107,17 +112,9 @@ func (s *subdirFs) Join(elem ...string) string {
 }
 
 func (s *subdirFs) Dir(path string) billy.Filesystem {
-	return New(s, removeLeadingSlash(path))
+	return New(s.underlying, s.underlyingPath(path))
 }
 
 func (s *subdirFs) Base() string {
 	return s.base
-}
-
-func removeLeadingSlash(path string) string {
-	if strings.HasPrefix(path, "/") {
-		return path[1:]
-	}
-
-	return path
 }

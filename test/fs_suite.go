@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -23,6 +24,7 @@ func (s *FilesystemSuite) TestCreate(c *C) {
 	f, err := s.FS.Create("foo")
 	c.Assert(err, IsNil)
 	c.Assert(f.Filename(), Equals, "foo")
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestOpen(c *C) {
@@ -34,6 +36,7 @@ func (s *FilesystemSuite) TestOpen(c *C) {
 	f, err = s.FS.Open("foo")
 	c.Assert(err, IsNil)
 	c.Assert(f.Filename(), Equals, "foo")
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestOpenNotExists(c *C) {
@@ -54,13 +57,15 @@ func (s *FilesystemSuite) TestCreateDir(c *C) {
 func (s *FilesystemSuite) TestCreateDepth(c *C) {
 	f, err := s.FS.Create("bar/foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "bar/foo")
+	c.Assert(f.Filename(), Equals, s.FS.Join("bar", "foo"))
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestCreateDepthAbsolute(c *C) {
 	f, err := s.FS.Create("/bar/foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "bar/foo")
+	c.Assert(f.Filename(), Equals, s.FS.Join("bar", "foo"))
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestCreateOverwrite(c *C) {
@@ -82,6 +87,7 @@ func (s *FilesystemSuite) TestCreateOverwrite(c *C) {
 	wrote, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
 	c.Assert(string(wrote), DeepEquals, "foo2")
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestCreateClose(c *C) {
@@ -199,13 +205,13 @@ func (s *FilesystemSuite) TestOpenFileReadWrite(c *C) {
 }
 
 func (s *FilesystemSuite) TestOpenFileWithModes(c *C) {
-	f, err := s.FS.OpenFile("foo", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	f, err := s.FS.OpenFile("foo", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, customMode)
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
 	fi, err := s.FS.Stat("foo")
 	c.Assert(err, IsNil)
-	c.Assert(fi.Mode(), Equals, os.FileMode(0755))
+	c.Assert(fi.Mode(), Equals, os.FileMode(customMode))
 }
 
 func (s *FilesystemSuite) testWriteClose(c *C, f File, content string) {
@@ -281,6 +287,8 @@ func (s *FilesystemSuite) TestFileNonRead(c *C) {
 
 	_, err = ioutil.ReadAll(f)
 	c.Assert(err, NotNil)
+
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestFileSeekstart(c *C) {
@@ -478,11 +486,14 @@ func (s *FilesystemSuite) TestDirStat(c *C) {
 }
 
 func (s *FilesystemSuite) TestCreateInDir(c *C) {
-	dir := s.FS.Dir("foo")
-	f, err := dir.Create("bar")
+	f, err := s.FS.Dir("foo").Create("bar")
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 	c.Assert(f.Filename(), Equals, "bar")
+
+	f, err = s.FS.Open("foo/bar")
+	c.Assert(f.Filename(), Equals, s.FS.Join("foo", "bar"))
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestRename(c *C) {
@@ -531,6 +542,7 @@ func (s *FilesystemSuite) TestRenameDir(c *C) {
 func (s *FilesystemSuite) TestTempFile(c *C) {
 	f, err := s.FS.TempFile("", "bar")
 	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
 
 	c.Assert(strings.HasPrefix(f.Filename(), "bar"), Equals, true)
 }
@@ -538,12 +550,16 @@ func (s *FilesystemSuite) TestTempFile(c *C) {
 func (s *FilesystemSuite) TestTempFileWithPath(c *C) {
 	f, err := s.FS.TempFile("foo", "bar")
 	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
 	c.Assert(strings.HasPrefix(f.Filename(), s.FS.Join("foo", "bar")), Equals, true)
 }
 
 func (s *FilesystemSuite) TestTempFileFullWithPath(c *C) {
 	f, err := s.FS.TempFile("/foo", "bar")
 	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
+
 	c.Assert(strings.HasPrefix(f.Filename(), s.FS.Join("foo", "bar")), Equals, true)
 }
 
@@ -558,6 +574,8 @@ func (s *FilesystemSuite) TestOpenAndWrite(c *C) {
 	n, err := foo.Write([]byte("foo"))
 	c.Assert(err, NotNil)
 	c.Assert(n, Equals, 0)
+
+	c.Assert(foo.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestOpenAndStat(c *C) {
@@ -568,6 +586,7 @@ func (s *FilesystemSuite) TestOpenAndStat(c *C) {
 	c.Assert(foo, NotNil)
 	c.Assert(foo.Filename(), Equals, "foo")
 	c.Assert(err, IsNil)
+	c.Assert(foo.Close(), IsNil)
 
 	stat, err := s.FS.Stat("foo")
 	c.Assert(stat, NotNil)
@@ -611,7 +630,7 @@ func (s *FilesystemSuite) TestRemoveTempFile(c *C) {
 }
 
 func (s *FilesystemSuite) TestJoin(c *C) {
-	c.Assert(s.FS.Join("foo", "bar"), Equals, "foo/bar")
+	c.Assert(s.FS.Join("foo", "bar"), Equals, fmt.Sprintf("foo%cbar", filepath.Separator))
 }
 
 func (s *FilesystemSuite) TestBase(c *C) {
@@ -663,14 +682,14 @@ func (s *FilesystemSuite) TestReadWriteLargeFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, size)
 
-	err = f.Close()
-	c.Assert(err, IsNil)
+	c.Assert(f.Close(), IsNil)
 
 	f, err = s.FS.Open("foo")
 	c.Assert(err, IsNil)
 	b, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
 	c.Assert(len(b), Equals, size)
+	c.Assert(f.Close(), IsNil)
 }
 
 func (s *FilesystemSuite) TestRemoveAllNonExistent(c *C) {
@@ -806,4 +825,6 @@ func (s *FilesystemSuite) TestWriteFile(c *C) {
 	wrote, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
 	c.Assert(string(wrote), DeepEquals, "bar")
+
+	c.Assert(f.Close(), IsNil)
 }
