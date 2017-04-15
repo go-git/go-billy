@@ -203,7 +203,7 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		f.position = offset
 	case io.SeekEnd:
-		f.position = int64(f.content.Len()) - offset
+		f.position = int64(f.content.Len()) + offset
 	}
 
 	return f.position, nil

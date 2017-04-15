@@ -161,6 +161,12 @@ type content struct {
 
 func (c *content) WriteAt(p []byte, off int64) (int, error) {
 	prev := len(c.bytes)
+
+	diff := int(off) - prev
+	if diff > 0 {
+		c.bytes = append(c.bytes, make([]byte, diff)...)
+	}
+
 	c.bytes = append(c.bytes[:off], p...)
 	if len(c.bytes) < prev {
 		c.bytes = c.bytes[:prev]

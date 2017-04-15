@@ -318,6 +318,26 @@ func (s *FilesystemSuite) testFileSeek(c *C, offset int64, whence int) {
 	c.Assert(f.Close(), IsNil)
 }
 
+func (s *FilesystemSuite) TestSeekToEndAndWrite(c *C) {
+	defaultMode := os.FileMode(0666)
+
+	f, err := s.FS.OpenFile("foo1", os.O_CREATE|os.O_TRUNC|os.O_RDWR, defaultMode)
+	c.Assert(err, IsNil)
+	c.Assert(f.Filename(), Equals, "foo1")
+
+	_, err = f.Seek(10, io.SeekEnd)
+	c.Assert(err, IsNil)
+
+	n, err := f.Write([]byte(`TEST`))
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, 4)
+
+	_, err = f.Seek(0, io.SeekStart)
+	c.Assert(err, IsNil)
+
+	s.testReadClose(c, f, "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00TEST")
+}
+
 func (s *FilesystemSuite) TestFileSeekClosed(c *C) {
 	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
