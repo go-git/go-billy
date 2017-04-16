@@ -1,9 +1,9 @@
 # go-billy [![GoDoc](https://godoc.org/gopkg.in/src-d/go-billy.v2?status.svg)](https://godoc.org/gopkg.in/src-d/go-billy.v2) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![Build status](https://ci.appveyor.com/api/projects/status/vx2qn6vlakbi724t?svg=true)](https://ci.appveyor.com/project/mcuadros/go-billy) [![codecov](https://codecov.io/gh/src-d/go-billy/branch/master/graph/badge.svg)](https://codecov.io/gh/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
 
-An interface to abstract several storages.
+The missing interface filesystem abstraction for Go. 
+Billy implements an interface based on the `os` standard library, allowing to develop applications without dependency on the underlying storage. Make virtually free implement an mocks and testing over filesystem operations.
 
-This library was extracted from
-[src-d/go-git](https://github.com/src-d/go-git).
+Billy was born as part of [src-d/go-git](https://github.com/src-d/go-git) project.
 
 ## Installation
 
@@ -27,29 +27,39 @@ The following example caches in memory all readable files in a directory from an
 billy's filesystem implementation.
 
 ```go
-func LoadToMemory(fs billy.Filesystem, path string) (*memory.Memory, error) {
+func LoadToMemory(origin billy.Filesystem, path string) (*memory.Memory, error) {
 	memory := memory.New()
 
-	files, err := fs.ReadDir("/")
+	files, err := origin.ReadDir("/")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, file := range files {
-		if !file.IsDir() {
-			orig, err := fs.Open(file.Name())
-			if err != nil {
-				continue
-			}
+		if file.IsDir() {
+			continue
+		}
 
-			dest, err := memory.Create(file.Name())
-			if err != nil {
-				continue
-			}
+		src, err := origin.Open(file.Name())
+		if err != nil {
+			return nil, err
+		}
 
-			if _, err = io.Copy(dest, orig); err != nil {
-				return nil, err
-			}
+		dst, err := memory.Create(file.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err = io.Copy(dst, src); err != nil {
+			return nil, err
+		}
+
+		if err := dst.Close(); err != nil {
+			return nil, err
+		}
+
+		if err := src.Close(); err != nil {
+			return nil, err
 		}
 	}
 
