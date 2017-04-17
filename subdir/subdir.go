@@ -85,12 +85,7 @@ func (s *subdirFs) Stat(filename string) (billy.FileInfo, error) {
 		return nil, err
 	}
 
-	filename, err = filepath.Rel(s.Base(), fullpath)
-	if err != nil {
-		return nil, err
-	}
-
-	return newFileInfo(filename, fi), nil
+	return newFileInfo(filepath.Base(fullpath), fi), nil
 }
 
 func (s *subdirFs) ReadDir(path string) ([]billy.FileInfo, error) {

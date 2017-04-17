@@ -447,6 +447,29 @@ func (s *FilesystemSuite) TestReadDirFileInfoDirs(c *C) {
 	c.Assert(info[0].Mode(), Not(Equals), 0)
 }
 
+func (s *FilesystemSuite) TestStat(c *C) {
+	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+
+	fi, err := s.FS.Stat("foo/bar")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "bar")
+	c.Assert(fi.Size(), Equals, int64(3))
+	c.Assert(fi.Mode(), Equals, customMode)
+	c.Assert(fi.ModTime().IsZero(), Equals, false)
+	c.Assert(fi.IsDir(), Equals, false)
+}
+
+func (s *FilesystemSuite) TestStatDir(c *C) {
+	s.FS.MkdirAll("foo/bar", 0644)
+
+	fi, err := s.FS.Stat("foo/bar")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "bar")
+	c.Assert(fi.Mode().IsDir(), Equals, true)
+	c.Assert(fi.ModTime().IsZero(), Equals, false)
+	c.Assert(fi.IsDir(), Equals, true)
+}
+
 func (s *FilesystemSuite) TestStatNonExistent(c *C) {
 	fi, err := s.FS.Stat("non-existent")
 	comment := Commentf("error: %s", err)
@@ -509,6 +532,26 @@ func (s *FilesystemSuite) TestRename(c *C) {
 
 	bar, err := s.FS.Stat("bar")
 	c.Assert(bar, NotNil)
+	c.Assert(err, IsNil)
+}
+
+func (s *FilesystemSuite) TestRenameToDir(c *C) {
+	err := WriteFile(s.FS, "foo", nil, 0644)
+	c.Assert(err, IsNil)
+
+	err = s.FS.Rename("foo", "bar/qux")
+	c.Assert(err, IsNil)
+
+	old, err := s.FS.Stat("foo")
+	c.Assert(old, IsNil)
+	c.Assert(os.IsNotExist(err), Equals, true)
+
+	dir, err := s.FS.Stat("bar")
+	c.Assert(dir, NotNil)
+	c.Assert(err, IsNil)
+
+	file, err := s.FS.Stat("bar/qux")
+	c.Assert(file.Name(), Equals, "qux")
 	c.Assert(err, IsNil)
 }
 
