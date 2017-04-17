@@ -1,4 +1,4 @@
-package subdir
+package subdirfs
 
 import (
 	"os"
