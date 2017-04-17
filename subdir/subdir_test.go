@@ -23,9 +23,10 @@ type FilesystemSuite struct {
 var _ = Suite(&FilesystemSuite{})
 
 func (s *FilesystemSuite) SetUpTest(c *C) {
-	s.path, _ = ioutil.TempDir(stdos.TempDir(), "go-git-fs-test")
-	osFs := osfs.New(s.path)
-	s.cfs = New(osFs, "test-subdir")
+	s.path, _ = ioutil.TempDir(stdos.TempDir(), "go-billy-subdirfs-test")
+	fs := osfs.New(s.path)
+
+	s.cfs = New(fs, "test-subdir")
 	s.FilesystemSuite.FS = s.cfs
 }
 

@@ -20,7 +20,7 @@ type OSSuite struct {
 var _ = Suite(&OSSuite{})
 
 func (s *OSSuite) SetUpTest(c *C) {
-	s.path, _ = ioutil.TempDir(os.TempDir(), "go-git-os-fs-test")
+	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
 	s.FilesystemSuite.FS = New(s.path)
 }
 

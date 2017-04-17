@@ -3,7 +3,6 @@ package subdir
 import (
 	"io"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/src-d/go-billy.v2"
 )
@@ -14,9 +13,12 @@ type file struct {
 	f billy.File
 }
 
-func newFile(f billy.File, filename string) billy.File {
+func newFile(fs billy.Filesystem, f billy.File, filename string) billy.File {
+	filename = fs.Join(fs.Base(), filename)
+	filename, _ = filepath.Rel(fs.Base(), filename)
+
 	return &file{
-		BaseFile: billy.BaseFile{BaseFilename: resolve(filename)},
+		BaseFile: billy.BaseFile{BaseFilename: filename},
 		f:        f,
 	}
 }
@@ -45,15 +47,4 @@ func (f *file) Write(p []byte) (int, error) {
 func (f *file) Close() error {
 	defer func() { f.Closed = true }()
 	return f.f.Close()
-}
-
-func resolve(path string) string {
-	rp := filepath.Clean(path)
-	if rp == "/" {
-		rp = "."
-	} else if strings.HasPrefix(rp, "/") {
-		rp = rp[1:]
-	}
-
-	return rp
 }
