@@ -126,13 +126,23 @@ func (s *storage) Rename(from, to string) error {
 		from := ops[0]
 		to := ops[1]
 
-		s.files[to] = s.files[from]
-		s.children[to] = s.children[from]
-		delete(s.children, from)
-		delete(s.files, from)
+		if err := s.move(from, to); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func (s *storage) move(from, to string) error {
+	s.files[to] = s.files[from]
+	s.files[to].BaseFilename = filepath.Base(to)
+	s.children[to] = s.children[from]
+
+	delete(s.children, from)
+	delete(s.files, from)
+
+	return s.createParent(to, 0644, s.files[to])
 }
 
 func (s *storage) Remove(path string) error {
