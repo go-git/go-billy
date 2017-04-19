@@ -715,6 +715,54 @@ func (s *FilesystemSuite) TestReadAtOnReadOnly(c *C) {
 	c.Assert(f.Close(), IsNil)
 }
 
+func (s *FilesystemSuite) TestReadAtEOF(c *C) {
+	err := WriteFile(s.FS, "foo", []byte("TEST"), 0644)
+	c.Assert(err, IsNil)
+
+	f, err := s.FS.Open("foo")
+	c.Assert(err, IsNil)
+
+	rf, ok := f.(io.ReaderAt)
+	c.Assert(ok, Equals, true)
+
+	b := make([]byte, 5)
+	n, err := rf.ReadAt(b, 0)
+	c.Assert(err, Equals, io.EOF)
+	c.Assert(n, Equals, 4)
+	c.Assert(string(b), Equals, "TEST\x00")
+
+	err = f.Close()
+	c.Assert(err, IsNil)
+}
+
+func (s *FilesystemSuite) TestReadAtOffset(c *C) {
+	err := WriteFile(s.FS, "foo", []byte("TEST"), 0644)
+	c.Assert(err, IsNil)
+
+	f, err := s.FS.Open("foo")
+	c.Assert(err, IsNil)
+
+	rf, ok := f.(io.ReaderAt)
+	c.Assert(ok, Equals, true)
+
+	o, err := f.Seek(0, io.SeekCurrent)
+	c.Assert(err, IsNil)
+	c.Assert(o, Equals, int64(0))
+
+	b := make([]byte, 4)
+	n, err := rf.ReadAt(b, 0)
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, 4)
+	c.Assert(string(b), Equals, "TEST")
+
+	o, err = f.Seek(0, io.SeekCurrent)
+	c.Assert(err, IsNil)
+	c.Assert(o, Equals, int64(0))
+
+	err = f.Close()
+	c.Assert(err, IsNil)
+}
+
 func (s *FilesystemSuite) TestReadWriteLargeFile(c *C) {
 	f, err := s.FS.Create("foo")
 	c.Assert(err, IsNil)

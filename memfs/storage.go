@@ -185,7 +185,7 @@ func (c *content) WriteAt(p []byte, off int64) (int, error) {
 	return len(p), nil
 }
 
-func (c *content) ReadAt(b []byte, off int64) (int, error) {
+func (c *content) ReadAt(b []byte, off int64) (n int, err error) {
 	size := int64(len(c.bytes))
 	if off >= size {
 		return 0, io.EOF
@@ -196,6 +196,11 @@ func (c *content) ReadAt(b []byte, off int64) (int, error) {
 		l = size - off
 	}
 
-	n := copy(b, c.bytes[off:off+l])
-	return n, nil
+	btr := c.bytes[off : off+l]
+	if len(btr) < len(b) {
+		err = io.EOF
+	}
+	n = copy(b, btr)
+
+	return
 }
