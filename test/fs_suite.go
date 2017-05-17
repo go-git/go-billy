@@ -523,6 +523,10 @@ func (s *FilesystemSuite) TestRename(c *C) {
 	err := WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
 
+	files, err := s.FS.ReadDir("")
+	c.Assert(err, IsNil)
+	c.Assert(files, HasLen, 1)
+
 	err = s.FS.Rename("foo", "bar")
 	c.Assert(err, IsNil)
 
@@ -531,8 +535,12 @@ func (s *FilesystemSuite) TestRename(c *C) {
 	c.Assert(os.IsNotExist(err), Equals, true)
 
 	bar, err := s.FS.Stat("bar")
-	c.Assert(bar, NotNil)
 	c.Assert(err, IsNil)
+	c.Assert(bar, NotNil)
+
+	files, err = s.FS.ReadDir("")
+	c.Assert(err, IsNil)
+	c.Assert(files, HasLen, 1)
 }
 
 func (s *FilesystemSuite) TestRenameToDir(c *C) {

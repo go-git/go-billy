@@ -139,8 +139,11 @@ func (s *storage) move(from, to string) error {
 	s.files[to].BaseFilename = filepath.Base(to)
 	s.children[to] = s.children[from]
 
-	delete(s.children, from)
-	delete(s.files, from)
+	defer func() {
+		delete(s.children, from)
+		delete(s.files, from)
+		delete(s.children[filepath.Dir(from)], filepath.Base(from))
+	}()
 
 	return s.createParent(to, 0644, s.files[to])
 }
