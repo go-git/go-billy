@@ -1,12 +1,17 @@
 package subdirfs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/src-d/go-billy.v2"
 )
+
+// ErrSymlinkNotSupported is returned by Symlink() and Readfile() if the
+// underlying filesystem does not support symlinking.
+var ErrSymlinkNotSupported = errors.New("symlink not supported")
 
 type subdirFs struct {
 	underlying billy.Filesystem
@@ -112,4 +117,45 @@ func (s *subdirFs) Dir(path string) billy.Filesystem {
 
 func (s *subdirFs) Base() string {
 	return s.base
+}
+
+// Symlink implements billy.Symlinker.Symlink.
+func (s *subdirFs) Symlink(target, link string) error {
+	fs, ok := s.underlying.(billy.Symlinker)
+	if !ok {
+		return ErrSymlinkNotSupported
+	}
+
+	if filepath.IsAbs(target) {
+		// only rewrite target if it's already absolute
+		target = string(os.PathSeparator) + s.underlyingPath(target)
+	}
+	link = s.underlyingPath(link)
+	return fs.Symlink(target, link)
+}
+
+// Readlink implements billy.Symlinker.Readlink.
+func (s *subdirFs) Readlink(link string) (string, error) {
+	fs, ok := s.underlying.(billy.Symlinker)
+	if !ok {
+		return "", ErrSymlinkNotSupported
+	}
+
+	fullpath := s.underlyingPath(link)
+	target, err := fs.Readlink(fullpath)
+	if err != nil {
+		return "", err
+	}
+
+	if !filepath.IsAbs(target) {
+		return target, nil
+	}
+
+	base := string(os.PathSeparator) + s.base
+	target, err = filepath.Rel(base, target)
+	if err != nil {
+		return "", err
+	}
+
+	return string(os.PathSeparator) + target, nil
 }

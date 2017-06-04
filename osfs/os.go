@@ -1,4 +1,4 @@
-// Package os provides a billy filesystem for the OS.
+// Package osfs provides a billy filesystem for the OS.
 package osfs // import "gopkg.in/src-d/go-billy.v2/osfs"
 
 import (
@@ -166,6 +166,41 @@ func (fs *OS) Base() string {
 func (fs *OS) RemoveAll(path string) error {
 	fullpath := fs.Join(fs.base, path)
 	return os.RemoveAll(fullpath)
+}
+
+// Symlink imlements billy.Symlinker.Symlink.
+func (fs *OS) Symlink(target, link string) error {
+	if filepath.IsAbs(target) {
+		// only rewrite target if it's already absolute
+		target = fs.Join(fs.base, target)
+	}
+	link = fs.Join(fs.base, link)
+
+	if err := fs.createDir(link); err != nil {
+		return err
+	}
+
+	return os.Symlink(target, link)
+}
+
+// Readlink implements billy.Symlinker.Readlink.
+func (fs *OS) Readlink(link string) (string, error) {
+	fullpath := fs.Join(fs.base, link)
+	target, err := os.Readlink(fullpath)
+	if err != nil {
+		return "", err
+	}
+
+	if !filepath.IsAbs(target) {
+		return target, nil
+	}
+
+	target, err = filepath.Rel(fs.base, target)
+	if err != nil {
+		return "", err
+	}
+
+	return string(os.PathSeparator) + target, nil
 }
 
 // osFile represents a file in the os filesystem

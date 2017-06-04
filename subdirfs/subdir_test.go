@@ -38,3 +38,17 @@ func (s *FilesystemSuite) TearDownTest(c *C) {
 	err = stdos.RemoveAll(s.path)
 	c.Assert(err, IsNil)
 }
+
+func (s *FilesystemSuite) TestSymlinkWithNoUnderlyingSupport(c *C) {
+	s.cfs.(*subdirFs).underlying = nil
+
+	err := s.cfs.(billy.Symlinker).Symlink("foo", "bar")
+	c.Assert(err, Equals, ErrSymlinkNotSupported)
+}
+
+func (s *FilesystemSuite) TestReadlinkWithNoUnderlyingSupport(c *C) {
+	s.cfs.(*subdirFs).underlying = nil
+
+	_, err := s.cfs.(billy.Symlinker).Readlink("foo")
+	c.Assert(err, Equals, ErrSymlinkNotSupported)
+}

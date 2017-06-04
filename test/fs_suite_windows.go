@@ -4,4 +4,7 @@ package test
 
 import "os"
 
-var customMode os.FileMode = 0666
+var (
+	customMode            os.FileMode = 0666
+	expectedSymlinkTarget             = "\\dir\\file"
+)
