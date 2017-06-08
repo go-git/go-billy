@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 
+	"fmt"
+
 	"gopkg.in/src-d/go-billy.v2"
 	"gopkg.in/src-d/go-billy.v2/subdirfs"
 )
@@ -122,6 +124,24 @@ func (t *tmpFs) Remove(path string) error {
 	}
 
 	return t.fs.Remove(path)
+}
+
+// Symlink creates a symbolic-link from link to target. Using a temporal file
+// as target is not allowed.
+func (t *tmpFs) Symlink(target, link string) error {
+	if t.isTmpFile(target) {
+		return fmt.Errorf("links to temporal file are not supported")
+	}
+
+	if t.isTmpFile(link) {
+		return os.ErrExist
+	}
+
+	return t.fs.Symlink(target, link)
+}
+
+func (t *tmpFs) Readlink(link string) (string, error) {
+	return t.fs.Readlink(link)
 }
 
 func (t *tmpFs) Stat(path string) (billy.FileInfo, error) {

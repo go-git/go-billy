@@ -121,33 +121,26 @@ func (s *subdirFs) Base() string {
 
 // Symlink implements billy.Symlinker.Symlink.
 func (s *subdirFs) Symlink(target, link string) error {
-	fs, ok := s.underlying.(billy.Symlinker)
-	if !ok {
-		return ErrSymlinkNotSupported
-	}
+	target = filepath.FromSlash(target)
 
-	if filepath.IsAbs(target) {
-		// only rewrite target if it's already absolute
+	// only rewrite target if it's already absolute
+	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
 		target = string(os.PathSeparator) + s.underlyingPath(target)
 	}
+
 	link = s.underlyingPath(link)
-	return fs.Symlink(target, link)
+	return s.underlying.Symlink(target, link)
 }
 
 // Readlink implements billy.Symlinker.Readlink.
 func (s *subdirFs) Readlink(link string) (string, error) {
-	fs, ok := s.underlying.(billy.Symlinker)
-	if !ok {
-		return "", ErrSymlinkNotSupported
-	}
-
 	fullpath := s.underlyingPath(link)
-	target, err := fs.Readlink(fullpath)
+	target, err := s.underlying.Readlink(fullpath)
 	if err != nil {
 		return "", err
 	}
 
-	if !filepath.IsAbs(target) {
+	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
 		return target, nil
 	}
 

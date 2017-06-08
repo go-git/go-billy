@@ -131,6 +131,36 @@ func (s *SpecificFilesystemSuite) TestStatTempFile(c *C) {
 	c.Assert(fi, NotNil)
 }
 
+func (s *SpecificFilesystemSuite) TestSymlinkTmpFile(c *C) {
+	tmpFs := New(s.src, s.tmp)
+	c.Assert(tmpFs, NotNil)
+
+	f, err := tmpFs.TempFile("test-dir", "test-prefix")
+	c.Assert(err, IsNil)
+	c.Assert(f, NotNil)
+
+	tempFilename := f.Filename()
+	c.Assert(f.Close(), IsNil)
+
+	err = tmpFs.Symlink(tempFilename, "foo")
+	c.Assert(err, NotNil)
+}
+
+func (s *SpecificFilesystemSuite) TestSymlinkOverTmpFile(c *C) {
+	tmpFs := New(s.src, s.tmp)
+	c.Assert(tmpFs, NotNil)
+
+	f, err := tmpFs.TempFile("test-dir", "test-prefix")
+	c.Assert(err, IsNil)
+	c.Assert(f, NotNil)
+
+	tempFilename := f.Filename()
+	c.Assert(f.Close(), IsNil)
+
+	err = tmpFs.Symlink("foo", tempFilename)
+	c.Assert(err, NotNil)
+}
+
 func (s *SpecificFilesystemSuite) TestRenameFromTempFile(c *C) {
 	tmpFs := New(s.src, s.tmp)
 	c.Assert(tmpFs, NotNil)

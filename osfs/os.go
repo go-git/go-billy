@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"strings"
+
 	"gopkg.in/src-d/go-billy.v2"
 )
 
@@ -35,7 +37,7 @@ func (fs *OS) Create(filename string) (billy.File, error) {
 // OpenFile is equivalent to standard os.OpenFile.
 // If flag os.O_CREATE is set, all parent directories will be created.
 func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := fs.Join(fs.base, filename)
+	fullpath := fs.absolutize(filename)
 
 	if flag&os.O_CREATE != 0 {
 		if err := fs.createDir(fullpath); err != nil {
@@ -70,7 +72,7 @@ func (fs *OS) createDir(fullpath string) error {
 // ReadDir returns the filesystem info for all the archives under the specified
 // path.
 func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
-	fullpath := fs.Join(fs.base, path)
+	fullpath := fs.absolutize(path)
 
 	l, err := ioutil.ReadDir(fullpath)
 	if err != nil {
@@ -87,8 +89,8 @@ func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
 
 // Rename moves a file in disk from _from_ to _to_.
 func (fs *OS) Rename(from, to string) error {
-	from = fs.Join(fs.base, from)
-	to = fs.Join(fs.base, to)
+	from = fs.absolutize(from)
+	to = fs.absolutize(to)
 
 	if err := fs.createDir(to); err != nil {
 		return err
@@ -99,7 +101,7 @@ func (fs *OS) Rename(from, to string) error {
 
 // MkdirAll creates a directory.
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
-	fullpath := fs.Join(fs.base, path)
+	fullpath := fs.absolutize(path)
 	return os.MkdirAll(fullpath, defaultDirectoryMode)
 }
 
@@ -108,21 +110,15 @@ func (fs *OS) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-// Stat returns the FileInfo structure describing file.
-func (fs *OS) Stat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.Join(fs.base, filename)
-	return os.Stat(fullpath)
-}
-
 // Remove deletes a file in disk.
 func (fs *OS) Remove(filename string) error {
-	fullpath := fs.Join(fs.base, filename)
+	fullpath := fs.absolutize(filename)
 	return os.Remove(fullpath)
 }
 
 // TempFile creates a new temporal file.
 func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
-	fullpath := fs.Join(fs.base, dir)
+	fullpath := fs.absolutize(dir)
 	if err := fs.createDir(fullpath + string(os.PathSeparator)); err != nil {
 		return nil, err
 	}
@@ -153,7 +149,7 @@ func (fs *OS) Join(elem ...string) string {
 // Dir returns a new Filesystem from the same type of fs using as baseDir the
 // given path
 func (fs *OS) Dir(path string) billy.Filesystem {
-	return New(fs.Join(fs.base, path))
+	return New(fs.absolutize(path))
 }
 
 // Base returns the base path of the filesytem
@@ -170,12 +166,14 @@ func (fs *OS) RemoveAll(path string) error {
 
 // Symlink imlements billy.Symlinker.Symlink.
 func (fs *OS) Symlink(target, link string) error {
-	if filepath.IsAbs(target) {
-		// only rewrite target if it's already absolute
-		target = fs.Join(fs.base, target)
-	}
-	link = fs.Join(fs.base, link)
+	target = filepath.FromSlash(target)
 
+	// only rewrite target if it's already absolute
+	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
+		target = fs.absolutize(target)
+	}
+
+	link = fs.absolutize(link)
 	if err := fs.createDir(link); err != nil {
 		return err
 	}
@@ -191,7 +189,7 @@ func (fs *OS) Readlink(link string) (string, error) {
 		return "", err
 	}
 
-	if !filepath.IsAbs(target) {
+	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
 		return target, nil
 	}
 
@@ -236,4 +234,11 @@ func (f *osFile) Close() error {
 
 func (f *osFile) ReadAt(p []byte, off int64) (int, error) {
 	return f.file.ReadAt(p, off)
+}
+
+func (fs *OS) absolutize(relpath string) string {
+	fullpath := filepath.FromSlash(filepath.ToSlash(relpath))
+
+	fullpath = fs.Join(fs.base, fullpath)
+	return filepath.Clean(fullpath)
 }

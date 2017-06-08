@@ -22,14 +22,14 @@ func newStorage() *storage {
 }
 
 func (s *storage) Has(path string) bool {
-	path = filepath.Clean(path)
+	path = clean(path)
 
 	_, ok := s.files[path]
 	return ok
 }
 
 func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
-	path = filepath.Clean(path)
+	path = clean(path)
 	if s.Has(path) {
 		if !s.MustGet(path).mode.IsDir() {
 			return nil, fmt.Errorf("file already exists %q", path)
@@ -54,7 +54,7 @@ func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
 
 func (s *storage) createParent(path string, mode os.FileMode, f *file) error {
 	base := filepath.Dir(path)
-	base = filepath.Clean(base)
+	base = clean(base)
 	if f.Filename() == string(separator) {
 		return nil
 	}
@@ -72,7 +72,7 @@ func (s *storage) createParent(path string, mode os.FileMode, f *file) error {
 }
 
 func (s *storage) Children(path string) []*file {
-	path = filepath.Clean(path)
+	path = clean(path)
 
 	l := make([]*file, 0)
 	for _, f := range s.children[path] {
@@ -92,7 +92,7 @@ func (s *storage) MustGet(path string) *file {
 }
 
 func (s *storage) Get(path string) (*file, bool) {
-	path = filepath.Clean(path)
+	path = clean(path)
 	if !s.Has(path) {
 		return nil, false
 	}
@@ -102,8 +102,8 @@ func (s *storage) Get(path string) (*file, bool) {
 }
 
 func (s *storage) Rename(from, to string) error {
-	from = filepath.Clean(from)
-	to = filepath.Clean(to)
+	from = clean(from)
+	to = clean(to)
 
 	if !s.Has(from) {
 		return os.ErrNotExist
@@ -149,7 +149,7 @@ func (s *storage) move(from, to string) error {
 }
 
 func (s *storage) Remove(path string) error {
-	path = filepath.Clean(path)
+	path = clean(path)
 
 	f, has := s.Get(path)
 	if !has {
@@ -166,6 +166,10 @@ func (s *storage) Remove(path string) error {
 	delete(s.children[base], file)
 	delete(s.files, path)
 	return nil
+}
+
+func clean(path string) string {
+	return filepath.Clean(filepath.FromSlash(path))
 }
 
 type content struct {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/src-d/go-billy.v2"
@@ -20,13 +21,19 @@ type Memory struct {
 	s    *storage
 
 	tempCount int
+	links     map[string]internalLink
+}
+
+type internalLink struct {
+	Name, Target string
 }
 
 //New returns a new Memory filesystem
 func New() *Memory {
 	return &Memory{
-		base: string(separator),
-		s:    newStorage(),
+		base:  string(separator),
+		s:     newStorage(),
+		links: make(map[string]internalLink),
 	}
 }
 
@@ -42,8 +49,7 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 
 // OpenFile returns the file from a given name with given flag and permits.
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	path := fs.Join(fs.base, filename)
-
+	path := fs.resolvePath(filename)
 	f, has := fs.s.Get(path)
 	if !has {
 		if !isCreate(flag) {
@@ -69,21 +75,48 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 	return f.Duplicate(filename, perm, flag), nil
 }
 
+func (fs *Memory) resolvePath(path string) string {
+	fullpath := clean(fs.Join(fs.base, path))
+	l, ok := fs.links[fullpath]
+	if !ok {
+		return fullpath
+	}
+
+	if isAbs(l.Target) {
+		return l.Target
+	}
+
+	return fs.resolvePath(fs.Join(filepath.Dir(fullpath), l.Target))
+}
+
+// On Windows OS, IsAbs validates if a path is valid based on if stars with a
+// unit (eg.: `C:\`)  to assert that is absolute, but in this mem implementation
+// any path starting by `separator` is also considered absolute.
+func isAbs(path string) bool {
+	return filepath.IsAbs(path) || strings.HasPrefix(path, string(separator))
+}
+
 // Stat returns a billy.FileInfo with the information of the requested file.
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.Join(fs.base, filename)
-
+	fullpath := fs.resolvePath(filename)
 	f, has := fs.s.Get(fullpath)
 	if !has {
 		return nil, os.ErrNotExist
 	}
 
-	return f.Stat(), nil
+	fi := f.Stat().(*fileInfo)
+
+	// the name of the file should always the name of the stated file, so we
+	// overwrite the Stat returned from the storage with it, since the
+	// filename may belong to a link.
+	fi.name = filepath.Base(filename)
+
+	return fi, nil
 }
 
 // ReadDir returns a list of billy.FileInfo in the given directory.
 func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
-	path = fs.Join(fs.base, path)
+	path = fs.resolvePath(path)
 
 	var entries []billy.FileInfo
 	for _, f := range fs.s.Children(path) {
@@ -128,16 +161,47 @@ func (fs *Memory) getTempFilename(dir, prefix string) string {
 
 // Rename moves a the `from` file to the `to` file.
 func (fs *Memory) Rename(from, to string) error {
+	if fs.renameIfLink(from, to) {
+		return nil
+	}
+
 	from = fs.Join(fs.base, from)
 	to = fs.Join(fs.base, to)
 
 	return fs.s.Rename(from, to)
 }
 
+func (fs *Memory) renameIfLink(from, to string) bool {
+	from = clean(fs.Join(fs.base, from))
+	to = clean(fs.Join(fs.base, to))
+
+	if _, ok := fs.links[from]; !ok {
+		return false
+	}
+
+	fs.links[to] = fs.links[from]
+	delete(fs.links, from)
+	return true
+}
+
 // Remove deletes a given file from storage.
 func (fs *Memory) Remove(filename string) error {
+	if fs.removeIfLink(filename) {
+		return nil
+	}
+
 	fullpath := fs.Join(fs.base, filename)
 	return fs.s.Remove(fullpath)
+}
+
+func (fs *Memory) removeIfLink(filename string) bool {
+	fullpath := clean(fs.Join(fs.base, filename))
+	if _, ok := fs.links[fullpath]; !ok {
+		return false
+	}
+
+	delete(fs.links, fullpath)
+	return true
 }
 
 // Join joins any number of path elements into a single path, adding a Separator if necessary.
@@ -152,6 +216,29 @@ func (fs *Memory) Dir(path string) billy.Filesystem {
 		base: fs.Join(fs.base, path),
 		s:    fs.s,
 	}
+}
+
+func (fs *Memory) Symlink(target, link string) error {
+	if _, err := fs.Stat(link); err == nil {
+		return os.ErrExist
+	}
+
+	fullpath := clean(fs.Join(fs.base, link))
+	fs.links[fullpath] = internalLink{
+		Name:   link,
+		Target: clean(target),
+	}
+
+	return nil
+}
+
+func (fs *Memory) Readlink(link string) (string, error) {
+	fullpath := clean(fs.Join(fs.base, link))
+	if l, ok := fs.links[fullpath]; ok {
+		return l.Target, nil
+	}
+
+	return "", os.ErrNotExist
 }
 
 // Base returns the base path for the filesystem.

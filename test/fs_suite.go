@@ -928,38 +928,59 @@ func (s *FilesystemSuite) TestWriteFile(c *C) {
 	c.Assert(f.Close(), IsNil)
 }
 
-func (s *FilesystemSuite) TestSymlink(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "file", nil, 0644)
+func (s *FilesystemSuite) TestSymlinkBasic(c *C) {
+	err := WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("file", "link")
+	err = s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
-	fi, err := fs.Stat("link")
+	fi, err := s.FS.Stat("link")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "link")
 	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
 	c.Assert(fi.Size(), Equals, int64(0))
 }
 
+func (s *FilesystemSuite) TestSymlinkCrossDirs(c *C) {
+	err := WriteFile(s.FS, "foo/file", nil, 0644)
+	c.Assert(err, IsNil)
+
+	err = s.FS.Symlink("../foo/file", "bar/link")
+	c.Assert(err, IsNil)
+
+	fi, err := s.FS.Stat("bar/link")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "link")
+	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
+	c.Assert(fi.Size(), Equals, int64(0))
+}
+
+func (s *FilesystemSuite) TestSymlinkLinkToLink(c *C) {
+	err := WriteFile(s.FS, "file", nil, 0644)
+	c.Assert(err, IsNil)
+
+	err = s.FS.Symlink("file", "linkA")
+	c.Assert(err, IsNil)
+
+	err = s.FS.Symlink("linkA", "linkB")
+	c.Assert(err, IsNil)
+
+	fi, err := s.FS.Stat("linkB")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "linkB")
+	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
+	c.Assert(fi.Size(), Equals, int64(0))
+}
+
 func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := fs.MkdirAll("dir", 0755)
+	err := s.FS.MkdirAll("dir", 0755)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("dir", "link")
+	err = s.FS.Symlink("dir", "link")
 	c.Assert(err, IsNil)
 
-	fi, err := fs.Stat("link")
+	fi, err := s.FS.Stat("link")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "link")
 	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
@@ -967,41 +988,26 @@ func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkWithNonExistentOldname(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := fs.Symlink("file", "link")
+	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
-	_, err = fs.Stat("link")
+	_, err = s.FS.Stat("link")
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (s *FilesystemSuite) TestSymlinkWithExistingNewname(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "link", nil, 0644)
+	err := WriteFile(s.FS, "link", nil, 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("file", "link")
+	err = s.FS.Symlink("file", "link")
 	c.Assert(err, Not(IsNil))
 }
 
 func (s *FilesystemSuite) TestSymlinkOpenWithRelativePath(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "dir/file", []byte("foo"), 0644)
+	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("file", "dir/link")
+	err = s.FS.Symlink("file", "dir/link")
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("dir/link")
@@ -1014,15 +1020,10 @@ func (s *FilesystemSuite) TestSymlinkOpenWithRelativePath(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkOpenWithAbsolutePath(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "dir/file", []byte("foo"), 0644)
+	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("/dir/file", "dir/link")
+	err = s.FS.Symlink("/dir/file", "dir/link")
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("dir/link")
@@ -1035,15 +1036,10 @@ func (s *FilesystemSuite) TestSymlinkOpenWithAbsolutePath(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkReadDir(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "dir/file", []byte("foo"), 0644)
+	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("dir", "link")
+	err = s.FS.Symlink("dir", "link")
 	c.Assert(err, IsNil)
 
 	info, err := s.FS.ReadDir("link")
@@ -1056,104 +1052,69 @@ func (s *FilesystemSuite) TestSymlinkReadDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkRename(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := fs.Symlink("file", "link")
+	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
-	err = fs.Rename("link", "newlink")
+	err = s.FS.Rename("link", "newlink")
 	c.Assert(err, IsNil)
 
-	_, err = fs.Readlink("newlink")
+	_, err = s.FS.Readlink("newlink")
 	c.Assert(err, IsNil)
 }
 
 func (s *FilesystemSuite) TestSymlinkRemove(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := fs.Symlink("file", "link")
+	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
-	err = fs.Remove("link")
+	err = s.FS.Remove("link")
 	c.Assert(err, IsNil)
 
-	_, err = fs.Readlink("link")
+	_, err = s.FS.Readlink("link")
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (s *FilesystemSuite) TestReadlinkWithRelativePath(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "dir/file", nil, 0644)
+	err := WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("file", "dir/link")
+	err = s.FS.Symlink("file", "dir/link")
 	c.Assert(err, IsNil)
 
-	oldname, err := fs.Readlink("dir/link")
+	oldname, err := s.FS.Readlink("dir/link")
 	c.Assert(err, IsNil)
 	c.Assert(oldname, Equals, "file")
 }
 
 func (s *FilesystemSuite) TestReadlinkWithAbsolutePath(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "dir/file", nil, 0644)
+	err := WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
-	err = fs.Symlink("/dir/file", "dir/link")
+	err = s.FS.Symlink("/dir/file", "dir/link")
 	c.Assert(err, IsNil)
 
-	oldname, err := fs.Readlink("dir/link")
+	oldname, err := s.FS.Readlink("dir/link")
 	c.Assert(err, IsNil)
 	c.Assert(oldname, Equals, expectedSymlinkTarget)
 }
 
 func (s *FilesystemSuite) TestReadlinkWithNonExistentOldname(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := fs.Symlink("file", "link")
+	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
-	oldname, err := fs.Readlink("link")
+	oldname, err := s.FS.Readlink("link")
 	c.Assert(err, IsNil)
 	c.Assert(oldname, Equals, "file")
 }
 
 func (s *FilesystemSuite) TestReadlinkWithNonExistentLink(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	_, err := fs.Readlink("link")
+	_, err := s.FS.Readlink("link")
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (s *FilesystemSuite) TestReadlinkWithRegularFile(c *C) {
-	fs, ok := s.FS.(Symlinker)
-	if !ok {
-		c.Skip("file system does not support symlinking")
-	}
-
-	err := WriteFile(fs, "file", nil, 0644)
+	err := WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
-	_, err = fs.Readlink("file")
+	_, err = s.FS.Readlink("file")
 	c.Assert(err, Not(IsNil))
 }
