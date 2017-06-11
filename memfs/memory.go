@@ -21,19 +21,13 @@ type Memory struct {
 	s    *storage
 
 	tempCount int
-	links     map[string]internalLink
-}
-
-type internalLink struct {
-	Name, Target string
 }
 
 //New returns a new Memory filesystem
 func New() *Memory {
 	return &Memory{
-		base:  string(separator),
-		s:     newStorage(),
-		links: make(map[string]internalLink),
+		base: string(separator),
+		s:    newStorage(),
 	}
 }
 
@@ -49,17 +43,21 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 
 // OpenFile returns the file from a given name with given flag and permits.
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	path := fs.resolvePath(filename)
-	f, has := fs.s.Get(path)
+	fullpath := fs.fullpath(filename)
+	f, has := fs.s.Get(fullpath)
 	if !has {
 		if !isCreate(flag) {
 			return nil, os.ErrNotExist
 		}
 
 		var err error
-		f, err = fs.s.New(path, perm, flag)
+		f, err = fs.s.New(fullpath, perm, flag)
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+			return fs.OpenFile(target, flag, perm)
 		}
 	}
 
@@ -67,7 +65,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	filename, err := filepath.Rel(fs.base, path)
+	filename, err := filepath.Rel(fs.base, fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -75,18 +73,21 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 	return f.Duplicate(filename, perm, flag), nil
 }
 
-func (fs *Memory) resolvePath(path string) string {
-	fullpath := clean(fs.Join(fs.base, path))
-	l, ok := fs.links[fullpath]
-	if !ok {
-		return fullpath
+func (fs *Memory) fullpath(path string) string {
+	return clean(fs.Join(fs.base, path))
+}
+
+func (fs *Memory) resolveIfLink(fullpath string, f *file) (target string, isLink bool) {
+	if !isSymlink(f.mode) {
+		return fullpath, false
 	}
 
-	if isAbs(l.Target) {
-		return l.Target
+	target = string(f.content.bytes)
+	if !isAbs(target) {
+		target = fs.Join(filepath.Dir(fullpath), target)
 	}
 
-	return fs.resolvePath(fs.Join(filepath.Dir(fullpath), l.Target))
+	return clean(target), true
 }
 
 // On Windows OS, IsAbs validates if a path is valid based on if stars with a
@@ -98,41 +99,50 @@ func isAbs(path string) bool {
 
 // Stat returns a billy.FileInfo with the information of the requested file.
 func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.resolvePath(filename)
+	fullpath := fs.fullpath(filename)
 	f, has := fs.s.Get(fullpath)
 	if !has {
 		return nil, os.ErrNotExist
 	}
 
-	fi := f.Stat().(*fileInfo)
+	fi := f.Stat()
+
+	var err error
+	if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+		fi, err = fs.Stat(target)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// the name of the file should always the name of the stated file, so we
 	// overwrite the Stat returned from the storage with it, since the
 	// filename may belong to a link.
-	fi.name = filepath.Base(filename)
-
+	fi.(*fileInfo).name = filepath.Base(filename)
 	return fi, nil
 }
 
 func (fs *Memory) Lstat(filename string) (billy.FileInfo, error) {
-	fullpath := clean(fs.Join(fs.base, filename))
-	l, ok := fs.links[fullpath]
-	if !ok {
-		return fs.Stat(filename)
+	fullpath := fs.fullpath(filename)
+	f, has := fs.s.Get(fullpath)
+	if !has {
+		return nil, os.ErrNotExist
 	}
 
-	return &fileInfo{
-		name: filepath.Base(l.Name),
-		mode: 0777 | os.ModeSymlink,
-	}, nil
+	return f.Stat(), nil
 }
 
 // ReadDir returns a list of billy.FileInfo in the given directory.
 func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
-	path = fs.resolvePath(path)
+	fullpath := fs.fullpath(path)
+	if f, has := fs.s.Get(fullpath); has {
+		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+			return fs.ReadDir(target)
+		}
+	}
 
 	var entries []billy.FileInfo
-	for _, f := range fs.s.Children(path) {
+	for _, f := range fs.s.Children(fullpath) {
 		entries = append(entries, f.Stat())
 	}
 
@@ -174,47 +184,16 @@ func (fs *Memory) getTempFilename(dir, prefix string) string {
 
 // Rename moves a the `from` file to the `to` file.
 func (fs *Memory) Rename(from, to string) error {
-	if fs.renameIfLink(from, to) {
-		return nil
-	}
-
 	from = fs.Join(fs.base, from)
 	to = fs.Join(fs.base, to)
 
 	return fs.s.Rename(from, to)
 }
 
-func (fs *Memory) renameIfLink(from, to string) bool {
-	from = clean(fs.Join(fs.base, from))
-	to = clean(fs.Join(fs.base, to))
-
-	if _, ok := fs.links[from]; !ok {
-		return false
-	}
-
-	fs.links[to] = fs.links[from]
-	delete(fs.links, from)
-	return true
-}
-
 // Remove deletes a given file from storage.
 func (fs *Memory) Remove(filename string) error {
-	if fs.removeIfLink(filename) {
-		return nil
-	}
-
 	fullpath := fs.Join(fs.base, filename)
 	return fs.s.Remove(fullpath)
-}
-
-func (fs *Memory) removeIfLink(filename string) bool {
-	fullpath := clean(fs.Join(fs.base, filename))
-	if _, ok := fs.links[fullpath]; !ok {
-		return false
-	}
-
-	delete(fs.links, fullpath)
-	return true
 }
 
 // Join joins any number of path elements into a single path, adding a Separator if necessary.
@@ -232,26 +211,37 @@ func (fs *Memory) Dir(path string) billy.Filesystem {
 }
 
 func (fs *Memory) Symlink(target, link string) error {
-	if _, err := fs.Stat(link); err == nil {
+	fullpath := clean(fs.Join(fs.base, link))
+
+	_, err := fs.Stat(fullpath)
+	if err == nil {
 		return os.ErrExist
 	}
 
-	fullpath := clean(fs.Join(fs.base, link))
-	fs.links[fullpath] = internalLink{
-		Name:   link,
-		Target: clean(target),
+	if !os.IsNotExist(err) {
+		return err
 	}
 
-	return nil
+	target = clean(target)
+	return billy.WriteFile(fs, fullpath, []byte(target), 0777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
-	fullpath := clean(fs.Join(fs.base, link))
-	if l, ok := fs.links[fullpath]; ok {
-		return l.Target, nil
+	fullpath := fs.fullpath(link)
+	f, has := fs.s.Get(fullpath)
+	if !has {
+		return "", os.ErrNotExist
 	}
 
-	return "", os.ErrNotExist
+	if !isSymlink(f.mode) {
+		return "", &os.PathError{
+			Op:   "readlink",
+			Path: fullpath,
+			Err:  fmt.Errorf("not a symlink"),
+		}
+	}
+
+	return string(f.content.bytes), nil
 }
 
 // Base returns the base path for the filesystem.
@@ -421,4 +411,8 @@ func isReadOnly(flag int) bool {
 
 func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
+}
+
+func isSymlink(m os.FileMode) bool {
+	return m&os.ModeSymlink != 0
 }
