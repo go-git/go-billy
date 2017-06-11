@@ -114,6 +114,19 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	return fi, nil
 }
 
+func (fs *Memory) Lstat(filename string) (billy.FileInfo, error) {
+	fullpath := clean(fs.Join(fs.base, filename))
+	l, ok := fs.links[fullpath]
+	if !ok {
+		return fs.Stat(filename)
+	}
+
+	return &fileInfo{
+		name: filepath.Base(l.Name),
+		mode: 0777 | os.ModeSymlink,
+	}, nil
+}
+
 // ReadDir returns a list of billy.FileInfo in the given directory.
 func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
 	path = fs.resolvePath(path)

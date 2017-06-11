@@ -152,6 +152,14 @@ func (t *tmpFs) Stat(path string) (billy.FileInfo, error) {
 	return t.fs.Stat(path)
 }
 
+func (t *tmpFs) Lstat(path string) (billy.FileInfo, error) {
+	if t.isTmpFile(path) {
+		return t.tmp.Lstat(path)
+	}
+
+	return t.fs.Lstat(path)
+}
+
 func (t *tmpFs) isTmpFile(p string) bool {
 	p = path.Clean(p)
 	_, ok := t.tempFiles[p]
