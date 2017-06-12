@@ -164,6 +164,11 @@ func (fs *OS) RemoveAll(path string) error {
 	return os.RemoveAll(fullpath)
 }
 
+func (fs *OS) Lstat(filename string) (billy.FileInfo, error) {
+	fullpath := fs.Join(fs.base, filename)
+	return os.Lstat(fullpath)
+}
+
 // Symlink imlements billy.Symlinker.Symlink.
 func (fs *OS) Symlink(target, link string) error {
 	target = filepath.FromSlash(target)

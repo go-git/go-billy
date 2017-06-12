@@ -459,6 +459,19 @@ func (s *FilesystemSuite) TestStat(c *C) {
 	c.Assert(fi.IsDir(), Equals, false)
 }
 
+func (s *FilesystemSuite) TestStatLink(c *C) {
+	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+	s.FS.Symlink("bar", "foo/qux")
+
+	fi, err := s.FS.Stat("foo/qux")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "qux")
+	c.Assert(fi.Size(), Equals, int64(3))
+	c.Assert(fi.Mode(), Equals, customMode)
+	c.Assert(fi.ModTime().IsZero(), Equals, false)
+	c.Assert(fi.IsDir(), Equals, false)
+}
+
 func (s *FilesystemSuite) TestStatDir(c *C) {
 	s.FS.MkdirAll("foo/bar", 0644)
 
@@ -475,6 +488,30 @@ func (s *FilesystemSuite) TestStatNonExistent(c *C) {
 	comment := Commentf("error: %s", err)
 	c.Assert(os.IsNotExist(err), Equals, true, comment)
 	c.Assert(fi, IsNil)
+}
+
+func (s *FilesystemSuite) TestLstat(c *C) {
+	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+
+	fi, err := s.FS.Lstat("foo/bar")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "bar")
+	c.Assert(fi.Size(), Equals, int64(3))
+	c.Assert(fi.Mode()&os.ModeSymlink != 0, Equals, false)
+	c.Assert(fi.ModTime().IsZero(), Equals, false)
+	c.Assert(fi.IsDir(), Equals, false)
+}
+
+func (s *FilesystemSuite) TestLstatLink(c *C) {
+	WriteFile(s.FS, "foo/bar", []byte("fosddddaaao"), customMode)
+	s.FS.Symlink("bar", "foo/qux")
+
+	fi, err := s.FS.Lstat("foo/qux")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "qux")
+	c.Assert(fi.Mode()&os.ModeSymlink != 0, Equals, true)
+	c.Assert(fi.ModTime().IsZero(), Equals, false)
+	c.Assert(fi.IsDir(), Equals, false)
 }
 
 func (s *FilesystemSuite) TestDirStat(c *C) {
@@ -938,8 +975,6 @@ func (s *FilesystemSuite) TestSymlinkBasic(c *C) {
 	fi, err := s.FS.Stat("link")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "link")
-	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
-	c.Assert(fi.Size(), Equals, int64(0))
 }
 
 func (s *FilesystemSuite) TestSymlinkCrossDirs(c *C) {
@@ -952,8 +987,6 @@ func (s *FilesystemSuite) TestSymlinkCrossDirs(c *C) {
 	fi, err := s.FS.Stat("bar/link")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "link")
-	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
-	c.Assert(fi.Size(), Equals, int64(0))
 }
 
 func (s *FilesystemSuite) TestSymlinkLinkToLink(c *C) {
@@ -969,8 +1002,6 @@ func (s *FilesystemSuite) TestSymlinkLinkToLink(c *C) {
 	fi, err := s.FS.Stat("linkB")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "linkB")
-	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
-	c.Assert(fi.Size(), Equals, int64(0))
 }
 
 func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
@@ -983,7 +1014,6 @@ func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
 	fi, err := s.FS.Stat("link")
 	c.Assert(err, IsNil)
 	c.Assert(fi.Name(), Equals, "link")
-	c.Assert(fi.Mode()&os.ModeSymlink, Not(Equals), 0)
 	c.Assert(fi.IsDir(), Equals, true)
 }
 

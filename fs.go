@@ -31,7 +31,12 @@ type Filesystem interface {
 	Create(filename string) (File, error)
 	Open(filename string) (File, error)
 	OpenFile(filename string, flag int, perm os.FileMode) (File, error)
+	// Stat returns a FileInfo describing the named file.
 	Stat(filename string) (FileInfo, error)
+	// Lstat returns a FileInfo describing the named file. If the file is a
+	// symbolic link, the returned FileInfo describes the symbolic link. Lstat
+	// makes no attempt to follow the link.
+	Lstat(filename string) (FileInfo, error)
 	ReadDir(path string) ([]FileInfo, error)
 	TempFile(dir, prefix string) (File, error)
 	Rename(from, to string) error

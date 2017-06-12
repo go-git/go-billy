@@ -93,6 +93,16 @@ func (s *subdirFs) Stat(filename string) (billy.FileInfo, error) {
 	return newFileInfo(filepath.Base(fullpath), fi), nil
 }
 
+func (s *subdirFs) Lstat(filename string) (billy.FileInfo, error) {
+	fullpath := s.underlyingPath(filename)
+	fi, err := s.underlying.Lstat(fullpath)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFileInfo(filepath.Base(fullpath), fi), nil
+}
+
 func (s *subdirFs) ReadDir(path string) ([]billy.FileInfo, error) {
 	prefix := s.underlyingPath(path)
 	fis, err := s.underlying.ReadDir(prefix)
