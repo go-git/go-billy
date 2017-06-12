@@ -17,7 +17,7 @@ type MemorySuite struct {
 var _ = Suite(&MemorySuite{})
 
 func (s *MemorySuite) SetUpTest(c *C) {
-	s.FilesystemSuite.FS = New()
+	s.FilesystemSuite = test.NewFilesystemSuite(New())
 }
 
 func (s *MemorySuite) TestTempFileMaxTempFiles(c *C) {

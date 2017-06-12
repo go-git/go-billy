@@ -16,26 +16,22 @@ const (
 	defaultCreateMode    = 0666
 )
 
-// OS is a filesystem based on the os filesystem
+// OS is a filesystem based on the os filesystem.
 type OS struct {
 	base string
 }
 
-// New returns a new OS filesystem
+// New returns a new OS filesystem.
 func New(baseDir string) *OS {
 	return &OS{
 		base: baseDir,
 	}
 }
 
-// Create creates a file and opens it with standard permissions
-// and modes O_RDWR, O_CREATE and O_TRUNC.
 func (fs *OS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-// OpenFile is equivalent to standard os.OpenFile.
-// If flag os.O_CREATE is set, all parent directories will be created.
 func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
 	fullpath := fs.absolutize(filename)
 
@@ -69,8 +65,6 @@ func (fs *OS) createDir(fullpath string) error {
 	return nil
 }
 
-// ReadDir returns the filesystem info for all the archives under the specified
-// path.
 func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
 	fullpath := fs.absolutize(path)
 
@@ -87,7 +81,6 @@ func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
 	return s, nil
 }
 
-// Rename moves a file in disk from _from_ to _to_.
 func (fs *OS) Rename(from, to string) error {
 	from = fs.absolutize(from)
 	to = fs.absolutize(to)
@@ -99,24 +92,20 @@ func (fs *OS) Rename(from, to string) error {
 	return os.Rename(from, to)
 }
 
-// MkdirAll creates a directory.
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
 	fullpath := fs.absolutize(path)
 	return os.MkdirAll(fullpath, defaultDirectoryMode)
 }
 
-// Open opens a file in read-only mode.
 func (fs *OS) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-// Remove deletes a file in disk.
 func (fs *OS) Remove(filename string) error {
 	fullpath := fs.absolutize(filename)
 	return os.Remove(fullpath)
 }
 
-// TempFile creates a new temporal file.
 func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
 	fullpath := fs.absolutize(dir)
 	if err := fs.createDir(fullpath + string(os.PathSeparator)); err != nil {
@@ -141,24 +130,18 @@ func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
 	return newOSFile(filename, f), nil
 }
 
-// Join joins the specified elements using the filesystem separator.
 func (fs *OS) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-// Dir returns a new Filesystem from the same type of fs using as baseDir the
-// given path
 func (fs *OS) Dir(path string) billy.Filesystem {
 	return New(fs.absolutize(path))
 }
 
-// Base returns the base path of the filesytem
 func (fs *OS) Base() string {
 	return fs.base
 }
 
-// RemoveAll removes a file or directory recursively. Removes everything it can,
-// but returns the first error.
 func (fs *OS) RemoveAll(path string) error {
 	fullpath := fs.Join(fs.base, path)
 	return os.RemoveAll(fullpath)
@@ -169,7 +152,6 @@ func (fs *OS) Lstat(filename string) (billy.FileInfo, error) {
 	return os.Lstat(fullpath)
 }
 
-// Symlink imlements billy.Symlinker.Symlink.
 func (fs *OS) Symlink(target, link string) error {
 	target = filepath.FromSlash(target)
 
@@ -186,7 +168,6 @@ func (fs *OS) Symlink(target, link string) error {
 	return os.Symlink(target, link)
 }
 
-// Readlink implements billy.Symlinker.Readlink.
 func (fs *OS) Readlink(link string) (string, error) {
 	fullpath := fs.Join(fs.base, link)
 	target, err := os.Readlink(fullpath)
@@ -204,6 +185,13 @@ func (fs *OS) Readlink(link string) (string, error) {
 	}
 
 	return string(os.PathSeparator) + target, nil
+}
+
+func (fs *OS) absolutize(relpath string) string {
+	fullpath := filepath.FromSlash(filepath.ToSlash(relpath))
+
+	fullpath = fs.Join(fs.base, fullpath)
+	return filepath.Clean(fullpath)
 }
 
 // osFile represents a file in the os filesystem
@@ -239,11 +227,4 @@ func (f *osFile) Close() error {
 
 func (f *osFile) ReadAt(p []byte, off int64) (int, error) {
 	return f.file.ReadAt(p, off)
-}
-
-func (fs *OS) absolutize(relpath string) string {
-	fullpath := filepath.FromSlash(filepath.ToSlash(relpath))
-
-	fullpath = fs.Join(fs.base, fullpath)
-	return filepath.Clean(fullpath)
 }

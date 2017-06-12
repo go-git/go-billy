@@ -27,7 +27,7 @@ func (s *FilesystemSuite) SetUpTest(c *C) {
 	fs := osfs.New(s.path)
 
 	s.cfs = New(fs, "test-subdir")
-	s.FilesystemSuite.FS = s.cfs
+	s.FilesystemSuite = test.NewFilesystemSuite(s.cfs)
 }
 
 func (s *FilesystemSuite) TearDownTest(c *C) {

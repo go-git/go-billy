@@ -21,7 +21,7 @@ var _ = Suite(&OSSuite{})
 
 func (s *OSSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
-	s.FilesystemSuite.FS = New(s.path)
+	s.FilesystemSuite = test.NewFilesystemSuite(New(s.path))
 }
 
 func (s *OSSuite) TearDownTest(c *C) {

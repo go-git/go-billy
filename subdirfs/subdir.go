@@ -13,89 +13,77 @@ import (
 // underlying filesystem does not support symlinking.
 var ErrSymlinkNotSupported = errors.New("symlink not supported")
 
-type subdirFs struct {
+// SubDir is a helper to implement billy.Filesystem.Dir in other filesystems.
+type SubDir struct {
 	underlying billy.Filesystem
 	base       string
 }
 
 // New creates a new filesystem wrapping up the given 'fs'.
-// The created filesystem has its base in the given subdirectory
-// of the underlying filesystem.
-//
-// This is particularly useful to implement the Dir method for
-// other filesystems.
+// The created filesystem has its base in the given subdirectory of the
+// underlying filesystem.
 func New(fs billy.Filesystem, base string) billy.Filesystem {
-	return &subdirFs{fs, base}
+	return &SubDir{fs, base}
 }
 
-func (s *subdirFs) underlyingPath(filename string) string {
-	return s.Join(s.Base(), filename)
+func (fs *SubDir) underlyingPath(filename string) string {
+	return fs.Join(fs.Base(), filename)
 }
 
-func (s *subdirFs) Create(filename string) (billy.File, error) {
-	f, err := s.underlying.Create(s.underlyingPath(filename))
+func (fs *SubDir) Create(filename string) (billy.File, error) {
+	f, err := fs.underlying.Create(fs.underlyingPath(filename))
 	if err != nil {
 		return nil, err
 	}
 
-	return newFile(s, f, filename), nil
+	return newFile(fs, f, filename), nil
 }
 
-func (s *subdirFs) Open(filename string) (billy.File, error) {
-	f, err := s.underlying.Open(s.underlyingPath(filename))
+func (fs *SubDir) Open(filename string) (billy.File, error) {
+	f, err := fs.underlying.Open(fs.underlyingPath(filename))
 	if err != nil {
 		return nil, err
 	}
 
-	return newFile(s, f, filename), nil
+	return newFile(fs, f, filename), nil
 }
 
-func (s *subdirFs) OpenFile(filename string, flag int, mode os.FileMode) (
+func (fs *SubDir) OpenFile(filename string, flag int, mode os.FileMode) (
 	billy.File, error) {
 
-	f, err := s.underlying.OpenFile(s.underlyingPath(filename), flag, mode)
+	f, err := fs.underlying.OpenFile(fs.underlyingPath(filename), flag, mode)
 	if err != nil {
 		return nil, err
 	}
 
-	return newFile(s, f, filename), nil
+	return newFile(fs, f, filename), nil
 }
 
-func (s *subdirFs) TempFile(dir, prefix string) (billy.File, error) {
-	f, err := s.underlying.TempFile(s.underlyingPath(dir), prefix)
+func (fs *SubDir) TempFile(dir, prefix string) (billy.File, error) {
+	f, err := fs.underlying.TempFile(fs.underlyingPath(dir), prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	return newFile(s, f, s.Join(dir, filepath.Base(f.Filename()))), nil
+	return newFile(fs, f, fs.Join(dir, filepath.Base(f.Filename()))), nil
 }
 
-func (s *subdirFs) Rename(from, to string) error {
-	return s.underlying.Rename(s.underlyingPath(from), s.underlyingPath(to))
+func (fs *SubDir) Rename(from, to string) error {
+	return fs.underlying.Rename(fs.underlyingPath(from), fs.underlyingPath(to))
 }
 
-func (s *subdirFs) Remove(path string) error {
-	return s.underlying.Remove(s.underlyingPath(path))
+func (fs *SubDir) Remove(path string) error {
+	return fs.underlying.Remove(fs.underlyingPath(path))
 }
 
-func (s *subdirFs) MkdirAll(filename string, perm os.FileMode) error {
-	fullpath := s.Join(s.base, filename)
-	return s.underlying.MkdirAll(fullpath, perm)
+func (fs *SubDir) MkdirAll(filename string, perm os.FileMode) error {
+	fullpath := fs.Join(fs.base, filename)
+	return fs.underlying.MkdirAll(fullpath, perm)
 }
 
-func (s *subdirFs) Stat(filename string) (billy.FileInfo, error) {
-	fullpath := s.underlyingPath(filename)
-	fi, err := s.underlying.Stat(fullpath)
-	if err != nil {
-		return nil, err
-	}
-
-	return newFileInfo(filepath.Base(fullpath), fi), nil
-}
-
-func (s *subdirFs) Lstat(filename string) (billy.FileInfo, error) {
-	fullpath := s.underlyingPath(filename)
-	fi, err := s.underlying.Lstat(fullpath)
+func (fs *SubDir) Stat(filename string) (billy.FileInfo, error) {
+	fullpath := fs.underlyingPath(filename)
+	fi, err := fs.underlying.Stat(fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +91,23 @@ func (s *subdirFs) Lstat(filename string) (billy.FileInfo, error) {
 	return newFileInfo(filepath.Base(fullpath), fi), nil
 }
 
-func (s *subdirFs) ReadDir(path string) ([]billy.FileInfo, error) {
-	prefix := s.underlyingPath(path)
-	fis, err := s.underlying.ReadDir(prefix)
+func (fs *SubDir) Lstat(filename string) (billy.FileInfo, error) {
+	fullpath := fs.underlyingPath(filename)
+	fi, err := fs.underlying.Lstat(fullpath)
 	if err != nil {
 		return nil, err
 	}
+
+	return newFileInfo(filepath.Base(fullpath), fi), nil
+}
+
+func (fs *SubDir) ReadDir(path string) ([]billy.FileInfo, error) {
+	prefix := fs.underlyingPath(path)
+	fis, err := fs.underlying.ReadDir(prefix)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := 0; i < len(fis); i++ {
 		rn := strings.Replace(fis[i].Name(), prefix, "", 1)
 		fis[i] = newFileInfo(rn, fis[i])
@@ -117,35 +116,33 @@ func (s *subdirFs) ReadDir(path string) ([]billy.FileInfo, error) {
 	return fis, nil
 }
 
-func (s *subdirFs) Join(elem ...string) string {
-	return s.underlying.Join(elem...)
+func (fs *SubDir) Join(elem ...string) string {
+	return fs.underlying.Join(elem...)
 }
 
-func (s *subdirFs) Dir(path string) billy.Filesystem {
-	return New(s.underlying, s.underlyingPath(path))
+func (fs *SubDir) Dir(path string) billy.Filesystem {
+	return New(fs.underlying, fs.underlyingPath(path))
 }
 
-func (s *subdirFs) Base() string {
-	return s.base
+func (fs *SubDir) Base() string {
+	return fs.base
 }
 
-// Symlink implements billy.Symlinker.Symlink.
-func (s *subdirFs) Symlink(target, link string) error {
+func (fs *SubDir) Symlink(target, link string) error {
 	target = filepath.FromSlash(target)
 
 	// only rewrite target if it's already absolute
 	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
-		target = string(os.PathSeparator) + s.underlyingPath(target)
+		target = string(os.PathSeparator) + fs.underlyingPath(target)
 	}
 
-	link = s.underlyingPath(link)
-	return s.underlying.Symlink(target, link)
+	link = fs.underlyingPath(link)
+	return fs.underlying.Symlink(target, link)
 }
 
-// Readlink implements billy.Symlinker.Readlink.
-func (s *subdirFs) Readlink(link string) (string, error) {
-	fullpath := s.underlyingPath(link)
-	target, err := s.underlying.Readlink(fullpath)
+func (fs *SubDir) Readlink(link string) (string, error) {
+	fullpath := fs.underlyingPath(link)
+	target, err := fs.underlying.Readlink(fullpath)
 	if err != nil {
 		return "", err
 	}
@@ -154,7 +151,7 @@ func (s *subdirFs) Readlink(link string) (string, error) {
 		return target, nil
 	}
 
-	base := string(os.PathSeparator) + s.base
+	base := string(os.PathSeparator) + fs.base
 	target, err = filepath.Rel(base, target)
 	if err != nil {
 		return "", err
