@@ -1,4 +1,4 @@
-package tmpfs
+package temporal
 
 import (
 	"io"

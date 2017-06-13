@@ -1,4 +1,4 @@
-package subdirfs
+package chroot
 
 import (
 	"errors"
@@ -13,20 +13,20 @@ import (
 // underlying filesystem does not support symlinking.
 var ErrSymlinkNotSupported = errors.New("symlink not supported")
 
-// SubDir is a helper to implement billy.Filesystem.Dir in other filesystems.
-type SubDir struct {
+// ChrootHelper is a helper to implement billy.Chroot.
+type ChrootHelper struct {
 	underlying billy.Filesystem
 	base       string
 }
 
 // New creates a new filesystem wrapping up the given 'fs'.
-// The created filesystem has its base in the given subdirectory of the
+// The created filesystem has its base in the given ChrootHelperectory of the
 // underlying filesystem.
 func New(fs billy.Filesystem, base string) billy.Filesystem {
-	return &SubDir{fs, base}
+	return &ChrootHelper{fs, base}
 }
 
-func (fs *SubDir) underlyingPath(filename string) (string, error) {
+func (fs *ChrootHelper) underlyingPath(filename string) (string, error) {
 	if isCrossBoundaries(filename) {
 		return "", billy.ErrCrossedBoundary
 	}
@@ -41,7 +41,7 @@ func isCrossBoundaries(path string) bool {
 	return strings.HasPrefix(path, "..")
 }
 
-func (fs *SubDir) Create(filename string) (billy.File, error) {
+func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (fs *SubDir) Create(filename string) (billy.File, error) {
 	return newFile(fs, f, filename), nil
 }
 
-func (fs *SubDir) Open(filename string) (billy.File, error) {
+func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func (fs *SubDir) Open(filename string) (billy.File, error) {
 	return newFile(fs, f, filename), nil
 }
 
-func (fs *SubDir) OpenFile(filename string, flag int, mode os.FileMode) (billy.File, error) {
+func (fs *ChrootHelper) OpenFile(filename string, flag int, mode os.FileMode) (billy.File, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (fs *SubDir) OpenFile(filename string, flag int, mode os.FileMode) (billy.F
 	return newFile(fs, f, filename), nil
 }
 
-func (fs *SubDir) TempFile(dir, prefix string) (billy.File, error) {
+func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 	fullpath, err := fs.underlyingPath(dir)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (fs *SubDir) TempFile(dir, prefix string) (billy.File, error) {
 	return newFile(fs, f, fs.Join(dir, filepath.Base(f.Name()))), nil
 }
 
-func (fs *SubDir) Rename(from, to string) error {
+func (fs *ChrootHelper) Rename(from, to string) error {
 	var err error
 	from, err = fs.underlyingPath(from)
 	if err != nil {
@@ -112,7 +112,7 @@ func (fs *SubDir) Rename(from, to string) error {
 	return fs.underlying.Rename(from, to)
 }
 
-func (fs *SubDir) Remove(path string) error {
+func (fs *ChrootHelper) Remove(path string) error {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (fs *SubDir) Remove(path string) error {
 	return fs.underlying.Remove(fullpath)
 }
 
-func (fs *SubDir) MkdirAll(filename string, perm os.FileMode) error {
+func (fs *ChrootHelper) MkdirAll(filename string, perm os.FileMode) error {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (fs *SubDir) MkdirAll(filename string, perm os.FileMode) error {
 	return fs.underlying.MkdirAll(fullpath, perm)
 }
 
-func (fs *SubDir) Stat(filename string) (os.FileInfo, error) {
+func (fs *ChrootHelper) Stat(filename string) (os.FileInfo, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (fs *SubDir) Stat(filename string) (os.FileInfo, error) {
 	return fs.underlying.Stat(fullpath)
 }
 
-func (fs *SubDir) Lstat(filename string) (os.FileInfo, error) {
+func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func (fs *SubDir) Lstat(filename string) (os.FileInfo, error) {
 	return fs.underlying.Lstat(fullpath)
 }
 
-func (fs *SubDir) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err
@@ -157,11 +157,11 @@ func (fs *SubDir) ReadDir(path string) ([]os.FileInfo, error) {
 	return fs.underlying.ReadDir(fullpath)
 }
 
-func (fs *SubDir) Join(elem ...string) string {
+func (fs *ChrootHelper) Join(elem ...string) string {
 	return fs.underlying.Join(elem...)
 }
 
-func (fs *SubDir) Symlink(target, link string) error {
+func (fs *ChrootHelper) Symlink(target, link string) error {
 	target = filepath.FromSlash(target)
 
 	// only rewrite target if it's already absolute
@@ -181,7 +181,7 @@ func (fs *SubDir) Symlink(target, link string) error {
 	return fs.underlying.Symlink(target, link)
 }
 
-func (fs *SubDir) isTargetOutBounders(link, target string) bool {
+func (fs *ChrootHelper) isTargetOutBounders(link, target string) bool {
 	fulllink := fs.Join(fs.base, link)
 	fullpath := fs.Join(filepath.Dir(fulllink), target)
 	target, err := filepath.Rel(fs.base, fullpath)
@@ -192,7 +192,7 @@ func (fs *SubDir) isTargetOutBounders(link, target string) bool {
 	return isCrossBoundaries(target)
 }
 
-func (fs *SubDir) Readlink(link string) (string, error) {
+func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	fullpath, err := fs.underlyingPath(link)
 	if err != nil {
 		return "", err
@@ -216,7 +216,7 @@ func (fs *SubDir) Readlink(link string) (string, error) {
 	return string(os.PathSeparator) + target, nil
 }
 
-func (fs *SubDir) Chroot(path string) (billy.Basic, error) {
+func (fs *ChrootHelper) Chroot(path string) (billy.Basic, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err
@@ -225,6 +225,6 @@ func (fs *SubDir) Chroot(path string) (billy.Basic, error) {
 	return New(fs.underlying, fullpath), nil
 }
 
-func (fs *SubDir) Root() string {
+func (fs *ChrootHelper) Root() string {
 	return fs.base
 }

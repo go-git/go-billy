@@ -1,4 +1,4 @@
-package tmpfs
+package temporal
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"path"
 
 	"gopkg.in/src-d/go-billy.v2"
-	"gopkg.in/src-d/go-billy.v2/subdirfs"
+	"gopkg.in/src-d/go-billy.v2/helper/chroot"
 )
 
 // Temporal provides billy.TempFile capabilities for filesystems that do not
@@ -151,7 +151,7 @@ func (fs *Temporal) Lstat(path string) (os.FileInfo, error) {
 }
 
 func (fs *Temporal) Chroot(path string) (billy.Basic, error) {
-	return subdirfs.New(fs, path), nil
+	return chroot.New(fs, path), nil
 }
 
 func (fs *Temporal) Root() string {

@@ -1,4 +1,4 @@
-package subdirfs
+package chroot 
 
 import (
 	"io"
