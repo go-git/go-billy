@@ -6,9 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"strings"
-
 	"gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/helper/chroot"
 )
 
 const (
@@ -17,15 +16,11 @@ const (
 )
 
 // OS is a filesystem based on the os filesystem.
-type OS struct {
-	base string
-}
+type OS struct{}
 
 // New returns a new OS filesystem.
-func New(baseDir string) *OS {
-	return &OS{
-		base: baseDir,
-	}
+func New(baseDir string) billy.Filesystem {
+	return chroot.New(&OS{}, baseDir)
 }
 
 func (fs *OS) Create(filename string) (billy.File, error) {
@@ -33,28 +28,13 @@ func (fs *OS) Create(filename string) (billy.File, error) {
 }
 
 func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath, err := fs.absolutize(filename)
-	if err != nil {
-		return nil, err
-	}
-
 	if flag&os.O_CREATE != 0 {
-		if err := fs.createDir(fullpath); err != nil {
+		if err := fs.createDir(filename); err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(fullpath, flag, perm)
-	if err != nil {
-		return nil, err
-	}
-
-	filename, err = filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return nil, err
-	}
-
-	return newOSFile(filename, f), nil
+	return os.OpenFile(filename, flag, perm)
 }
 
 func (fs *OS) createDir(fullpath string) error {
@@ -69,12 +49,7 @@ func (fs *OS) createDir(fullpath string) error {
 }
 
 func (fs *OS) ReadDir(path string) ([]os.FileInfo, error) {
-	fullpath, err := fs.absolutize(path)
-	if err != nil {
-		return nil, err
-	}
-
-	l, err := ioutil.ReadDir(fullpath)
+	l, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -88,16 +63,6 @@ func (fs *OS) ReadDir(path string) ([]os.FileInfo, error) {
 }
 
 func (fs *OS) Rename(from, to string) error {
-	var err error
-	from, err = fs.absolutize(from)
-	if err != nil {
-		return err
-	}
-	to, err = fs.absolutize(to)
-	if err != nil {
-		return err
-	}
-
 	if err := fs.createDir(to); err != nil {
 		return err
 	}
@@ -106,12 +71,7 @@ func (fs *OS) Rename(from, to string) error {
 }
 
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
-	fullpath, err := fs.absolutize(path)
-	if err != nil {
-		return err
-	}
-
-	return os.MkdirAll(fullpath, defaultDirectoryMode)
+	return os.MkdirAll(path, defaultDirectoryMode)
 }
 
 func (fs *OS) Open(filename string) (billy.File, error) {
@@ -119,40 +79,15 @@ func (fs *OS) Open(filename string) (billy.File, error) {
 }
 
 func (fs *OS) Remove(filename string) error {
-	fullpath, err := fs.absolutize(filename)
-	if err != nil {
-		return err
-	}
-
-	return os.Remove(fullpath)
+	return os.Remove(filename)
 }
 
 func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
-	fullpath, err := fs.absolutize(dir)
-	if err != nil {
+	if err := fs.createDir(dir + string(os.PathSeparator)); err != nil {
 		return nil, err
 	}
 
-	if err := fs.createDir(fullpath + string(os.PathSeparator)); err != nil {
-		return nil, err
-	}
-
-	f, err := ioutil.TempFile(fullpath, prefix)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	filename, err := filepath.Rel(fs.base, fs.Join(fullpath, s.Name()))
-	if err != nil {
-		return nil, err
-	}
-
-	return newOSFile(filename, f), nil
+	return ioutil.TempFile(dir, prefix)
 }
 
 func (fs *OS) Join(elem ...string) string {
@@ -160,31 +95,14 @@ func (fs *OS) Join(elem ...string) string {
 }
 
 func (fs *OS) RemoveAll(path string) error {
-	fullpath := fs.Join(fs.base, path)
-	return os.RemoveAll(fullpath)
+	return os.RemoveAll(filepath.Clean(path))
 }
 
 func (fs *OS) Lstat(filename string) (os.FileInfo, error) {
-	fullpath := fs.Join(fs.base, filename)
-	return os.Lstat(fullpath)
+	return os.Lstat(filepath.Clean(filename))
 }
 
 func (fs *OS) Symlink(target, link string) error {
-	link, err := fs.absolutize(link)
-	if err != nil {
-		return err
-	}
-
-	target = filepath.FromSlash(target)
-	// only rewrite target if it's already absolute
-	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
-		target = fs.Join(fs.base, target)
-	}
-
-	if fs.isTargetOutBounders(link, target) {
-		return billy.ErrCrossedBoundary
-	}
-
 	if err := fs.createDir(link); err != nil {
 		return err
 	}
@@ -192,76 +110,14 @@ func (fs *OS) Symlink(target, link string) error {
 	return os.Symlink(target, link)
 }
 
-func (fs *OS) isTargetOutBounders(link, target string) bool {
-	fullpath := filepath.Join(filepath.Dir(link), target)
-	target, err := filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return true
-	}
-
-	return isCrossBoundaries(target)
-}
-
 func (fs *OS) Readlink(link string) (string, error) {
-	fullpath := fs.Join(fs.base, link)
-	target, err := os.Readlink(fullpath)
-	if err != nil {
-		return "", err
-	}
-
-	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
-		return target, nil
-	}
-
-	target, err = filepath.Rel(fs.base, target)
-	if err != nil {
-		return "", err
-	}
-
-	return string(os.PathSeparator) + target, nil
+	return os.Readlink(link)
 }
 
 func (fs *OS) Chroot(path string) (billy.Basic, error) {
-	fullpath, err := fs.absolutize(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return New(fullpath), nil
+	return nil, billy.ErrNotSupported
 }
 
 func (fs *OS) Root() string {
-	return fs.base
-}
-
-func (fs *OS) absolutize(relpath string) (string, error) {
-	relpath = filepath.ToSlash(relpath)
-	relpath = filepath.Clean(relpath)
-	if strings.HasPrefix(relpath, "..") {
-		return "", billy.ErrCrossedBoundary
-	}
-
-	relpath = filepath.FromSlash(relpath)
-	return fs.Join(fs.base, relpath), nil
-}
-
-// osFile represents a file in the os filesystem
-type osFile struct {
-	name string
-	os.File
-}
-
-func newOSFile(filename string, file *os.File) billy.File {
-	return &osFile{filename, *file}
-}
-
-func (f *osFile) Name() string {
-	return f.name
-}
-
-func isCrossBoundaries(path string) bool {
-	path = filepath.ToSlash(path)
-	path = filepath.Clean(path)
-
-	return strings.HasPrefix(path, "..")
+	return string(filepath.Separator)
 }

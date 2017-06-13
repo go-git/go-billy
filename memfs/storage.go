@@ -8,7 +8,6 @@ import (
 )
 
 type storage struct {
-	boundary string
 	files    map[string]*file
 	children map[string]map[string]*file
 }

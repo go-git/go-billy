@@ -11,24 +11,22 @@ import (
 	"time"
 
 	"gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/helper/chroot"
 )
 
 const separator = filepath.Separator
 
 // Memory a very convenient filesystem based on memory files
 type Memory struct {
-	base string
-	s    *storage
+	s *storage
 
 	tempCount int
 }
 
 //New returns a new Memory filesystem.
-func New() *Memory {
-	return &Memory{
-		base: string(separator),
-		s:    newStorage(),
-	}
+func New() billy.Filesystem {
+	fs := &Memory{s: newStorage()}
+	return chroot.New(fs, string(separator))
 }
 
 func (fs *Memory) Create(filename string) (billy.File, error) {
@@ -40,42 +38,28 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 }
 
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := fs.fullpath(filename)
-	f, err := fs.getFromStorage(fullpath)
-
-	switch {
-	case os.IsNotExist(err):
+	f, has := fs.s.Get(filename)
+	if !has {
 		if !isCreate(flag) {
 			return nil, os.ErrNotExist
 		}
 
 		var err error
-		f, err = fs.s.New(fullpath, perm, flag)
+		f, err = fs.s.New(filename, perm, flag)
 		if err != nil {
 			return nil, err
 		}
-	case err == nil:
-		if target, isLink := fs.resolveLink(fullpath, f); isLink {
+	} else {
+		if target, isLink := fs.resolveLink(filename, f); isLink {
 			return fs.OpenFile(target, flag, perm)
 		}
-	default:
-		return nil, err
 	}
 
 	if f.mode.IsDir() {
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	filename, err = filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return nil, err
-	}
-
 	return f.Duplicate(filename, perm, flag), nil
-}
-
-func (fs *Memory) fullpath(path string) string {
-	return clean(fs.Join(fs.base, path))
 }
 
 var errNotLink = errors.New("not a link")
@@ -90,8 +74,7 @@ func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink b
 		target = fs.Join(filepath.Dir(fullpath), target)
 	}
 
-	rel, _ := filepath.Rel(fs.base, target)
-	return rel, true
+	return target, true
 }
 
 // On Windows OS, IsAbs validates if a path is valid based on if stars with a
@@ -102,15 +85,15 @@ func isAbs(path string) bool {
 }
 
 func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
-	fullpath := fs.fullpath(filename)
-	f, err := fs.getFromStorage(fullpath)
-	if err != nil {
-		return nil, err
+	f, has := fs.s.Get(filename)
+	if !has {
+		return nil, os.ErrNotExist
 	}
 
 	fi, _ := f.Stat()
 
-	if target, isLink := fs.resolveLink(fullpath, f); isLink {
+	var err error
+	if target, isLink := fs.resolveLink(filename, f); isLink {
 		fi, err = fs.Stat(target)
 		if err != nil {
 			return nil, err
@@ -125,25 +108,23 @@ func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
 }
 
 func (fs *Memory) Lstat(filename string) (os.FileInfo, error) {
-	fullpath := fs.fullpath(filename)
-	f, err := fs.getFromStorage(fullpath)
-	if err != nil {
-		return nil, err
+	f, has := fs.s.Get(filename)
+	if !has {
+		return nil, os.ErrNotExist
 	}
 
 	return f.Stat()
 }
 
 func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
-	fullpath := fs.fullpath(path)
-	if f, err := fs.getFromStorage(fullpath); err == nil {
-		if target, isLink := fs.resolveLink(fullpath, f); isLink {
+	if f, has := fs.s.Get(path); has {
+		if target, isLink := fs.resolveLink(path, f); isLink {
 			return fs.ReadDir(target)
 		}
 	}
 
 	var entries []os.FileInfo
-	for _, f := range fs.s.Children(fullpath) {
+	for _, f := range fs.s.Children(path) {
 		fi, _ := f.Stat()
 		entries = append(entries, fi)
 	}
@@ -152,9 +133,7 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 }
 
 func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
-	fullpath := fs.Join(fs.base, path)
-
-	_, err := fs.s.New(fullpath, perm|os.ModeDir, 0)
+	_, err := fs.s.New(path, perm|os.ModeDir, 0)
 	return err
 }
 
@@ -179,30 +158,15 @@ func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
 func (fs *Memory) getTempFilename(dir, prefix string) string {
 	fs.tempCount++
 	filename := fmt.Sprintf("%s_%d_%d", prefix, fs.tempCount, time.Now().UnixNano())
-	return fs.Join(fs.base, dir, filename)
+	return fs.Join(dir, filename)
 }
 
 func (fs *Memory) Rename(from, to string) error {
-	from = fs.Join(fs.base, from)
-	if err := fs.validate(from); err != nil {
-		return err
-	}
-
-	to = fs.Join(fs.base, to)
-	if err := fs.validate(to); err != nil {
-		return err
-	}
-
 	return fs.s.Rename(from, to)
 }
 
 func (fs *Memory) Remove(filename string) error {
-	fullpath := fs.Join(fs.base, filename)
-	if err := fs.validate(fullpath); err != nil {
-		return err
-	}
-
-	return fs.s.Remove(fullpath)
+	return fs.s.Remove(filename)
 }
 
 func (fs *Memory) Join(elem ...string) string {
@@ -219,42 +183,19 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	if fs.isTargetOutBounders(link, target) {
-		return billy.ErrCrossedBoundary
-	}
-
-	return billy.WriteFile(fs, clean(link), []byte(clean(target)), 0777|os.ModeSymlink)
-}
-
-func (fs *Memory) isTargetOutBounders(link, target string) bool {
-	fulllink := fs.Join(fs.base, link)
-	fullpath := fs.Join(filepath.Dir(fulllink), target)
-	target, err := filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return true
-	}
-
-	return isCrossBoundaries(target)
-}
-
-func isCrossBoundaries(path string) bool {
-	path = filepath.ToSlash(path)
-	path = filepath.Clean(path)
-
-	return strings.HasPrefix(path, "..")
+	return billy.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
-	fullpath := fs.fullpath(link)
-	f, err := fs.getFromStorage(fullpath)
-	if err != nil {
-		return "", err
+	f, has := fs.s.Get(link)
+	if !has {
+		return "", os.ErrNotExist
 	}
 
 	if !isSymlink(f.mode) {
 		return "", &os.PathError{
 			Op:   "readlink",
-			Path: fullpath,
+			Path: link,
 			Err:  fmt.Errorf("not a symlink"),
 		}
 	}
@@ -263,41 +204,11 @@ func (fs *Memory) Readlink(link string) (string, error) {
 }
 
 func (fs *Memory) Chroot(path string) (billy.Basic, error) {
-	fullpath := fs.Join(fs.base, path)
-	if err := fs.validate(fullpath); err != nil {
-		return nil, err
-	}
-
-	return &Memory{
-		base: fullpath,
-		s:    fs.s,
-	}, nil
+	return nil, billy.ErrNotSupported
 }
 
 func (fs *Memory) Root() string {
-	return fs.base
-}
-
-func (fs *Memory) getFromStorage(fullpath string) (*file, error) {
-	if err := fs.validate(fullpath); err != nil {
-		return nil, err
-	}
-
-	f, has := fs.s.Get(fullpath)
-	if !has {
-		return nil, os.ErrNotExist
-	}
-
-	return f, nil
-}
-
-func (fs *Memory) validate(fullpath string) error {
-	relpath, _ := filepath.Rel(fs.base, fullpath)
-	if strings.HasPrefix(relpath, "..") {
-		return billy.ErrCrossedBoundary
-	}
-
-	return nil
+	return string(separator)
 }
 
 type file struct {

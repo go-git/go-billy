@@ -166,7 +166,7 @@ func (fs *ChrootHelper) Symlink(target, link string) error {
 
 	// only rewrite target if it's already absolute
 	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
-		target = string(os.PathSeparator) + fs.Join(fs.Root(), target)
+		target = fs.Join(fs.Root(), target)
 	}
 
 	if fs.isTargetOutBounders(link, target) {
@@ -207,8 +207,7 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 		return target, nil
 	}
 
-	base := string(os.PathSeparator) + fs.base
-	target, err = filepath.Rel(base, target)
+	target, err = filepath.Rel(fs.base, target)
 	if err != nil {
 		return "", err
 	}

@@ -11,19 +11,13 @@ import (
 // Stat returns the FileInfo structure describing file.
 func (fs *OS) Stat(filename string) (os.FileInfo, error) {
 	// TODO: remove this in Go 1.9
-
-	fullpath, err := fs.absolutize(filename)
-	if err != nil {
-		return nil, err
-	}
-
 	target, err := fs.Readlink(filename)
 	if err != nil {
-		return os.Stat(fullpath)
+		return os.Stat(filename)
 	}
 
 	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
-		target, _ = filepath.Rel(fs.base, fs.Join(filepath.Dir(fullpath), target))
+		target = fs.Join(filepath.Dir(filename), target)
 	}
 
 	fi, err := fs.Stat(target)
@@ -33,7 +27,7 @@ func (fs *OS) Stat(filename string) (os.FileInfo, error) {
 
 	return &fileInfo{
 		FileInfo: fi,
-		name:     filepath.Base(fullpath),
+		name:     filepath.Base(filename),
 	}, nil
 }
 
