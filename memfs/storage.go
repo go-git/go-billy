@@ -5,11 +5,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-
-	"gopkg.in/src-d/go-billy.v2"
 )
 
 type storage struct {
+	boundary string
 	files    map[string]*file
 	children map[string]map[string]*file
 }
@@ -39,9 +38,7 @@ func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
 	}
 
 	f := &file{
-		BaseFile: billy.BaseFile{
-			BaseFilename: filepath.Base(path),
-		},
+		name:    filepath.Base(path),
 		content: &content{},
 		mode:    mode,
 		flag:    flag,
@@ -55,7 +52,7 @@ func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
 func (s *storage) createParent(path string, mode os.FileMode, f *file) error {
 	base := filepath.Dir(path)
 	base = clean(base)
-	if f.Filename() == string(separator) {
+	if f.Name() == string(separator) {
 		return nil
 	}
 
@@ -67,7 +64,7 @@ func (s *storage) createParent(path string, mode os.FileMode, f *file) error {
 		s.children[base] = make(map[string]*file, 0)
 	}
 
-	s.children[base][f.Filename()] = f
+	s.children[base][f.Name()] = f
 	return nil
 }
 
@@ -136,7 +133,7 @@ func (s *storage) Rename(from, to string) error {
 
 func (s *storage) move(from, to string) error {
 	s.files[to] = s.files[from]
-	s.files[to].BaseFilename = filepath.Base(to)
+	s.files[to].name = filepath.Base(to)
 	s.children[to] = s.children[from]
 
 	defer func() {

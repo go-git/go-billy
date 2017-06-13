@@ -21,21 +21,21 @@ type BasicSuite struct {
 func (s *BasicSuite) TestCreate(c *C) {
 	f, err := s.FS.Create("foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo")
+	c.Assert(f.Name(), Equals, "foo")
 	c.Assert(f.Close(), IsNil)
 }
 
 func (s *BasicSuite) TestCreateDepth(c *C) {
 	f, err := s.FS.Create("bar/foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, s.FS.Join("bar", "foo"))
+	c.Assert(f.Name(), Equals, s.FS.Join("bar", "foo"))
 	c.Assert(f.Close(), IsNil)
 }
 
 func (s *BasicSuite) TestCreateDepthAbsolute(c *C) {
 	f, err := s.FS.Create("/bar/foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, s.FS.Join("bar", "foo"))
+	c.Assert(f.Name(), Equals, s.FS.Join("bar", "foo"))
 	c.Assert(f.Close(), IsNil)
 }
 
@@ -64,13 +64,12 @@ func (s *BasicSuite) TestCreateOverwrite(c *C) {
 func (s *BasicSuite) TestCreateAndClose(c *C) {
 	f, err := s.FS.Create("foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.IsClosed(), Equals, false)
 
 	_, err = f.Write([]byte("foo"))
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
-	f, err = s.FS.Open(f.Filename())
+	f, err = s.FS.Open(f.Name())
 	c.Assert(err, IsNil)
 
 	wrote, err := ioutil.ReadAll(f)
@@ -82,12 +81,12 @@ func (s *BasicSuite) TestCreateAndClose(c *C) {
 func (s *BasicSuite) TestOpen(c *C) {
 	f, err := s.FS.Create("foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo")
+	c.Assert(f.Name(), Equals, "foo")
 	c.Assert(f.Close(), IsNil)
 
 	f, err = s.FS.Open("foo")
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo")
+	c.Assert(f.Name(), Equals, "foo")
 	c.Assert(f.Close(), IsNil)
 }
 
@@ -107,19 +106,19 @@ func (s *BasicSuite) TestOpenFile(c *C) {
 	// Truncate if it exists
 	f, err = s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "foo1overwritten")
 
 	// Read-only if it exists
 	f, err = s.FS.OpenFile("foo1", os.O_RDONLY, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testReadClose(c, f, "foo1overwritten")
 
 	// Create when it does exist
 	f, err = s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "bar")
 
 	f, err = s.FS.OpenFile("foo1", os.O_RDONLY, defaultMode)
@@ -133,7 +132,7 @@ func (s *BasicSuite) TestOpenFileNoTruncate(c *C) {
 	// Create when it does not exist
 	f, err := s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "foo1")
 
 	f, err = s.FS.OpenFile("foo1", os.O_RDONLY, defaultMode)
@@ -143,7 +142,7 @@ func (s *BasicSuite) TestOpenFileNoTruncate(c *C) {
 	// Create when it does exist
 	f, err = s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "bar")
 
 	f, err = s.FS.OpenFile("foo1", os.O_RDONLY, defaultMode)
@@ -156,12 +155,12 @@ func (s *BasicSuite) TestOpenFileAppend(c *C) {
 
 	f, err := s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_APPEND, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "foo1")
 
 	f, err = s.FS.OpenFile("foo1", os.O_WRONLY|os.O_APPEND, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 	s.testWriteClose(c, f, "bar1")
 
 	f, err = s.FS.OpenFile("foo1", os.O_RDONLY, defaultMode)
@@ -174,7 +173,7 @@ func (s *BasicSuite) TestOpenFileReadWrite(c *C) {
 
 	f, err := s.FS.OpenFile("foo1", os.O_CREATE|os.O_TRUNC|os.O_RDWR, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 
 	written, err := f.Write([]byte("foobar"))
 	c.Assert(written, Equals, 6)
@@ -320,7 +319,7 @@ func (s *BasicSuite) TestSeekToEndAndWrite(c *C) {
 
 	f, err := s.FS.OpenFile("foo1", os.O_CREATE|os.O_TRUNC|os.O_RDWR, defaultMode)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, "foo1")
+	c.Assert(f.Name(), Equals, "foo1")
 
 	_, err = f.Seek(10, io.SeekEnd)
 	c.Assert(err, IsNil)
@@ -411,7 +410,7 @@ func (s *BasicSuite) TestOpenAndStat(c *C) {
 
 	foo, err := s.FS.Open("foo")
 	c.Assert(foo, NotNil)
-	c.Assert(foo.Filename(), Equals, "foo")
+	c.Assert(foo.Name(), Equals, "foo")
 	c.Assert(err, IsNil)
 	c.Assert(foo.Close(), IsNil)
 

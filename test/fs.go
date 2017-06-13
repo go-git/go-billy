@@ -16,6 +16,7 @@ type FilesystemSuite struct {
 	DirSuite
 	SymlinkSuite
 	TempFileSuite
+	ChrootSuite
 }
 
 // NewFilesystemSuite returns a new FilesystemSuite based on the given fs.
@@ -25,6 +26,7 @@ func NewFilesystemSuite(fs Filesystem) FilesystemSuite {
 	s.DirSuite.FS = s.FS
 	s.SymlinkSuite.FS = s.FS
 	s.TempFileSuite.FS = s.FS
+	s.ChrootSuite.FS = s.FS
 
 	return s
 }
@@ -67,12 +69,49 @@ func (s *FilesystemSuite) TestCreateWithExistantDir(c *C) {
 	c.Assert(f, IsNil)
 }
 
+func (s *ChrootSuite) TestReadDirWithChroot(c *C) {
+	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
+	for _, name := range files {
+		err := WriteFile(s.FS, name, nil, 0644)
+		c.Assert(err, IsNil)
+	}
+
+	qux, _ := s.FS.Chroot("/qux")
+
+	info, err := qux.(Filesystem).ReadDir("/")
+	c.Assert(err, IsNil)
+	c.Assert(info, HasLen, 2)
+}
+
+func (s *FilesystemSuite) TestSymlinkWithChrootBasic(c *C) {
+	qux, _ := s.FS.Chroot("/qux")
+
+	err := WriteFile(qux, "file", nil, 0644)
+	c.Assert(err, IsNil)
+
+	err = qux.(Filesystem).Symlink("file", "link")
+	c.Assert(err, IsNil)
+
+	fi, err := qux.Stat("link")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "link")
+
+	fi, err = s.FS.Stat("qux/link")
+	c.Assert(err, IsNil)
+	c.Assert(fi.Name(), Equals, "link")
+}
+
+func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
+	qux, _ := s.FS.Chroot("/qux")
+	err := qux.(Filesystem).Symlink("../../file", "qux/link")
+	c.Assert(err, Equals, ErrCrossedBoundary)
+}
+
 func (s *FilesystemSuite) TestReadDirWithLink(c *C) {
 	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
-	qux := s.FS.Dir("/foo")
-	info, err := qux.ReadDir("/")
+	info, err := s.FS.ReadDir("/foo")
 	c.Assert(err, IsNil)
 	c.Assert(info, HasLen, 2)
 }
@@ -155,55 +194,4 @@ func (s *FilesystemSuite) TestReadDir(c *C) {
 	info, err = s.FS.ReadDir("/qux")
 	c.Assert(err, IsNil)
 	c.Assert(info, HasLen, 2)
-
-	qux := s.FS.Dir("/qux")
-	info, err = qux.ReadDir("/")
-	c.Assert(err, IsNil)
-	c.Assert(info, HasLen, 2)
-}
-
-func (s *FilesystemSuite) TestCreateInDir(c *C) {
-	f, err := s.FS.Dir("foo").Create("bar")
-	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
-	c.Assert(f.Filename(), Equals, "bar")
-
-	f, err = s.FS.Open("foo/bar")
-	c.Assert(f.Filename(), Equals, s.FS.Join("foo", "bar"))
-	c.Assert(f.Close(), IsNil)
-}
-
-func (s *FilesystemSuite) TestDirStat(c *C) {
-	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
-	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
-		c.Assert(err, IsNil)
-	}
-
-	// Some implementations detect directories based on a prefix
-	// for all files; it's easy to miss path separator handling there.
-	fi, err := s.FS.Stat("qu")
-	c.Assert(os.IsNotExist(err), Equals, true, Commentf("error: %s", err))
-	c.Assert(fi, IsNil)
-
-	fi, err = s.FS.Stat("qux")
-	c.Assert(err, IsNil)
-	c.Assert(fi.Name(), Equals, "qux")
-	c.Assert(fi.IsDir(), Equals, true)
-
-	qux := s.FS.Dir("qux")
-
-	fi, err = qux.Stat("baz")
-	c.Assert(err, IsNil)
-	c.Assert(fi.Name(), Equals, "baz")
-	c.Assert(fi.IsDir(), Equals, false)
-
-	fi, err = qux.Stat("/baz")
-	c.Assert(err, IsNil)
-	c.Assert(fi.Name(), Equals, "baz")
-	c.Assert(fi.IsDir(), Equals, false)
-}
-
-func (s *FilesystemSuite) TestBase(c *C) {
-	c.Assert(s.FS.Base(), Not(Equals), "")
 }

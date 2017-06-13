@@ -8,19 +8,22 @@ import (
 )
 
 type file struct {
-	billy.BaseFile
-
-	f billy.File
+	name string
+	f    billy.File
 }
 
 func newFile(fs billy.Filesystem, f billy.File, filename string) billy.File {
-	filename = fs.Join(fs.Base(), filename)
-	filename, _ = filepath.Rel(fs.Base(), filename)
+	filename = fs.Join(fs.Root(), filename)
+	filename, _ = filepath.Rel(fs.Root(), filename)
 
 	return &file{
-		BaseFile: billy.BaseFile{BaseFilename: filename},
-		f:        f,
+		name: filename,
+		f:    f,
 	}
+}
+
+func (f *file) Name() string {
+	return f.name
 }
 
 func (f *file) Read(p []byte) (int, error) {
@@ -45,6 +48,5 @@ func (f *file) Write(p []byte) (int, error) {
 }
 
 func (f *file) Close() error {
-	defer func() { f.Closed = true }()
 	return f.f.Close()
 }

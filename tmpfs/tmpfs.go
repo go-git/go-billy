@@ -22,7 +22,7 @@ type Temporal struct {
 // New creates a new filesystem wrapping up 'fs' and using 'tmp' for temporary
 // files. Any file created with TempFile will be created in 'tmp'. It will be
 // moved to 'fs' if Rename is called on ifs.
-func New(fs, tmp billy.Filesystem) billy.Filesystem {
+func New(fs, tmp billy.Filesystem) *Temporal {
 	return &Temporal{
 		fs:        fs,
 		tmp:       tmp,
@@ -56,7 +56,7 @@ func (fs *Temporal) OpenFile(p string, flag int, mode os.FileMode) (
 	return fs.fs.OpenFile(p, flag, mode)
 }
 
-func (fs *Temporal) ReadDir(p string) ([]billy.FileInfo, error) {
+func (fs *Temporal) ReadDir(p string) ([]os.FileInfo, error) {
 	return fs.fs.ReadDir(p)
 }
 
@@ -64,16 +64,8 @@ func (fs *Temporal) Join(elem ...string) string {
 	return fs.fs.Join(elem...)
 }
 
-func (fs *Temporal) Dir(p string) billy.Filesystem {
-	return subdirfs.New(fs, p)
-}
-
 func (fs *Temporal) MkdirAll(filename string, perm os.FileMode) error {
 	return fs.fs.MkdirAll(filename, perm)
-}
-
-func (fs *Temporal) Base() string {
-	return fs.fs.Base()
 }
 
 func (fs *Temporal) TempFile(dir string, prefix string) (billy.File, error) {
@@ -82,7 +74,7 @@ func (fs *Temporal) TempFile(dir string, prefix string) (billy.File, error) {
 		return nil, err
 	}
 
-	fs.tempFiles[tmpFile.Filename()] = true
+	fs.tempFiles[tmpFile.Name()] = true
 
 	return tmpFile, nil
 }
@@ -142,7 +134,7 @@ func (fs *Temporal) Readlink(link string) (string, error) {
 	return fs.fs.Readlink(link)
 }
 
-func (fs *Temporal) Stat(path string) (billy.FileInfo, error) {
+func (fs *Temporal) Stat(path string) (os.FileInfo, error) {
 	if fs.isTmpFile(path) {
 		return fs.tmp.Stat(path)
 	}
@@ -150,12 +142,20 @@ func (fs *Temporal) Stat(path string) (billy.FileInfo, error) {
 	return fs.fs.Stat(path)
 }
 
-func (fs *Temporal) Lstat(path string) (billy.FileInfo, error) {
+func (fs *Temporal) Lstat(path string) (os.FileInfo, error) {
 	if fs.isTmpFile(path) {
 		return fs.tmp.Lstat(path)
 	}
 
 	return fs.fs.Lstat(path)
+}
+
+func (fs *Temporal) Chroot(path string) (billy.Basic, error) {
+	return subdirfs.New(fs, path), nil
+}
+
+func (fs *Temporal) Root() string {
+	return fs.fs.Root()
 }
 
 func (fs *Temporal) isTmpFile(p string) bool {

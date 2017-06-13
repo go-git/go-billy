@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	ErrClosed       = errors.New("writing on closed file")
-	ErrReadOnly     = errors.New("read-only filesystem")
-	ErrNotSupported = errors.New("feature not supported")
+	ErrReadOnly        = errors.New("read-only filesystem")
+	ErrNotSupported    = errors.New("feature not supported")
+	ErrCrossedBoundary = errors.New("chroot boundary crossed")
 )
 
 // Filesystem abstract the operations in a storage-agnostic interface.
@@ -21,16 +21,22 @@ type Filesystem interface {
 	Dir
 	Symlink
 	TempFile
+	Chroot
+}
 
-	// Dir returns a new Filesystem from the same type of fs using as baseDir the
-	// given path
-	Dir(path string) Filesystem
-	// Base returns the base path of the filesystem
-	Base() string
+// Chroot abstract the chroot related operations in a storage-agnostic interface
+// as an extension to the Basic interface.
+type Chroot interface {
+	// Chroot returns a new filesystem from the same type where the new root is
+	// the given path. Files outside of the designated directory tree cannot be
+	// accessed.
+	Chroot(path string) (Basic, error)
+	// Root returns the root path of the filesystem.
+	Root() string
 }
 
 // Basic abstract the basic operations in a storage-agnostic interface as
-// an extension to the Basic interface
+// an extension to the Basic interface.
 type Basic interface {
 	// Create creates the named file with mode 0666 (before umask), truncating
 	// it if it already exists. If successful, methods on the returned File can
@@ -49,7 +55,7 @@ type Basic interface {
 	OpenFile(filename string, flag int, perm os.FileMode) (File, error)
 	// Stat returns a FileInfo describing the named file. If there is an error,
 	// it will be of type *PathError.
-	Stat(filename string) (FileInfo, error)
+	Stat(filename string) (os.FileInfo, error)
 	// Rename renames (moves) oldpath to newpath. If newpath already exists and
 	// is not a directory, Rename replaces it. OS-specific restrictions may
 	// apply when oldpath and newpath are in different directories. If there is
@@ -74,7 +80,7 @@ type TempFile interface {
 // Dir abstract the dir related operations in a storage-agnostic interface as
 // an extension to the Basic interface.
 type Dir interface {
-	ReadDir(path string) ([]FileInfo, error)
+	ReadDir(path string) ([]os.FileInfo, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
 	// perm are used for all directories that MkdirAll creates. If path is/
@@ -89,7 +95,7 @@ type Symlink interface {
 	// symbolic link, the returned FileInfo describes the symbolic link. Lstat
 	// makes no attempt to follow the link. If there is an error, it will be of
 	// type *PathError.
-	Lstat(filename string) (FileInfo, error)
+	Lstat(filename string) (os.FileInfo, error)
 	// Symlink creates a symbolic-link from link to target. target may be an
 	// absolute or relative path, and need not refer to an existing node.
 	// Parent directories of link are created as necessary. If there is an
@@ -123,30 +129,17 @@ type Change interface {
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 }
 
-// File implements io.Closer, io.Reader, io.Seeker, and io.Writer>
-// Provides method to obtain the file name and the state of the file (open or closed).
+// File represent a file, being a subset of the os.File
 type File interface {
-	Filename() string
-	IsClosed() bool
+	// Name returns the name of the file as presented to Open.
+	Name() string
+	// Stat returns the FileInfo structure describing file. If there is an
+	// error, it will be of type *PathError.
+	//	Stat() (os.FileInfo, error)
 	io.Writer
 	io.Reader
 	io.Seeker
 	io.Closer
-}
-
-type FileInfo os.FileInfo
-
-type BaseFile struct {
-	BaseFilename string
-	Closed       bool
-}
-
-func (f *BaseFile) Filename() string {
-	return f.BaseFilename
-}
-
-func (f *BaseFile) IsClosed() bool {
-	return f.Closed
 }
 
 type removerAll interface {

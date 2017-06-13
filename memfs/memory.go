@@ -41,8 +41,10 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
 	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
-	if !has {
+	f, err := fs.getFromStorage(fullpath)
+
+	switch {
+	case os.IsNotExist(err):
 		if !isCreate(flag) {
 			return nil, os.ErrNotExist
 		}
@@ -52,17 +54,19 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+	case err == nil:
+		if target, isLink := fs.resolveLink(fullpath, f); isLink {
 			return fs.OpenFile(target, flag, perm)
 		}
+	default:
+		return nil, err
 	}
 
 	if f.mode.IsDir() {
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	filename, err := filepath.Rel(fs.base, fullpath)
+	filename, err = filepath.Rel(fs.base, fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +78,9 @@ func (fs *Memory) fullpath(path string) string {
 	return clean(fs.Join(fs.base, path))
 }
 
-func (fs *Memory) resolveIfLink(fullpath string, f *file) (target string, isLink bool) {
+var errNotLink = errors.New("not a link")
+
+func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink bool) {
 	if !isSymlink(f.mode) {
 		return fullpath, false
 	}
@@ -84,7 +90,8 @@ func (fs *Memory) resolveIfLink(fullpath string, f *file) (target string, isLink
 		target = fs.Join(filepath.Dir(fullpath), target)
 	}
 
-	return clean(target), true
+	rel, _ := filepath.Rel(fs.base, target)
+	return rel, true
 }
 
 // On Windows OS, IsAbs validates if a path is valid based on if stars with a
@@ -94,17 +101,16 @@ func isAbs(path string) bool {
 	return filepath.IsAbs(path) || strings.HasPrefix(path, string(separator))
 }
 
-func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
+func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
 	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
-	if !has {
-		return nil, os.ErrNotExist
+	f, err := fs.getFromStorage(fullpath)
+	if err != nil {
+		return nil, err
 	}
 
-	fi := f.Stat()
+	fi, _ := f.Stat()
 
-	var err error
-	if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+	if target, isLink := fs.resolveLink(fullpath, f); isLink {
 		fi, err = fs.Stat(target)
 		if err != nil {
 			return nil, err
@@ -118,27 +124,28 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	return fi, nil
 }
 
-func (fs *Memory) Lstat(filename string) (billy.FileInfo, error) {
+func (fs *Memory) Lstat(filename string) (os.FileInfo, error) {
 	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
-	if !has {
-		return nil, os.ErrNotExist
+	f, err := fs.getFromStorage(fullpath)
+	if err != nil {
+		return nil, err
 	}
 
-	return f.Stat(), nil
+	return f.Stat()
 }
 
-func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
+func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 	fullpath := fs.fullpath(path)
-	if f, has := fs.s.Get(fullpath); has {
-		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+	if f, err := fs.getFromStorage(fullpath); err == nil {
+		if target, isLink := fs.resolveLink(fullpath, f); isLink {
 			return fs.ReadDir(target)
 		}
 	}
 
-	var entries []billy.FileInfo
+	var entries []os.FileInfo
 	for _, f := range fs.s.Children(fullpath) {
-		entries = append(entries, f.Stat())
+		fi, _ := f.Stat()
+		entries = append(entries, fi)
 	}
 
 	return entries, nil
@@ -177,13 +184,24 @@ func (fs *Memory) getTempFilename(dir, prefix string) string {
 
 func (fs *Memory) Rename(from, to string) error {
 	from = fs.Join(fs.base, from)
+	if err := fs.validate(from); err != nil {
+		return err
+	}
+
 	to = fs.Join(fs.base, to)
+	if err := fs.validate(to); err != nil {
+		return err
+	}
 
 	return fs.s.Rename(from, to)
 }
 
 func (fs *Memory) Remove(filename string) error {
 	fullpath := fs.Join(fs.base, filename)
+	if err := fs.validate(fullpath); err != nil {
+		return err
+	}
+
 	return fs.s.Remove(fullpath)
 }
 
@@ -192,9 +210,7 @@ func (fs *Memory) Join(elem ...string) string {
 }
 
 func (fs *Memory) Symlink(target, link string) error {
-	fullpath := clean(fs.Join(fs.base, link))
-
-	_, err := fs.Stat(fullpath)
+	_, err := fs.Stat(link)
 	if err == nil {
 		return os.ErrExist
 	}
@@ -203,15 +219,36 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	target = clean(target)
-	return billy.WriteFile(fs, fullpath, []byte(target), 0777|os.ModeSymlink)
+	if fs.isTargetOutBounders(link, target) {
+		return billy.ErrCrossedBoundary
+	}
+
+	return billy.WriteFile(fs, clean(link), []byte(clean(target)), 0777|os.ModeSymlink)
+}
+
+func (fs *Memory) isTargetOutBounders(link, target string) bool {
+	fulllink := fs.Join(fs.base, link)
+	fullpath := fs.Join(filepath.Dir(fulllink), target)
+	target, err := filepath.Rel(fs.base, fullpath)
+	if err != nil {
+		return true
+	}
+
+	return isCrossBoundaries(target)
+}
+
+func isCrossBoundaries(path string) bool {
+	path = filepath.ToSlash(path)
+	path = filepath.Clean(path)
+
+	return strings.HasPrefix(path, "..")
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
 	fullpath := fs.fullpath(link)
-	f, has := fs.s.Get(fullpath)
-	if !has {
-		return "", os.ErrNotExist
+	f, err := fs.getFromStorage(fullpath)
+	if err != nil {
+		return "", err
 	}
 
 	if !isSymlink(f.mode) {
@@ -225,24 +262,56 @@ func (fs *Memory) Readlink(link string) (string, error) {
 	return string(f.content.bytes), nil
 }
 
-func (fs *Memory) Dir(path string) billy.Filesystem {
-	return &Memory{
-		base: fs.Join(fs.base, path),
-		s:    fs.s,
+func (fs *Memory) Chroot(path string) (billy.Basic, error) {
+	fullpath := fs.Join(fs.base, path)
+	if err := fs.validate(fullpath); err != nil {
+		return nil, err
 	}
+
+	return &Memory{
+		base: fullpath,
+		s:    fs.s,
+	}, nil
 }
 
-func (fs *Memory) Base() string {
+func (fs *Memory) Root() string {
 	return fs.base
 }
 
-type file struct {
-	billy.BaseFile
+func (fs *Memory) getFromStorage(fullpath string) (*file, error) {
+	if err := fs.validate(fullpath); err != nil {
+		return nil, err
+	}
 
+	f, has := fs.s.Get(fullpath)
+	if !has {
+		return nil, os.ErrNotExist
+	}
+
+	return f, nil
+}
+
+func (fs *Memory) validate(fullpath string) error {
+	relpath, _ := filepath.Rel(fs.base, fullpath)
+	if strings.HasPrefix(relpath, "..") {
+		return billy.ErrCrossedBoundary
+	}
+
+	return nil
+}
+
+type file struct {
+	name     string
 	content  *content
 	position int64
 	flag     int
 	mode     os.FileMode
+
+	isClosed bool
+}
+
+func (f *file) Name() string {
+	return f.name
 }
 
 func (f *file) Read(b []byte) (int, error) {
@@ -257,8 +326,8 @@ func (f *file) Read(b []byte) (int, error) {
 }
 
 func (f *file) ReadAt(b []byte, off int64) (int, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isReadOnly(f.flag) {
@@ -271,8 +340,8 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	switch whence {
@@ -288,8 +357,8 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *file) Write(p []byte) (int, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isWriteOnly(f.flag) {
@@ -303,20 +372,20 @@ func (f *file) Write(p []byte) (int, error) {
 }
 
 func (f *file) Close() error {
-	if f.IsClosed() {
-		return errors.New("file already closed")
+	if f.isClosed {
+		return os.ErrClosed
 	}
 
-	f.Closed = true
+	f.isClosed = true
 	return nil
 }
 
 func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
 	new := &file{
-		BaseFile: billy.BaseFile{BaseFilename: filename},
-		content:  f.content,
-		mode:     mode,
-		flag:     flag,
+		name:    filename,
+		content: f.content,
+		mode:    mode,
+		flag:    flag,
 	}
 
 	if isAppend(flag) {
@@ -330,12 +399,12 @@ func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File
 	return new
 }
 
-func (f *file) Stat() billy.FileInfo {
+func (f *file) Stat() (os.FileInfo, error) {
 	return &fileInfo{
-		name: f.Filename(),
+		name: f.Name(),
 		mode: f.mode,
 		size: f.content.Len(),
-	}
+	}, nil
 }
 
 type fileInfo struct {

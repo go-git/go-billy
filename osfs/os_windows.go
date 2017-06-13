@@ -6,15 +6,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"gopkg.in/src-d/go-billy.v2"
 )
 
 // Stat returns the FileInfo structure describing file.
-func (fs *OS) Stat(filename string) (billy.FileInfo, error) {
+func (fs *OS) Stat(filename string) (os.FileInfo, error) {
 	// TODO: remove this in Go 1.9
 
-	fullpath := fs.absolutize(filename)
+	fullpath, err := fs.absolutize(filename)
+	if err != nil {
+		return nil, err
+	}
 
 	target, err := fs.Readlink(filename)
 	if err != nil {

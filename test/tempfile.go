@@ -21,7 +21,7 @@ func (s *TempFileSuite) TestTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
-	c.Assert(strings.HasPrefix(f.Filename(), "bar"), Equals, true)
+	c.Assert(strings.HasPrefix(f.Name(), "bar"), Equals, true)
 }
 
 func (s *TempFileSuite) TestTempFileWithPath(c *C) {
@@ -29,7 +29,7 @@ func (s *TempFileSuite) TestTempFileWithPath(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
-	c.Assert(strings.HasPrefix(f.Filename(), s.FS.Join("foo", "bar")), Equals, true)
+	c.Assert(strings.HasPrefix(f.Name(), s.FS.Join("foo", "bar")), Equals, true)
 }
 
 func (s *TempFileSuite) TestTempFileFullWithPath(c *C) {
@@ -37,14 +37,14 @@ func (s *TempFileSuite) TestTempFileFullWithPath(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 
-	c.Assert(strings.HasPrefix(f.Filename(), s.FS.Join("foo", "bar")), Equals, true)
+	c.Assert(strings.HasPrefix(f.Name(), s.FS.Join("foo", "bar")), Equals, true)
 }
 
 func (s *TempFileSuite) TestRemoveTempFile(c *C) {
 	f, err := s.FS.TempFile("test-dir", "test-prefix")
 	c.Assert(err, IsNil)
 
-	fn := f.Filename()
+	fn := f.Name()
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 

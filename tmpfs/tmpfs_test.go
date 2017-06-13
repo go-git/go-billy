@@ -41,7 +41,7 @@ func (s *FilesystemSuite) TestTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	filename := f.Filename()
+	filename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	_, err = os.Stat(filepath.Join(s.srcPath, filename))
@@ -74,12 +74,12 @@ func (s *FilesystemSuite) TestTempFileCanBeReopened(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 3)
 
-	filename := f.Filename()
+	filename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	f, err = s.FS.Open(filename)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, filename)
+	c.Assert(f.Name(), Equals, filename)
 
 	content, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
@@ -97,12 +97,12 @@ func (s *FilesystemSuite) TestTempFileCanBeReopenedByOpenFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(n, Equals, 3)
 
-	filename := f.Filename()
+	filename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	f, err = s.FS.OpenFile(filename, os.O_RDONLY, 0)
 	c.Assert(err, IsNil)
-	c.Assert(f.Filename(), Equals, filename)
+	c.Assert(f.Name(), Equals, filename)
 
 	content, err := ioutil.ReadAll(f)
 	c.Assert(err, IsNil)
@@ -116,7 +116,7 @@ func (s *FilesystemSuite) TestStatTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	fi, err := s.FS.Stat(tempFilename)
@@ -129,7 +129,7 @@ func (s *FilesystemSuite) TestSymlinkTmpFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	err = s.FS.Symlink(tempFilename, "foo")
@@ -141,7 +141,7 @@ func (s *FilesystemSuite) TestSymlinkOverTmpFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	err = s.FS.Symlink("foo", tempFilename)
@@ -153,7 +153,7 @@ func (s *FilesystemSuite) TestRenameFromTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	err = s.FS.Rename(tempFilename, "foo")
@@ -174,7 +174,7 @@ func (s *FilesystemSuite) TestCannotRenameToTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	f, err = s.FS.Create("foo")
@@ -191,7 +191,7 @@ func (s *FilesystemSuite) TestRemoveTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f, NotNil)
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	err = s.FS.Remove(tempFilename)
@@ -208,7 +208,7 @@ func (s *FilesystemSuite) TestCreateTempFile(c *C) {
 
 	n, err := f.Write([]byte("TEST"))
 
-	tempFilename := f.Filename()
+	tempFilename := f.Name()
 	c.Assert(f.Close(), IsNil)
 
 	createdFile, err := s.FS.Create(tempFilename)
