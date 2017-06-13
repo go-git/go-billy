@@ -490,11 +490,8 @@ func (s *BasicSuite) TestReadAtEOF(c *C) {
 	f, err := s.FS.Open("foo")
 	c.Assert(err, IsNil)
 
-	rf, ok := f.(io.ReaderAt)
-	c.Assert(ok, Equals, true)
-
 	b := make([]byte, 5)
-	n, err := rf.ReadAt(b, 0)
+	n, err := f.ReadAt(b, 0)
 	c.Assert(err, Equals, io.EOF)
 	c.Assert(n, Equals, 4)
 	c.Assert(string(b), Equals, "TEST\x00")

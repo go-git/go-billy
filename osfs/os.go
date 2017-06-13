@@ -113,11 +113,3 @@ func (fs *OS) Symlink(target, link string) error {
 func (fs *OS) Readlink(link string) (string, error) {
 	return os.Readlink(link)
 }
-
-func (fs *OS) Chroot(path string) (billy.Basic, error) {
-	return nil, billy.ErrNotSupported
-}
-
-func (fs *OS) Root() string {
-	return string(filepath.Separator)
-}

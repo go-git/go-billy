@@ -8,16 +8,24 @@ import (
 // RemoveAll removes path and any children it contains. It removes everything it
 // can but returns the first error it encounters. If the path does not exist,
 // RemoveAll returns nil (no error).
-func RemoveAll(fs Filesystem, path string) error {
-	r, ok := fs.(removerAll)
+func RemoveAll(fs Basic, path string) error {
+	u, ok := fs.(underlying)
 	if ok {
+		if ch, ok := fs.(Chroot); ok {
+			path = fs.Join(ch.Root(), path)
+		}
+
+		fs = u.Underlying()
+	}
+
+	if r, ok := fs.(removerAll); ok {
 		return r.RemoveAll(path)
 	}
 
 	return removeAll(fs, path)
 }
 
-func removeAll(fs Filesystem, path string) error {
+func removeAll(fs Basic, path string) error {
 	// This implementation is adapted from os.RemoveAll.
 
 	// Simple case: if Remove works, we're done.
@@ -41,8 +49,13 @@ func removeAll(fs Filesystem, path string) error {
 		return err
 	}
 
+	dirfs, ok := fs.(Dir)
+	if !ok {
+		return ErrNotSupported
+	}
+
 	// Directory.
-	fis, err := fs.ReadDir(path)
+	fis, err := dirfs.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Race. It was deleted between the Lstat and Open.

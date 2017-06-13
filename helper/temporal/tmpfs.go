@@ -2,7 +2,6 @@ package temporal
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -14,7 +13,8 @@ import (
 // Temporal provides billy.TempFile capabilities for filesystems that do not
 // support it or where there is a performance penalty in doing so.
 type Temporal struct {
-	fs        billy.Filesystem
+	billy.Filesystem
+
 	tmp       billy.Filesystem
 	tempFiles map[string]bool
 }
@@ -24,9 +24,9 @@ type Temporal struct {
 // moved to 'fs' if Rename is called on ifs.
 func New(fs, tmp billy.Filesystem) *Temporal {
 	return &Temporal{
-		fs:        fs,
-		tmp:       tmp,
-		tempFiles: map[string]bool{},
+		Filesystem: fs,
+		tmp:        tmp,
+		tempFiles:  map[string]bool{},
 	}
 }
 
@@ -35,7 +35,7 @@ func (fs *Temporal) Create(path string) (billy.File, error) {
 		return fs.tmp.Create(path)
 	}
 
-	return fs.fs.Create(path)
+	return fs.Filesystem.Create(path)
 }
 
 func (fs *Temporal) Open(path string) (billy.File, error) {
@@ -43,7 +43,7 @@ func (fs *Temporal) Open(path string) (billy.File, error) {
 		return fs.tmp.Open(path)
 	}
 
-	return fs.fs.Open(path)
+	return fs.Filesystem.Open(path)
 
 }
 
@@ -53,19 +53,7 @@ func (fs *Temporal) OpenFile(p string, flag int, mode os.FileMode) (
 		return fs.tmp.OpenFile(p, flag, mode)
 	}
 
-	return fs.fs.OpenFile(p, flag, mode)
-}
-
-func (fs *Temporal) ReadDir(p string) ([]os.FileInfo, error) {
-	return fs.fs.ReadDir(p)
-}
-
-func (fs *Temporal) Join(elem ...string) string {
-	return fs.fs.Join(elem...)
-}
-
-func (fs *Temporal) MkdirAll(filename string, perm os.FileMode) error {
-	return fs.fs.MkdirAll(filename, perm)
+	return fs.Filesystem.OpenFile(p, flag, mode)
 }
 
 func (fs *Temporal) TempFile(dir string, prefix string) (billy.File, error) {
@@ -75,7 +63,6 @@ func (fs *Temporal) TempFile(dir string, prefix string) (billy.File, error) {
 	}
 
 	fs.tempFiles[tmpFile.Name()] = true
-
 	return tmpFile, nil
 }
 
@@ -85,7 +72,7 @@ func (fs *Temporal) Rename(from, to string) error {
 	}
 
 	if fs.isTmpFile(from) {
-		err := copyPath(fs.tmp, fs.fs, from, to)
+		err := copyPath(fs.tmp, fs.Filesystem, from, to)
 		if err != nil {
 			return err
 		}
@@ -99,7 +86,7 @@ func (fs *Temporal) Rename(from, to string) error {
 		return nil
 	}
 
-	return fs.fs.Rename(from, to)
+	return fs.Filesystem.Rename(from, to)
 }
 
 func (fs *Temporal) Remove(path string) error {
@@ -113,25 +100,19 @@ func (fs *Temporal) Remove(path string) error {
 		return nil
 	}
 
-	return fs.fs.Remove(path)
+	return fs.Filesystem.Remove(path)
 }
 
-// Symlink creates a symbolic-link from link to targefs. Using a temporal file
-// as target is not allowed.
 func (fs *Temporal) Symlink(target, link string) error {
 	if fs.isTmpFile(target) {
-		return fmt.Errorf("links to temporal file are not supported")
+		return billy.ErrNotSupported
 	}
 
 	if fs.isTmpFile(link) {
 		return os.ErrExist
 	}
 
-	return fs.fs.Symlink(target, link)
-}
-
-func (fs *Temporal) Readlink(link string) (string, error) {
-	return fs.fs.Readlink(link)
+	return fs.Filesystem.Symlink(target, link)
 }
 
 func (fs *Temporal) Stat(path string) (os.FileInfo, error) {
@@ -139,7 +120,7 @@ func (fs *Temporal) Stat(path string) (os.FileInfo, error) {
 		return fs.tmp.Stat(path)
 	}
 
-	return fs.fs.Stat(path)
+	return fs.Filesystem.Stat(path)
 }
 
 func (fs *Temporal) Lstat(path string) (os.FileInfo, error) {
@@ -147,15 +128,11 @@ func (fs *Temporal) Lstat(path string) (os.FileInfo, error) {
 		return fs.tmp.Lstat(path)
 	}
 
-	return fs.fs.Lstat(path)
+	return fs.Filesystem.Lstat(path)
 }
 
 func (fs *Temporal) Chroot(path string) (billy.Basic, error) {
 	return chroot.New(fs, path), nil
-}
-
-func (fs *Temporal) Root() string {
-	return fs.fs.Root()
 }
 
 func (fs *Temporal) isTmpFile(p string) bool {
@@ -170,9 +147,7 @@ func (fs *Temporal) removeTempReference(p string) {
 }
 
 // copyPath copies a file across filesystems.
-func copyPath(src billy.Filesystem, dst billy.Filesystem,
-	srcPath string, dstPath string) error {
-
+func copyPath(src, dst billy.Basic, srcPath, dstPath string) error {
 	dstFile, err := dst.Create(dstPath)
 	if err != nil {
 		return err

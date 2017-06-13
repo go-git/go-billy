@@ -203,14 +203,6 @@ func (fs *Memory) Readlink(link string) (string, error) {
 	return string(f.content.bytes), nil
 }
 
-func (fs *Memory) Chroot(path string) (billy.Basic, error) {
-	return nil, billy.ErrNotSupported
-}
-
-func (fs *Memory) Root() string {
-	return string(separator)
-}
-
 type file struct {
 	name     string
 	content  *content

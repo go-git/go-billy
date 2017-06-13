@@ -20,7 +20,6 @@ func (s *TempFileSuite) TestTempFile(c *C) {
 	f, err := s.FS.TempFile("", "bar")
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
-
 	c.Assert(strings.HasPrefix(f.Name(), "bar"), Equals, true)
 }
 
@@ -47,6 +46,5 @@ func (s *TempFileSuite) TestRemoveTempFile(c *C) {
 	fn := f.Name()
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
-
 	c.Assert(s.FS.Remove(fn), IsNil)
 }

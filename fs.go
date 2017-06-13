@@ -18,21 +18,10 @@ var (
 // at the os package from the standard library.
 type Filesystem interface {
 	Basic
+	TempFile
 	Dir
 	Symlink
-	TempFile
 	Chroot
-}
-
-// Chroot abstract the chroot related operations in a storage-agnostic interface
-// as an extension to the Basic interface.
-type Chroot interface {
-	// Chroot returns a new filesystem from the same type where the new root is
-	// the given path. Files outside of the designated directory tree cannot be
-	// accessed.
-	Chroot(path string) (Basic, error)
-	// Root returns the root path of the filesystem.
-	Root() string
 }
 
 // Basic abstract the basic operations in a storage-agnostic interface as
@@ -72,8 +61,14 @@ type Basic interface {
 }
 
 type TempFile interface {
-	// TempDir returns the default directory to use for temporary files.
-	//TempDir() string
+	// TempFile creates a new temporary file in the directory dir with a name
+	// beginning with prefix, opens the file for reading and writing, and
+	// returns the resulting *os.File. If dir is the empty string, TempFile
+	// uses the default directory for temporary files (see os.TempDir).
+	// Multiple programs calling TempFile simultaneously will not choose the
+	// same file. The caller can use f.Name() to find the pathname of the file.
+	// It is the caller's responsibility to remove the file when no longer
+	// needed.
 	TempFile(dir, prefix string) (File, error)
 }
 
@@ -129,19 +124,31 @@ type Change interface {
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 }
 
+// Chroot abstract the chroot related operations in a storage-agnostic interface
+// as an extension to the Basic interface.
+type Chroot interface {
+	// Chroot returns a new filesystem from the same type where the new root is
+	// the given path. Files outside of the designated directory tree cannot be
+	// accessed.
+	Chroot(path string) (Basic, error)
+	// Root returns the root path of the filesystem.
+	Root() string
+}
+
+type underlying interface {
+	Underlying() Basic
+}
+type removerAll interface {
+	RemoveAll(string) error
+}
+
 // File represent a file, being a subset of the os.File
 type File interface {
 	// Name returns the name of the file as presented to Open.
 	Name() string
-	// Stat returns the FileInfo structure describing file. If there is an
-	// error, it will be of type *PathError.
-	//	Stat() (os.FileInfo, error)
 	io.Writer
 	io.Reader
+	io.ReaderAt
 	io.Seeker
 	io.Closer
-}
-
-type removerAll interface {
-	RemoveAll(string) error
 }
