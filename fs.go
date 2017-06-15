@@ -75,6 +75,8 @@ type TempFile interface {
 // Dir abstract the dir related operations in a storage-agnostic interface as
 // an extension to the Basic interface.
 type Dir interface {
+	// ReadDir reads the directory named by dirname and returns a list of
+	// directory entries sorted by filename.
 	ReadDir(path string) ([]os.FileInfo, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
