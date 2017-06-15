@@ -10,6 +10,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 // BasicSuite is a convenient test suite to validate any implementation of
@@ -242,7 +243,7 @@ func (s *BasicSuite) TestFileWriteClose(c *C) {
 }
 
 func (s *BasicSuite) TestFileRead(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -255,7 +256,7 @@ func (s *BasicSuite) TestFileRead(c *C) {
 }
 
 func (s *BasicSuite) TestFileClosed(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -267,7 +268,7 @@ func (s *BasicSuite) TestFileClosed(c *C) {
 }
 
 func (s *BasicSuite) TestFileNonRead(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.OpenFile("foo", os.O_WRONLY, 0)
@@ -292,7 +293,7 @@ func (s *BasicSuite) TestFileSeekEnd(c *C) {
 }
 
 func (s *BasicSuite) testFileSeek(c *C, offset int64, whence int) {
-	err := WriteFile(s.FS, "foo", []byte("0123456789abcdefghijklmnopqrstuvwxyz"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("0123456789abcdefghijklmnopqrstuvwxyz"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -335,7 +336,7 @@ func (s *BasicSuite) TestSeekToEndAndWrite(c *C) {
 }
 
 func (s *BasicSuite) TestFileSeekClosed(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -355,7 +356,7 @@ func (s *BasicSuite) TestFileCloseTwice(c *C) {
 }
 
 func (s *BasicSuite) TestStat(c *C) {
-	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 
 	fi, err := s.FS.Stat("foo/bar")
 	c.Assert(err, IsNil)
@@ -374,7 +375,7 @@ func (s *BasicSuite) TestStatNonExistent(c *C) {
 }
 
 func (s *BasicSuite) TestRename(c *C) {
-	err := WriteFile(s.FS, "foo", nil, 0644)
+	err := util.WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Rename("foo", "bar")
@@ -390,7 +391,7 @@ func (s *BasicSuite) TestRename(c *C) {
 }
 
 func (s *BasicSuite) TestOpenAndWrite(c *C) {
-	err := WriteFile(s.FS, "foo", nil, 0644)
+	err := util.WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
 
 	foo, err := s.FS.Open("foo")
@@ -405,7 +406,7 @@ func (s *BasicSuite) TestOpenAndWrite(c *C) {
 }
 
 func (s *BasicSuite) TestOpenAndStat(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	foo, err := s.FS.Open("foo")
@@ -437,7 +438,7 @@ func (s *BasicSuite) TestRemoveNonExisting(c *C) {
 }
 
 func (s *BasicSuite) TestRemoveNotEmptyDir(c *C) {
-	err := WriteFile(s.FS, "foo", nil, 0644)
+	err := util.WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Remove("no-exists")
@@ -466,7 +467,7 @@ func (s *BasicSuite) TestReadAtOnReadWrite(c *C) {
 }
 
 func (s *BasicSuite) TestReadAtOnReadOnly(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("abcdefg"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("abcdefg"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -484,7 +485,7 @@ func (s *BasicSuite) TestReadAtOnReadOnly(c *C) {
 }
 
 func (s *BasicSuite) TestReadAtEOF(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("TEST"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("TEST"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -501,7 +502,7 @@ func (s *BasicSuite) TestReadAtEOF(c *C) {
 }
 
 func (s *BasicSuite) TestReadAtOffset(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("TEST"), 0644)
+	err := util.WriteFile(s.FS, "foo", []byte("TEST"), 0644)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")
@@ -549,7 +550,7 @@ func (s *BasicSuite) TestReadWriteLargeFile(c *C) {
 }
 
 func (s *BasicSuite) TestWriteFile(c *C) {
-	err := WriteFile(s.FS, "foo", []byte("bar"), 0777)
+	err := util.WriteFile(s.FS, "foo", []byte("bar"), 0777)
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("foo")

@@ -13,9 +13,9 @@ type ChrootHelper struct {
 	underlying billy.Basic
 	base       string
 
-	tempFileSupport bool
 	dirSupport      bool
 	symlinkSupport  bool
+	tempFileSupport bool
 }
 
 // New creates a new filesystem wrapping up the given 'fs'.
@@ -23,9 +23,9 @@ type ChrootHelper struct {
 // underlying filesystem.
 func New(fs billy.Basic, base string) billy.Filesystem {
 	helper := &ChrootHelper{underlying: fs, base: base}
-	_, helper.tempFileSupport = fs.(billy.TempFile)
 	_, helper.dirSupport = fs.(billy.Dir)
 	_, helper.symlinkSupport = fs.(billy.Symlink)
+	_, helper.tempFileSupport = fs.(billy.TempFile)
 
 	return helper
 }

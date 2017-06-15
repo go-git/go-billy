@@ -137,13 +137,6 @@ type Chroot interface {
 	Root() string
 }
 
-type underlying interface {
-	Underlying() Basic
-}
-type removerAll interface {
-	RemoveAll(string) error
-}
-
 // File represent a file, being a subset of the os.File
 type File interface {
 	// Name returns the name of the file as presented to Open.

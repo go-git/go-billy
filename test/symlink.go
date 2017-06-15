@@ -6,6 +6,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 // SymlinkSuite is a convenient test suite to validate any implementation of
@@ -18,7 +19,7 @@ type SymlinkSuite struct {
 }
 
 func (s *SymlinkSuite) TestSymlink(c *C) {
-	err := WriteFile(s.FS, "file", nil, 0644)
+	err := util.WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "link")
@@ -30,7 +31,7 @@ func (s *SymlinkSuite) TestSymlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkCrossDirs(c *C) {
-	err := WriteFile(s.FS, "foo/file", nil, 0644)
+	err := util.WriteFile(s.FS, "foo/file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("../foo/file", "bar/link")
@@ -42,7 +43,7 @@ func (s *SymlinkSuite) TestSymlinkCrossDirs(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkNested(c *C) {
-	err := WriteFile(s.FS, "file", []byte("hello world!"), 0644)
+	err := util.WriteFile(s.FS, "file", []byte("hello world!"), 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "linkA")
@@ -66,7 +67,7 @@ func (s *SymlinkSuite) TestSymlinkWithNonExistentdTarget(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkWithExistingLink(c *C) {
-	err := WriteFile(s.FS, "link", nil, 0644)
+	err := util.WriteFile(s.FS, "link", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "link")
@@ -74,7 +75,7 @@ func (s *SymlinkSuite) TestSymlinkWithExistingLink(c *C) {
 }
 
 func (s *SymlinkSuite) TestOpenWithSymlinkToRelativePath(c *C) {
-	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "dir/link")
@@ -90,7 +91,7 @@ func (s *SymlinkSuite) TestOpenWithSymlinkToRelativePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestOpenWithSymlinkToAbsolutePath(c *C) {
-	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("/dir/file", "dir/link")
@@ -106,7 +107,7 @@ func (s *SymlinkSuite) TestOpenWithSymlinkToAbsolutePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlink(c *C) {
-	err := WriteFile(s.FS, "file", nil, 0644)
+	err := util.WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	_, err = s.FS.Readlink("file")
@@ -114,7 +115,7 @@ func (s *SymlinkSuite) TestReadlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithRelativePath(c *C) {
-	err := WriteFile(s.FS, "dir/file", nil, 0644)
+	err := util.WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "dir/link")
@@ -126,7 +127,7 @@ func (s *SymlinkSuite) TestReadlinkWithRelativePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithAbsolutePath(c *C) {
-	err := WriteFile(s.FS, "dir/file", nil, 0644)
+	err := util.WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("/dir/file", "dir/link")
@@ -152,7 +153,7 @@ func (s *SymlinkSuite) TestReadlinkWithNonExistentLink(c *C) {
 }
 
 func (s *SymlinkSuite) TestStatLink(c *C) {
-	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
 	fi, err := s.FS.Stat("foo/qux")
@@ -165,7 +166,7 @@ func (s *SymlinkSuite) TestStatLink(c *C) {
 }
 
 func (s *SymlinkSuite) TestLstat(c *C) {
-	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 
 	fi, err := s.FS.Lstat("foo/bar")
 	c.Assert(err, IsNil)
@@ -177,7 +178,7 @@ func (s *SymlinkSuite) TestLstat(c *C) {
 }
 
 func (s *SymlinkSuite) TestLstatLink(c *C) {
-	WriteFile(s.FS, "foo/bar", []byte("fosddddaaao"), customMode)
+	util.WriteFile(s.FS, "foo/bar", []byte("fosddddaaao"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
 	fi, err := s.FS.Lstat("foo/qux")
@@ -200,7 +201,7 @@ func (s *SymlinkSuite) TestRenameWithSymlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestRemoveWithSymlink(c *C) {
-	err := WriteFile(s.FS, "file", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("file", "link")

@@ -5,6 +5,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 // DirSuite is a convenient test suite to validate any implementation of
@@ -97,7 +98,7 @@ func (s *DirSuite) TestStatDir(c *C) {
 func (s *BasicSuite) TestStatDeep(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -121,7 +122,7 @@ func (s *BasicSuite) TestStatDeep(c *C) {
 func (s *DirSuite) TestReadDir(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -140,7 +141,7 @@ func (s *DirSuite) TestReadDirWithMkDirAll(c *C) {
 
 	files := []string{"qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -155,7 +156,7 @@ func (s *DirSuite) TestReadDirWithMkDirAll(c *C) {
 }
 
 func (s *DirSuite) TestReadDirFileInfo(c *C) {
-	err := WriteFile(s.FS, "foo", []byte{'F', 'O', 'O'}, 0644)
+	err := util.WriteFile(s.FS, "foo", []byte{'F', 'O', 'O'}, 0644)
 	c.Assert(err, IsNil)
 
 	info, err := s.FS.ReadDir("/")
@@ -170,7 +171,7 @@ func (s *DirSuite) TestReadDirFileInfo(c *C) {
 func (s *DirSuite) TestReadDirFileInfoDirs(c *C) {
 	files := []string{"qux/baz/foo"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, []byte{'F', 'O', 'O'}, 0644)
+		err := util.WriteFile(s.FS, name, []byte{'F', 'O', 'O'}, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -190,7 +191,7 @@ func (s *DirSuite) TestReadDirFileInfoDirs(c *C) {
 }
 
 func (s *DirSuite) TestRenameToDir(c *C) {
-	err := WriteFile(s.FS, "foo", nil, 0644)
+	err := util.WriteFile(s.FS, "foo", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Rename("foo", "bar/qux")
@@ -213,7 +214,7 @@ func (s *DirSuite) TestRenameDir(c *C) {
 	err := s.FS.MkdirAll("foo", 0644)
 	c.Assert(err, IsNil)
 
-	err = WriteFile(s.FS, "foo/bar", nil, 0644)
+	err = util.WriteFile(s.FS, "foo/bar", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Rename("foo", "bar")

@@ -5,6 +5,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 // FilesystemSuite is a convenient test suite to validate any implementation of
@@ -45,7 +46,7 @@ func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkReadDir(c *C) {
-	err := WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
+	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
 	err = s.FS.Symlink("dir", "link")
@@ -72,7 +73,7 @@ func (s *FilesystemSuite) TestCreateWithExistantDir(c *C) {
 func (s *ChrootSuite) TestReadDirWithChroot(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -86,7 +87,7 @@ func (s *ChrootSuite) TestReadDirWithChroot(c *C) {
 func (s *FilesystemSuite) TestSymlinkWithChrootBasic(c *C) {
 	qux, _ := s.FS.Chroot("/qux")
 
-	err := WriteFile(qux, "file", nil, 0644)
+	err := util.WriteFile(qux, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
 	err = qux.(Filesystem).Symlink("file", "link")
@@ -108,7 +109,7 @@ func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
 }
 
 func (s *FilesystemSuite) TestReadDirWithLink(c *C) {
-	WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
+	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
 	info, err := s.FS.ReadDir("/foo")
@@ -117,12 +118,12 @@ func (s *FilesystemSuite) TestReadDirWithLink(c *C) {
 }
 
 func (s *FilesystemSuite) TestRemoveAllNonExistent(c *C) {
-	c.Assert(RemoveAll(s.FS, "non-existent"), IsNil)
+	c.Assert(util.RemoveAll(s.FS, "non-existent"), IsNil)
 }
 
 func (s *FilesystemSuite) TestRemoveAllEmptyDir(c *C) {
 	c.Assert(s.FS.MkdirAll("empty", os.FileMode(0755)), IsNil)
-	c.Assert(RemoveAll(s.FS, "empty"), IsNil)
+	c.Assert(util.RemoveAll(s.FS, "empty"), IsNil)
 	_, err := s.FS.Stat("empty")
 	c.Assert(err, NotNil)
 	c.Assert(os.IsNotExist(err), Equals, true)
@@ -141,11 +142,11 @@ func (s *FilesystemSuite) TestRemoveAll(c *C) {
 	}
 
 	for _, fname := range fnames {
-		err := WriteFile(s.FS, fname, nil, 0644)
+		err := util.WriteFile(s.FS, fname, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
-	c.Assert(RemoveAll(s.FS, "foo"), IsNil)
+	c.Assert(util.RemoveAll(s.FS, "foo"), IsNil)
 
 	for _, fname := range fnames {
 		_, err := s.FS.Stat(fname)
@@ -167,11 +168,11 @@ func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
 	}
 
 	for _, fname := range fnames {
-		err := WriteFile(s.FS, fname, nil, 0644)
+		err := util.WriteFile(s.FS, fname, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
-	c.Assert(RemoveAll(s.FS, "foo/bar/.."), IsNil)
+	c.Assert(util.RemoveAll(s.FS, "foo/bar/.."), IsNil)
 
 	for _, fname := range fnames {
 		_, err := s.FS.Stat(fname)
@@ -183,7 +184,7 @@ func (s *FilesystemSuite) TestRemoveAllRelative(c *C) {
 func (s *FilesystemSuite) TestReadDir(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 

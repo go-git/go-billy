@@ -8,6 +8,7 @@ import (
 	"gopkg.in/src-d/go-billy.v2"
 	"gopkg.in/src-d/go-billy.v2/memfs"
 	"gopkg.in/src-d/go-billy.v2/test"
+	"gopkg.in/src-d/go-billy.v2/util"
 
 	. "gopkg.in/check.v1"
 )
@@ -160,7 +161,7 @@ func (s *MountSuite) TestRenameCross(c *C) {
 	underlying := memfs.New()
 	source := memfs.New()
 
-	billy.WriteFile(underlying, "file", []byte("foo"), 0777)
+	util.WriteFile(underlying, "file", []byte("foo"), 0777)
 
 	fs := New(underlying, "/foo", source)
 	err := fs.Rename("file", "foo/file")

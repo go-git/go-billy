@@ -5,6 +5,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 // ChrootSuite is a convenient test suite to validate any implementation of
@@ -43,7 +44,7 @@ func (s *ChrootSuite) TestOpenWithChroot(c *C) {
 }
 
 func (s *ChrootSuite) TestOpenOutOffBoundary(c *C) {
-	err := WriteFile(s.FS, "bar", nil, 0644)
+	err := util.WriteFile(s.FS, "bar", nil, 0644)
 	c.Assert(err, IsNil)
 
 	fs, _ := s.FS.Chroot("foo")
@@ -53,7 +54,7 @@ func (s *ChrootSuite) TestOpenOutOffBoundary(c *C) {
 }
 
 func (s *ChrootSuite) TestStatOutOffBoundary(c *C) {
-	err := WriteFile(s.FS, "bar", nil, 0644)
+	err := util.WriteFile(s.FS, "bar", nil, 0644)
 	c.Assert(err, IsNil)
 
 	fs, _ := s.FS.Chroot("foo")
@@ -65,7 +66,7 @@ func (s *ChrootSuite) TestStatOutOffBoundary(c *C) {
 func (s *ChrootSuite) TestStatWithChroot(c *C) {
 	files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 	for _, name := range files {
-		err := WriteFile(s.FS, name, nil, 0644)
+		err := util.WriteFile(s.FS, name, nil, 0644)
 		c.Assert(err, IsNil)
 	}
 
@@ -94,10 +95,10 @@ func (s *ChrootSuite) TestStatWithChroot(c *C) {
 }
 
 func (s *ChrootSuite) TestRenameOutOffBoundary(c *C) {
-	err := WriteFile(s.FS, "foo/foo", nil, 0644)
+	err := util.WriteFile(s.FS, "foo/foo", nil, 0644)
 	c.Assert(err, IsNil)
 
-	err = WriteFile(s.FS, "bar", nil, 0644)
+	err = util.WriteFile(s.FS, "bar", nil, 0644)
 	c.Assert(err, IsNil)
 
 	fs, _ := s.FS.Chroot("foo")
@@ -109,7 +110,7 @@ func (s *ChrootSuite) TestRenameOutOffBoundary(c *C) {
 }
 
 func (s *ChrootSuite) TestRemoveOutOffBoundary(c *C) {
-	err := WriteFile(s.FS, "bar", nil, 0644)
+	err := util.WriteFile(s.FS, "bar", nil, 0644)
 	c.Assert(err, IsNil)
 
 	fs, _ := s.FS.Chroot("foo")

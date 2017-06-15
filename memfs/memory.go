@@ -12,6 +12,7 @@ import (
 
 	"gopkg.in/src-d/go-billy.v2"
 	"gopkg.in/src-d/go-billy.v2/helper/chroot"
+	"gopkg.in/src-d/go-billy.v2/util"
 )
 
 const separator = filepath.Separator
@@ -137,22 +138,8 @@ func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
 	return err
 }
 
-var maxTempFiles = 1024 * 4
-
 func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
-	var fullpath string
-	for {
-		if fs.tempCount >= maxTempFiles {
-			return nil, errors.New("max. number of tempfiles reached")
-		}
-
-		fullpath = fs.getTempFilename(dir, prefix)
-		if _, ok := fs.s.files[fullpath]; !ok {
-			break
-		}
-	}
-
-	return fs.Create(fullpath)
+	return util.TempFile(fs, dir, prefix)
 }
 
 func (fs *Memory) getTempFilename(dir, prefix string) string {
@@ -183,7 +170,7 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	return billy.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
+	return util.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
