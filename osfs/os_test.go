@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/src-d/go-billy.v2/test"
+	"gopkg.in/src-d/go-billy.v3/test"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -21,7 +21,7 @@ var _ = Suite(&OSSuite{})
 
 func (s *OSSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
-	s.FilesystemSuite.FS = New(s.path)
+	s.FilesystemSuite = test.NewFilesystemSuite(New(s.path))
 }
 
 func (s *OSSuite) TearDownTest(c *C) {

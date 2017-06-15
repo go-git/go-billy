@@ -1,5 +1,5 @@
 // Package memfs provides a billy filesystem base on memory.
-package memfs // import "gopkg.in/src-d/go-billy.v2/memfs"
+package memfs // import "gopkg.in/src-d/go-billy.v3/memfs"
 
 import (
 	"errors"
@@ -10,53 +10,48 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/helper/chroot"
+	"gopkg.in/src-d/go-billy.v3/util"
 )
 
 const separator = filepath.Separator
 
 // Memory a very convenient filesystem based on memory files
 type Memory struct {
-	base string
-	s    *storage
+	s *storage
 
 	tempCount int
 }
 
-//New returns a new Memory filesystem
-func New() *Memory {
-	return &Memory{
-		base: string(separator),
-		s:    newStorage(),
-	}
+//New returns a new Memory filesystem.
+func New() billy.Filesystem {
+	fs := &Memory{s: newStorage()}
+	return chroot.New(fs, string(separator))
 }
 
-// Create returns a new file in memory from a given filename.
 func (fs *Memory) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 }
 
-// Open returns a readonly file from a given name.
 func (fs *Memory) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-// OpenFile returns the file from a given name with given flag and permits.
 func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
+	f, has := fs.s.Get(filename)
 	if !has {
 		if !isCreate(flag) {
 			return nil, os.ErrNotExist
 		}
 
 		var err error
-		f, err = fs.s.New(fullpath, perm, flag)
+		f, err = fs.s.New(filename, perm, flag)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+		if target, isLink := fs.resolveLink(filename, f); isLink {
 			return fs.OpenFile(target, flag, perm)
 		}
 	}
@@ -65,19 +60,12 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	filename, err := filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return nil, err
-	}
-
 	return f.Duplicate(filename, perm, flag), nil
 }
 
-func (fs *Memory) fullpath(path string) string {
-	return clean(fs.Join(fs.base, path))
-}
+var errNotLink = errors.New("not a link")
 
-func (fs *Memory) resolveIfLink(fullpath string, f *file) (target string, isLink bool) {
+func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink bool) {
 	if !isSymlink(f.mode) {
 		return fullpath, false
 	}
@@ -87,7 +75,7 @@ func (fs *Memory) resolveIfLink(fullpath string, f *file) (target string, isLink
 		target = fs.Join(filepath.Dir(fullpath), target)
 	}
 
-	return clean(target), true
+	return target, true
 }
 
 // On Windows OS, IsAbs validates if a path is valid based on if stars with a
@@ -97,18 +85,16 @@ func isAbs(path string) bool {
 	return filepath.IsAbs(path) || strings.HasPrefix(path, string(separator))
 }
 
-// Stat returns a billy.FileInfo with the information of the requested file.
-func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
+func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
+	f, has := fs.s.Get(filename)
 	if !has {
 		return nil, os.ErrNotExist
 	}
 
-	fi := f.Stat()
+	fi, _ := f.Stat()
 
 	var err error
-	if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+	if target, isLink := fs.resolveLink(filename, f); isLink {
 		fi, err = fs.Stat(target)
 		if err != nil {
 			return nil, err
@@ -122,98 +108,60 @@ func (fs *Memory) Stat(filename string) (billy.FileInfo, error) {
 	return fi, nil
 }
 
-func (fs *Memory) Lstat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.fullpath(filename)
-	f, has := fs.s.Get(fullpath)
+func (fs *Memory) Lstat(filename string) (os.FileInfo, error) {
+	f, has := fs.s.Get(filename)
 	if !has {
 		return nil, os.ErrNotExist
 	}
 
-	return f.Stat(), nil
+	return f.Stat()
 }
 
-// ReadDir returns a list of billy.FileInfo in the given directory.
-func (fs *Memory) ReadDir(path string) ([]billy.FileInfo, error) {
-	fullpath := fs.fullpath(path)
-	if f, has := fs.s.Get(fullpath); has {
-		if target, isLink := fs.resolveIfLink(fullpath, f); isLink {
+func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
+	if f, has := fs.s.Get(path); has {
+		if target, isLink := fs.resolveLink(path, f); isLink {
 			return fs.ReadDir(target)
 		}
 	}
 
-	var entries []billy.FileInfo
-	for _, f := range fs.s.Children(fullpath) {
-		entries = append(entries, f.Stat())
+	var entries []os.FileInfo
+	for _, f := range fs.s.Children(path) {
+		fi, _ := f.Stat()
+		entries = append(entries, fi)
 	}
 
 	return entries, nil
 }
 
-// MkdirAll creates a directory.
 func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
-	fullpath := fs.Join(fs.base, path)
-
-	_, err := fs.s.New(fullpath, perm|os.ModeDir, 0)
+	_, err := fs.s.New(path, perm|os.ModeDir, 0)
 	return err
 }
 
-var maxTempFiles = 1024 * 4
-
-// TempFile creates a new temporary file.
 func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
-	var fullpath string
-	for {
-		if fs.tempCount >= maxTempFiles {
-			return nil, errors.New("max. number of tempfiles reached")
-		}
-
-		fullpath = fs.getTempFilename(dir, prefix)
-		if _, ok := fs.s.files[fullpath]; !ok {
-			break
-		}
-	}
-
-	return fs.Create(fullpath)
+	return util.TempFile(fs, dir, prefix)
 }
 
 func (fs *Memory) getTempFilename(dir, prefix string) string {
 	fs.tempCount++
 	filename := fmt.Sprintf("%s_%d_%d", prefix, fs.tempCount, time.Now().UnixNano())
-	return fs.Join(fs.base, dir, filename)
+	return fs.Join(dir, filename)
 }
 
-// Rename moves a the `from` file to the `to` file.
 func (fs *Memory) Rename(from, to string) error {
-	from = fs.Join(fs.base, from)
-	to = fs.Join(fs.base, to)
-
 	return fs.s.Rename(from, to)
 }
 
-// Remove deletes a given file from storage.
 func (fs *Memory) Remove(filename string) error {
-	fullpath := fs.Join(fs.base, filename)
-	return fs.s.Remove(fullpath)
+	return fs.s.Remove(filename)
 }
 
-// Join joins any number of path elements into a single path, adding a Separator if necessary.
 func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-// Dir creates a new memory filesystem whose root is the given path inside the current
-// filesystem.
-func (fs *Memory) Dir(path string) billy.Filesystem {
-	return &Memory{
-		base: fs.Join(fs.base, path),
-		s:    fs.s,
-	}
-}
-
 func (fs *Memory) Symlink(target, link string) error {
-	fullpath := clean(fs.Join(fs.base, link))
-
-	_, err := fs.Stat(fullpath)
+	_, err := fs.Stat(link)
 	if err == nil {
 		return os.ErrExist
 	}
@@ -222,13 +170,11 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	target = clean(target)
-	return billy.WriteFile(fs, fullpath, []byte(target), 0777|os.ModeSymlink)
+	return util.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
-	fullpath := fs.fullpath(link)
-	f, has := fs.s.Get(fullpath)
+	f, has := fs.s.Get(link)
 	if !has {
 		return "", os.ErrNotExist
 	}
@@ -236,7 +182,7 @@ func (fs *Memory) Readlink(link string) (string, error) {
 	if !isSymlink(f.mode) {
 		return "", &os.PathError{
 			Op:   "readlink",
-			Path: fullpath,
+			Path: link,
 			Err:  fmt.Errorf("not a symlink"),
 		}
 	}
@@ -244,18 +190,18 @@ func (fs *Memory) Readlink(link string) (string, error) {
 	return string(f.content.bytes), nil
 }
 
-// Base returns the base path for the filesystem.
-func (fs *Memory) Base() string {
-	return fs.base
-}
-
 type file struct {
-	billy.BaseFile
-
+	name     string
 	content  *content
 	position int64
 	flag     int
 	mode     os.FileMode
+
+	isClosed bool
+}
+
+func (f *file) Name() string {
+	return f.name
 }
 
 func (f *file) Read(b []byte) (int, error) {
@@ -270,8 +216,8 @@ func (f *file) Read(b []byte) (int, error) {
 }
 
 func (f *file) ReadAt(b []byte, off int64) (int, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isReadOnly(f.flag) {
@@ -284,8 +230,8 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	switch whence {
@@ -301,8 +247,8 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *file) Write(p []byte) (int, error) {
-	if f.IsClosed() {
-		return 0, billy.ErrClosed
+	if f.isClosed {
+		return 0, os.ErrClosed
 	}
 
 	if !isReadAndWrite(f.flag) && !isWriteOnly(f.flag) {
@@ -316,20 +262,20 @@ func (f *file) Write(p []byte) (int, error) {
 }
 
 func (f *file) Close() error {
-	if f.IsClosed() {
-		return errors.New("file already closed")
+	if f.isClosed {
+		return os.ErrClosed
 	}
 
-	f.Closed = true
+	f.isClosed = true
 	return nil
 }
 
 func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
 	new := &file{
-		BaseFile: billy.BaseFile{BaseFilename: filename},
-		content:  f.content,
-		mode:     mode,
-		flag:     flag,
+		name:    filename,
+		content: f.content,
+		mode:    mode,
+		flag:    flag,
 	}
 
 	if isAppend(flag) {
@@ -343,12 +289,12 @@ func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File
 	return new
 }
 
-func (f *file) Stat() billy.FileInfo {
+func (f *file) Stat() (os.FileInfo, error) {
 	return &fileInfo{
-		name: f.Filename(),
+		name: f.Name(),
 		mode: f.mode,
 		size: f.content.Len(),
-	}
+	}, nil
 }
 
 type fileInfo struct {

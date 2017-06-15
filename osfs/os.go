@@ -1,14 +1,13 @@
 // Package osfs provides a billy filesystem for the OS.
-package osfs // import "gopkg.in/src-d/go-billy.v2/osfs"
+package osfs // import "gopkg.in/src-d/go-billy.v3/osfs"
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"strings"
-
-	"gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/helper/chroot"
 )
 
 const (
@@ -16,46 +15,26 @@ const (
 	defaultCreateMode    = 0666
 )
 
-// OS is a filesystem based on the os filesystem
-type OS struct {
-	base string
+// OS is a filesystem based on the os filesystem.
+type OS struct{}
+
+// New returns a new OS filesystem.
+func New(baseDir string) billy.Filesystem {
+	return chroot.New(&OS{}, baseDir)
 }
 
-// New returns a new OS filesystem
-func New(baseDir string) *OS {
-	return &OS{
-		base: baseDir,
-	}
-}
-
-// Create creates a file and opens it with standard permissions
-// and modes O_RDWR, O_CREATE and O_TRUNC.
 func (fs *OS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-// OpenFile is equivalent to standard os.OpenFile.
-// If flag os.O_CREATE is set, all parent directories will be created.
 func (fs *OS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	fullpath := fs.absolutize(filename)
-
 	if flag&os.O_CREATE != 0 {
-		if err := fs.createDir(fullpath); err != nil {
+		if err := fs.createDir(filename); err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(fullpath, flag, perm)
-	if err != nil {
-		return nil, err
-	}
-
-	filename, err = filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return nil, err
-	}
-
-	return newOSFile(filename, f), nil
+	return os.OpenFile(filename, flag, perm)
 }
 
 func (fs *OS) createDir(fullpath string) error {
@@ -69,17 +48,13 @@ func (fs *OS) createDir(fullpath string) error {
 	return nil
 }
 
-// ReadDir returns the filesystem info for all the archives under the specified
-// path.
-func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
-	fullpath := fs.absolutize(path)
-
-	l, err := ioutil.ReadDir(fullpath)
+func (fs *OS) ReadDir(path string) ([]os.FileInfo, error) {
+	l, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var s = make([]billy.FileInfo, len(l))
+	var s = make([]os.FileInfo, len(l))
 	for i, f := range l {
 		s[i] = f
 	}
@@ -87,11 +62,7 @@ func (fs *OS) ReadDir(path string) ([]billy.FileInfo, error) {
 	return s, nil
 }
 
-// Rename moves a file in disk from _from_ to _to_.
 func (fs *OS) Rename(from, to string) error {
-	from = fs.absolutize(from)
-	to = fs.absolutize(to)
-
 	if err := fs.createDir(to); err != nil {
 		return err
 	}
@@ -99,86 +70,39 @@ func (fs *OS) Rename(from, to string) error {
 	return os.Rename(from, to)
 }
 
-// MkdirAll creates a directory.
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
-	fullpath := fs.absolutize(path)
-	return os.MkdirAll(fullpath, defaultDirectoryMode)
+	return os.MkdirAll(path, defaultDirectoryMode)
 }
 
-// Open opens a file in read-only mode.
 func (fs *OS) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-// Remove deletes a file in disk.
 func (fs *OS) Remove(filename string) error {
-	fullpath := fs.absolutize(filename)
-	return os.Remove(fullpath)
+	return os.Remove(filename)
 }
 
-// TempFile creates a new temporal file.
 func (fs *OS) TempFile(dir, prefix string) (billy.File, error) {
-	fullpath := fs.absolutize(dir)
-	if err := fs.createDir(fullpath + string(os.PathSeparator)); err != nil {
+	if err := fs.createDir(dir + string(os.PathSeparator)); err != nil {
 		return nil, err
 	}
 
-	f, err := ioutil.TempFile(fullpath, prefix)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	filename, err := filepath.Rel(fs.base, fs.Join(fullpath, s.Name()))
-	if err != nil {
-		return nil, err
-	}
-
-	return newOSFile(filename, f), nil
+	return ioutil.TempFile(dir, prefix)
 }
 
-// Join joins the specified elements using the filesystem separator.
 func (fs *OS) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-// Dir returns a new Filesystem from the same type of fs using as baseDir the
-// given path
-func (fs *OS) Dir(path string) billy.Filesystem {
-	return New(fs.absolutize(path))
-}
-
-// Base returns the base path of the filesytem
-func (fs *OS) Base() string {
-	return fs.base
-}
-
-// RemoveAll removes a file or directory recursively. Removes everything it can,
-// but returns the first error.
 func (fs *OS) RemoveAll(path string) error {
-	fullpath := fs.Join(fs.base, path)
-	return os.RemoveAll(fullpath)
+	return os.RemoveAll(filepath.Clean(path))
 }
 
-func (fs *OS) Lstat(filename string) (billy.FileInfo, error) {
-	fullpath := fs.Join(fs.base, filename)
-	return os.Lstat(fullpath)
+func (fs *OS) Lstat(filename string) (os.FileInfo, error) {
+	return os.Lstat(filepath.Clean(filename))
 }
 
-// Symlink imlements billy.Symlinker.Symlink.
 func (fs *OS) Symlink(target, link string) error {
-	target = filepath.FromSlash(target)
-
-	// only rewrite target if it's already absolute
-	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
-		target = fs.absolutize(target)
-	}
-
-	link = fs.absolutize(link)
 	if err := fs.createDir(link); err != nil {
 		return err
 	}
@@ -186,64 +110,6 @@ func (fs *OS) Symlink(target, link string) error {
 	return os.Symlink(target, link)
 }
 
-// Readlink implements billy.Symlinker.Readlink.
 func (fs *OS) Readlink(link string) (string, error) {
-	fullpath := fs.Join(fs.base, link)
-	target, err := os.Readlink(fullpath)
-	if err != nil {
-		return "", err
-	}
-
-	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
-		return target, nil
-	}
-
-	target, err = filepath.Rel(fs.base, target)
-	if err != nil {
-		return "", err
-	}
-
-	return string(os.PathSeparator) + target, nil
-}
-
-// osFile represents a file in the os filesystem
-type osFile struct {
-	billy.BaseFile
-	file *os.File
-}
-
-func newOSFile(filename string, file *os.File) billy.File {
-	return &osFile{
-		BaseFile: billy.BaseFile{BaseFilename: filename},
-		file:     file,
-	}
-}
-
-func (f *osFile) Read(p []byte) (int, error) {
-	return f.file.Read(p)
-}
-
-func (f *osFile) Seek(offset int64, whence int) (int64, error) {
-	return f.file.Seek(offset, whence)
-}
-
-func (f *osFile) Write(p []byte) (int, error) {
-	return f.file.Write(p)
-}
-
-func (f *osFile) Close() error {
-	f.BaseFile.Closed = true
-
-	return f.file.Close()
-}
-
-func (f *osFile) ReadAt(p []byte, off int64) (int, error) {
-	return f.file.ReadAt(p, off)
-}
-
-func (fs *OS) absolutize(relpath string) string {
-	fullpath := filepath.FromSlash(filepath.ToSlash(relpath))
-
-	fullpath = fs.Join(fs.base, fullpath)
-	return filepath.Clean(fullpath)
+	return os.Readlink(link)
 }
