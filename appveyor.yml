@@ -1,7 +1,7 @@
 version: "{build}"
 platform: x64
 
-clone_folder: c:\gopath\src\gopkg.in\src-d\go-billy.v2
+clone_folder: c:\gopath\src\gopkg.in\src-d\go-billy.v3
 
 environment:
   GOPATH: c:\gopath

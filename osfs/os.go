@@ -1,13 +1,13 @@
 // Package osfs provides a billy filesystem for the OS.
-package osfs // import "gopkg.in/src-d/go-billy.v2/osfs"
+package osfs // import "gopkg.in/src-d/go-billy.v3/osfs"
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"gopkg.in/src-d/go-billy.v2"
-	"gopkg.in/src-d/go-billy.v2/helper/chroot"
+	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/helper/chroot"
 )
 
 const (

@@ -3,7 +3,7 @@ package memfs
 import (
 	"testing"
 
-	"gopkg.in/src-d/go-billy.v2/test"
+	"gopkg.in/src-d/go-billy.v3/test"
 
 	. "gopkg.in/check.v1"
 )

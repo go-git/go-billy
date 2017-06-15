@@ -4,8 +4,8 @@ import (
 	"os"
 
 	. "gopkg.in/check.v1"
-	. "gopkg.in/src-d/go-billy.v2"
-	"gopkg.in/src-d/go-billy.v2/util"
+	. "gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/util"
 )
 
 // DirSuite is a convenient test suite to validate any implementation of

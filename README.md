@@ -1,4 +1,4 @@
-# go-billy [![GoDoc](https://godoc.org/gopkg.in/src-d/go-billy.v2?status.svg)](https://godoc.org/gopkg.in/src-d/go-billy.v2) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![Build status](https://ci.appveyor.com/api/projects/status/vx2qn6vlakbi724t?svg=true)](https://ci.appveyor.com/project/mcuadros/go-billy) [![codecov](https://codecov.io/gh/src-d/go-billy/branch/master/graph/badge.svg)](https://codecov.io/gh/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
+# go-billy [![GoDoc](https://godoc.org/gopkg.in/src-d/go-billy.v3?status.svg)](https://godoc.org/gopkg.in/src-d/go-billy.v3) [![Build Status](https://travis-ci.org/src-d/go-billy.svg)](https://travis-ci.org/src-d/go-billy) [![Build status](https://ci.appveyor.com/api/projects/status/vx2qn6vlakbi724t?svg=true)](https://ci.appveyor.com/project/mcuadros/go-billy) [![codecov](https://codecov.io/gh/src-d/go-billy/branch/master/graph/badge.svg)](https://codecov.io/gh/src-d/go-billy) [![codebeat badge](https://codebeat.co/badges/03bdec03-b477-4472-bbe3-b552e3799174)](https://codebeat.co/projects/github-com-src-d-go-billy)
 
 The missing interface filesystem abstraction for Go. 
 Billy implements an interface based on the `os` standard library, allowing to develop applications without dependency on the underlying storage. Make virtually free implement an mocks and testing over filesystem operations.
@@ -8,7 +8,7 @@ Billy was born as part of [src-d/go-git](https://github.com/src-d/go-git) projec
 ## Installation
 
 ```go
-go get -u gopkg.in/src-d/go-billy.v2/...
+go get -u gopkg.in/src-d/go-billy.v3/...
 ```
 
 ## Why billy?

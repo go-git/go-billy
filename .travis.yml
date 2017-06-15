@@ -4,7 +4,7 @@ go:
     - 1.8
     - tip
 
-go_import_path: gopkg.in/src-d/go-billy.v2
+go_import_path: gopkg.in/src-d/go-billy.v3
 
 matrix:
     allow_failures:

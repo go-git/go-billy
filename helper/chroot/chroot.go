@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/src-d/go-billy.v2"
+	"gopkg.in/src-d/go-billy.v3"
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.

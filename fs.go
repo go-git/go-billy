@@ -29,29 +29,24 @@ type Filesystem interface {
 type Basic interface {
 	// Create creates the named file with mode 0666 (before umask), truncating
 	// it if it already exists. If successful, methods on the returned File can
-	// be used for I/O; the associated file descriptor has mode O_RDWR. If there
-	// is an error, it will be of type *PathError.
+	// be used for I/O; the associated file descriptor has mode O_RDWR.
 	Create(filename string) (File, error)
 	// Open opens the named file for reading. If successful, methods on the
 	// returned file can be used for reading; the associated file descriptor has
-	// mode O_RDONLY. If there is an error, it will be of type *PathError.
+	// mode O_RDONLY.
 	Open(filename string) (File, error)
 	// OpenFile is the generalized open call; most users will use Open or Create
 	// instead. It opens the named file with specified flag (O_RDONLY etc.) and
 	// perm, (0666 etc.) if applicable. If successful, methods on the returned
-	// File can be used for I/O. If there is an error, it will be of type
-	// *PathError.
+	// File can be used for I/O.
 	OpenFile(filename string, flag int, perm os.FileMode) (File, error)
-	// Stat returns a FileInfo describing the named file. If there is an error,
-	// it will be of type *PathError.
+	// Stat returns a FileInfo describing the named file.
 	Stat(filename string) (os.FileInfo, error)
 	// Rename renames (moves) oldpath to newpath. If newpath already exists and
 	// is not a directory, Rename replaces it. OS-specific restrictions may
-	// apply when oldpath and newpath are in different directories. If there is
-	// an error, it will be of type *LinkError.
+	// apply when oldpath and newpath are in different directories.
 	Rename(oldpath, newpath string) error
-	// Remove removes the named file or directory. If there is an error, it will
-	// be of type *PathError.
+	// Remove removes the named file or directory.
 	Remove(filename string) error
 	// Join joins any number of path elements into a single path, adding a
 	// Separator if necessary. Join calls filepath.Clean on the result; in
@@ -90,16 +85,13 @@ type Dir interface {
 type Symlink interface {
 	// Lstat returns a FileInfo describing the named file. If the file is a
 	// symbolic link, the returned FileInfo describes the symbolic link. Lstat
-	// makes no attempt to follow the link. If there is an error, it will be of
-	// type *PathError.
+	// makes no attempt to follow the link.
 	Lstat(filename string) (os.FileInfo, error)
 	// Symlink creates a symbolic-link from link to target. target may be an
 	// absolute or relative path, and need not refer to an existing node.
-	// Parent directories of link are created as necessary. If there is an
-	// error, it will be of type *LinkError.
+	// Parent directories of link are created as necessary.
 	Symlink(target, link string) error
-	// Readlink returns the target path of link. If there is an error, it will
-	// be of type *PathError.
+	// Readlink returns the target path of link.
 	Readlink(link string) (string, error)
 }
 
@@ -107,22 +99,19 @@ type Symlink interface {
 // interface as an extension to the Basic interface
 type Change interface {
 	// Chmod changes the mode of the named file to mode. If the file is a
-	// symbolic link, it changes the mode of the link's target. If there is an
-	// error, it will be of type *PathError.
+	// symbolic link, it changes the mode of the link's target.
 	Chmod(name string, mode os.FileMode) error
 	// Lchown changes the numeric uid and gid of the named file. If the file is
-	// a symbolic link, it changes the uid and gid of the link itself. If there
-	// is an error, it will be of type *PathError.
+	// a symbolic link, it changes the uid and gid of the link itself.
 	Lchown(name string, uid, gid int) error
 	// Chown changes the numeric uid and gid of the named file. If the file is a
-	// symbolic link, it changes the uid and gid of the link's target. If there
-	// is an error, it will be of type *PathError.
+	// symbolic link, it changes the uid and gid of the link's target.
 	Chown(name string, uid, gid int) error
 	// Chtimes changes the access and modification times of the named file,
 	// similar to the Unix utime() or utimes() functions.
 	//
 	// The underlying filesystem may truncate or round the values to a less
-	// precise time unit. If there is an error, it will be of type *PathError.
+	// precise time unit.
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 }
 
