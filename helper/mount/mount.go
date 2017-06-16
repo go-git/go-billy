@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/helper/polyfill"
 )
 
 var separator = string(filepath.Separator)
@@ -17,30 +18,19 @@ var separator = string(filepath.Separator)
 // Very usufull to create a temporal dir, on filesystem where is a performance
 // penalty in doing so.
 type Mount struct {
-	underlying billy.Basic
-	source     billy.Basic
+	underlying billy.Filesystem
+	source     billy.Filesystem
 	mountpoint string
-
-	uc capabilities // underlying
-	sc capabilities // source
 }
-
-type capabilities struct{ dir, symlink bool }
 
 // New creates a new filesystem wrapping up 'fs' the intercepts all the calls
 // made to `mountpoint` path and redirecting it to `source` filesystem.
 func New(fs billy.Basic, mountpoint string, source billy.Basic) *Mount {
-	h := &Mount{
-		underlying: fs,
-		source:     source,
+	return &Mount{
+		underlying: polyfill.New(fs),
+		source:     polyfill.New(source),
 		mountpoint: cleanPath(mountpoint),
 	}
-
-	_, h.sc.dir = h.source.(billy.Dir)
-	_, h.sc.symlink = h.source.(billy.Symlink)
-	_, h.uc.dir = h.underlying.(billy.Dir)
-	_, h.uc.symlink = h.underlying.(billy.Symlink)
-	return h
 }
 
 func (h *Mount) Create(path string) (billy.File, error) {
@@ -169,6 +159,10 @@ func (h *Mount) Lstat(path string) (os.FileInfo, error) {
 	return fs.Lstat(fullpath)
 }
 
+func (h *Mount) Underlying() billy.Basic {
+	return h.underlying
+}
+
 func (fs *Mount) getBasicAndPath(path string) (billy.Basic, string) {
 	path = cleanPath(path)
 	if !fs.isMountpoint(path) {
@@ -181,15 +175,7 @@ func (fs *Mount) getBasicAndPath(path string) (billy.Basic, string) {
 func (fs *Mount) getDirAndPath(path string) (billy.Dir, string, error) {
 	path = cleanPath(path)
 	if !fs.isMountpoint(path) {
-		if !fs.uc.dir {
-			return nil, "", billy.ErrNotSupported
-		}
-
 		return fs.underlying.(billy.Dir), path, nil
-	}
-
-	if !fs.sc.dir {
-		return nil, "", billy.ErrNotSupported
 	}
 
 	return fs.source.(billy.Dir), fs.mustRelToMountpoint(path), nil
@@ -198,15 +184,7 @@ func (fs *Mount) getDirAndPath(path string) (billy.Dir, string, error) {
 func (fs *Mount) getSymlinkAndPath(path string) (billy.Symlink, string, error) {
 	path = cleanPath(path)
 	if !fs.isMountpoint(path) {
-		if !fs.uc.symlink {
-			return nil, "", billy.ErrNotSupported
-		}
-
 		return fs.underlying.(billy.Symlink), path, nil
-	}
-
-	if !fs.sc.symlink {
-		return nil, "", billy.ErrNotSupported
 	}
 
 	return fs.source.(billy.Symlink), fs.mustRelToMountpoint(path), nil

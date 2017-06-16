@@ -299,7 +299,7 @@ func (s *ChrootSuite) TestSymlinkWithBasic(c *C) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
-	err := fs.Symlink("", "")
+	err := fs.Symlink("qux", "bar")
 	c.Assert(err, Equals, billy.ErrNotSupported)
 }
 
