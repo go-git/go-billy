@@ -6,28 +6,23 @@ import (
 	"strings"
 
 	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/helper/polyfill"
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.
 type ChrootHelper struct {
-	underlying billy.Basic
+	underlying billy.Filesystem
 	base       string
-
-	dirSupport      bool
-	symlinkSupport  bool
-	tempFileSupport bool
 }
 
 // New creates a new filesystem wrapping up the given 'fs'.
 // The created filesystem has its base in the given ChrootHelperectory of the
 // underlying filesystem.
 func New(fs billy.Basic, base string) billy.Filesystem {
-	helper := &ChrootHelper{underlying: fs, base: base}
-	_, helper.dirSupport = fs.(billy.Dir)
-	_, helper.symlinkSupport = fs.(billy.Symlink)
-	_, helper.tempFileSupport = fs.(billy.TempFile)
-
-	return helper
+	return &ChrootHelper{
+		underlying: polyfill.New(fs),
+		base:       base,
+	}
 }
 
 func (fs *ChrootHelper) underlyingPath(filename string) (string, error) {
@@ -125,10 +120,6 @@ func (fs *ChrootHelper) Join(elem ...string) string {
 }
 
 func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
-	if !fs.tempFileSupport {
-		return nil, billy.ErrNotSupported
-	}
-
 	fullpath, err := fs.underlyingPath(dir)
 	if err != nil {
 		return nil, err
@@ -143,10 +134,6 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
-	if !fs.dirSupport {
-		return nil, billy.ErrNotSupported
-	}
-
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err
@@ -156,10 +143,6 @@ func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
 }
 
 func (fs *ChrootHelper) MkdirAll(filename string, perm os.FileMode) error {
-	if !fs.dirSupport {
-		return billy.ErrNotSupported
-	}
-
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return err
@@ -169,10 +152,6 @@ func (fs *ChrootHelper) MkdirAll(filename string, perm os.FileMode) error {
 }
 
 func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
-	if !fs.symlinkSupport {
-		return nil, billy.ErrNotSupported
-	}
-
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -182,10 +161,6 @@ func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
 }
 
 func (fs *ChrootHelper) Symlink(target, link string) error {
-	if !fs.symlinkSupport {
-		return billy.ErrNotSupported
-	}
-
 	target = filepath.FromSlash(target)
 
 	// only rewrite target if it's already absolute
@@ -218,10 +193,6 @@ func (fs *ChrootHelper) isTargetOutBounders(link, target string) bool {
 }
 
 func (fs *ChrootHelper) Readlink(link string) (string, error) {
-	if !fs.symlinkSupport {
-		return "", billy.ErrNotSupported
-	}
-
 	fullpath, err := fs.underlyingPath(link)
 	if err != nil {
 		return "", err
@@ -244,7 +215,7 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	return string(os.PathSeparator) + target, nil
 }
 
-func (fs *ChrootHelper) Chroot(path string) (billy.Basic, error) {
+func (fs *ChrootHelper) Chroot(path string) (billy.Filesystem, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err

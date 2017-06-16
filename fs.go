@@ -121,7 +121,7 @@ type Chroot interface {
 	// Chroot returns a new filesystem from the same type where the new root is
 	// the given path. Files outside of the designated directory tree cannot be
 	// accessed.
-	Chroot(path string) (Basic, error)
+	Chroot(path string) (Filesystem, error)
 	// Root returns the root path of the filesystem.
 	Root() string
 }
