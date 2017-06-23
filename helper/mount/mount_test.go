@@ -215,6 +215,14 @@ func (s *MountSuite) TestReadDir(c *C) {
 	c.Assert(s.Source.ReadDirArgs, HasLen, 0)
 }
 
+func (s *MountSuite) TestJoin(c *C) {
+	s.Helper.Join("foo", "bar")
+
+	c.Assert(s.Underlying.JoinArgs, HasLen, 1)
+	c.Assert(s.Underlying.JoinArgs[0], DeepEquals, []string{"foo", "bar"})
+	c.Assert(s.Source.JoinArgs, HasLen, 0)
+}
+
 func (s *MountSuite) TestReadDirInMount(c *C) {
 	_, err := s.Helper.ReadDir("foo/bar/qux")
 	c.Assert(err, IsNil)

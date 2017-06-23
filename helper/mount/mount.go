@@ -141,6 +141,10 @@ func (h *Mount) Symlink(target, link string) error {
 	return fs.Symlink(target, fullpath)
 }
 
+func (h *Mount) Join(elem ...string) string {
+	return h.underlying.Join(elem...)
+}
+
 func (h *Mount) Readlink(link string) (string, error) {
 	fs, fullpath, err := h.getSymlinkAndPath(link)
 	if err != nil {
