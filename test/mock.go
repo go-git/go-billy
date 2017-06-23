@@ -16,6 +16,7 @@ type BasicMock struct {
 	StatArgs     []string
 	RenameArgs   [][2]string
 	RemoveArgs   []string
+	JoinArgs     [][]string
 }
 
 func (fs *BasicMock) Create(filename string) (billy.File, error) {
@@ -49,6 +50,7 @@ func (fs *BasicMock) Remove(filename string) error {
 }
 
 func (fs *BasicMock) Join(elem ...string) string {
+	fs.JoinArgs = append(fs.JoinArgs, elem)
 	return path.Join(elem...)
 }
 
