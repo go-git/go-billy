@@ -104,8 +104,14 @@ func (s *FilesystemSuite) TestSymlinkWithChrootBasic(c *C) {
 
 func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
 	qux, _ := s.FS.Chroot("/qux")
-	err := qux.(Filesystem).Symlink("../../file", "qux/link")
-	c.Assert(err, Equals, ErrCrossedBoundary)
+	util.WriteFile(s.FS, "file", []byte("foo"), customMode)
+
+	err := qux.Symlink("../../file", "qux/link")
+	c.Assert(err, Equals, nil)
+
+	fi, err := qux.Stat("qux/link")
+	c.Assert(fi, NotNil)
+	c.Assert(err, Equals, nil)
 }
 
 func (s *FilesystemSuite) TestReadDirWithLink(c *C) {

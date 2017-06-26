@@ -169,27 +169,12 @@ func (fs *ChrootHelper) Symlink(target, link string) error {
 		target = filepath.Clean(filepath.FromSlash(target))
 	}
 
-	if fs.isTargetOutBounders(link, target) {
-		return billy.ErrCrossedBoundary
-	}
-
 	link, err := fs.underlyingPath(link)
 	if err != nil {
 		return err
 	}
 
 	return fs.underlying.(billy.Symlink).Symlink(target, link)
-}
-
-func (fs *ChrootHelper) isTargetOutBounders(link, target string) bool {
-	fulllink := fs.Join(fs.base, link)
-	fullpath := fs.Join(filepath.Dir(fulllink), target)
-	target, err := filepath.Rel(fs.base, fullpath)
-	if err != nil {
-		return true
-	}
-
-	return isCrossBoundaries(target)
 }
 
 func (fs *ChrootHelper) Readlink(link string) (string, error) {
