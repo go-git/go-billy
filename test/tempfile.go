@@ -5,6 +5,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	"gopkg.in/src-d/go-billy.v3"
+	"gopkg.in/src-d/go-billy.v3/util"
 )
 
 // TempFileSuite is a convenient test suite to validate any implementation of
@@ -48,4 +49,38 @@ func (s *TempFileSuite) TestRemoveTempFile(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 	c.Assert(s.FS.Remove(fn), IsNil)
+}
+
+func (s *TempFileSuite) TestTempFileMany(c *C) {
+	for i := 0; i < 1024; i++ {
+		var fs []billy.File
+
+		for j := 0; j < 100; j++ {
+			f, err := s.FS.TempFile("test-dir", "test-prefix")
+			c.Assert(err, IsNil)
+			fs = append(fs, f)
+		}
+
+		for _, f := range fs {
+			c.Assert(f.Close(), IsNil)
+			c.Assert(s.FS.Remove(f.Name()), IsNil)
+		}
+	}
+}
+
+func (s *TempFileSuite) TestTempFileManyWithUtil(c *C) {
+	for i := 0; i < 1024; i++ {
+		var fs []billy.File
+
+		for j := 0; j < 100; j++ {
+			f, err := util.TempFile(s.FS, "test-dir", "test-prefix")
+			c.Assert(err, IsNil)
+			fs = append(fs, f)
+		}
+
+		for _, f := range fs {
+			c.Assert(f.Close(), IsNil)
+			c.Assert(s.FS.Remove(f.Name()), IsNil)
+		}
+	}
 }
