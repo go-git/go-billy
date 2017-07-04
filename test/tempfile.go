@@ -46,9 +46,17 @@ func (s *TempFileSuite) TestRemoveTempFile(c *C) {
 	c.Assert(err, IsNil)
 
 	fn := f.Name()
-	c.Assert(err, IsNil)
 	c.Assert(f.Close(), IsNil)
 	c.Assert(s.FS.Remove(fn), IsNil)
+}
+
+func (s *TempFileSuite) TestRenameTempFile(c *C) {
+	f, err := s.FS.TempFile("test-dir", "test-prefix")
+	c.Assert(err, IsNil)
+
+	fn := f.Name()
+	c.Assert(f.Close(), IsNil)
+	c.Assert(s.FS.Rename(fn, "other-path"), IsNil)
 }
 
 func (s *TempFileSuite) TestTempFileMany(c *C) {
