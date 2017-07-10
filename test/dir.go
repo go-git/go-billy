@@ -2,6 +2,7 @@ package test
 
 import (
 	"os"
+	"strconv"
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v3"
@@ -131,6 +132,33 @@ func (s *DirSuite) TestReadDir(c *C) {
 	c.Assert(info, HasLen, 3)
 
 	info, err = s.FS.ReadDir("/qux")
+	c.Assert(err, IsNil)
+	c.Assert(info, HasLen, 2)
+}
+
+func (s *DirSuite) TestReadDirNested(c *C) {
+	max := 100
+	path := "/"
+	for i := 0; i <= max; i++ {
+		path = s.FS.Join(path, strconv.Itoa(i))
+	}
+
+	files := []string{s.FS.Join(path, "f1"), s.FS.Join(path, "f2")}
+	for _, name := range files {
+		err := util.WriteFile(s.FS, name, nil, 0644)
+		c.Assert(err, IsNil)
+	}
+
+	path = "/"
+	for i := 0; i < max; i++ {
+		path = s.FS.Join(path, strconv.Itoa(i))
+		info, err := s.FS.ReadDir(path)
+		c.Assert(err, IsNil)
+		c.Assert(info, HasLen, 1)
+	}
+
+	path = s.FS.Join(path, strconv.Itoa(max))
+	info, err := s.FS.ReadDir(path)
 	c.Assert(err, IsNil)
 	c.Assert(info, HasLen, 2)
 }
