@@ -297,6 +297,15 @@ func (f *file) Stat() (os.FileInfo, error) {
 	}, nil
 }
 
+// Lock protects file from access from other processes. Which is a no-op
+// for this memory only filesystem.
+func (f *file) Lock() error {
+	return nil
+}
+func (f *file) Unlock() error {
+	return nil
+}
+
 type fileInfo struct {
 	name string
 	size int
