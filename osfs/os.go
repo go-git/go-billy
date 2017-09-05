@@ -23,6 +23,7 @@ func New(baseDir string) billy.Filesystem {
 	return chroot.New(&OS{}, baseDir)
 }
 
+// file is a wrapper for an os.File which adds support for file locking.
 type file struct {
 	*os.File
 }
