@@ -122,3 +122,11 @@ func (*FileMock) Seek(offset int64, whence int) (int64, error) {
 func (*FileMock) Close() error {
 	return nil
 }
+
+func (*FileMock) Lock() error {
+	return nil
+}
+
+func (*FileMock) Unlock() error {
+	return nil
+}
