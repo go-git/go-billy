@@ -83,6 +83,10 @@ func (fs *OS) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
+func (fs *OS) Stat(filename string) (os.FileInfo, error) {
+	return os.Stat(filename)
+}
+
 func (fs *OS) Remove(filename string) error {
 	return os.Remove(filename)
 }

@@ -3,13 +3,8 @@
 package osfs
 
 import (
-	"os"
 	"syscall"
 )
-
-func (fs *OS) Stat(filename string) (os.FileInfo, error) {
-	return os.Stat(filename)
-}
 
 func (f *file) Lock() error {
 	f.m.Lock()
