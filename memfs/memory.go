@@ -297,11 +297,12 @@ func (f *file) Stat() (os.FileInfo, error) {
 	}, nil
 }
 
-// Lock protects file from access from other processes. Which is a no-op
-// for this memory only filesystem.
+// Lock is a no-op in memfs.
 func (f *file) Lock() error {
 	return nil
 }
+
+// Unlock is a no-op in memfs.
 func (f *file) Unlock() error {
 	return nil
 }

@@ -54,8 +54,10 @@ const (
 	lockfileExclusiveLock = 0x2
 )
 
-// Lock protects file from access from other processes.
-func (f file) Lock() error {
+func (f *file) Lock() error {
+	f.m.Lock()
+	defer f.m.Unlock()
+
 	var overlapped windows.Overlapped
 	// err is always non-nil as per sys/windows semantics.
 	ret, _, err := lockFileExProc.Call(f.File.Fd(), lockfileExclusiveLock, 0, 0xFFFFFFFF, 0,
@@ -66,7 +68,11 @@ func (f file) Lock() error {
 	}
 	return nil
 }
-func (f file) Unlock() error {
+
+func (f *file) Unlock() error {
+	f.m.Lock()
+	defer f.m.Unlock()
+
 	// err is always non-nil as per sys/windows semantics.
 	ret, _, err := unlockFileProc.Call(f.File.Fd(), 0, 0, 0xFFFFFFFF, 0)
 	if ret == 0 {
