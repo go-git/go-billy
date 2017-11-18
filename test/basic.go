@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	. "gopkg.in/check.v1"
-	. "gopkg.in/src-d/go-billy.v3"
-	"gopkg.in/src-d/go-billy.v3/util"
+	. "gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/util"
 )
 
 // BasicSuite is a convenient test suite to validate any implementation of

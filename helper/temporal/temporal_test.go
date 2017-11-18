@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/src-d/go-billy.v3/memfs"
-	"gopkg.in/src-d/go-billy.v3/test"
+	"gopkg.in/src-d/go-billy.v4/memfs"
+	"gopkg.in/src-d/go-billy.v4/test"
 
 	. "gopkg.in/check.v1"
 )

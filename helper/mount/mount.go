@@ -8,8 +8,8 @@ import (
 
 	"fmt"
 
-	"gopkg.in/src-d/go-billy.v3"
-	"gopkg.in/src-d/go-billy.v3/helper/polyfill"
+	"gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/helper/polyfill"
 )
 
 var separator = string(filepath.Separator)

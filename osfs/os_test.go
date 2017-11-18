@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/src-d/go-billy.v3/test"
+	"gopkg.in/src-d/go-billy.v4/test"
 )
 
 func Test(t *testing.T) { TestingT(t) }
