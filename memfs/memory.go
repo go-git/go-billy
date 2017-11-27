@@ -270,6 +270,16 @@ func (f *file) Close() error {
 	return nil
 }
 
+func (f *file) Truncate(size int64) error {
+	if size < int64(len(f.content.bytes)) {
+		f.content.bytes = f.content.bytes[:size]
+	} else if more := int(size)-len(f.content.bytes); more > 0 {
+		f.content.bytes = append(f.content.bytes, make([]byte, more)...)
+	}
+
+	return nil
+}
+
 func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
 	new := &file{
 		name:    filename,

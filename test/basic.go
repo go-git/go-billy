@@ -562,3 +562,22 @@ func (s *BasicSuite) TestWriteFile(c *C) {
 
 	c.Assert(f.Close(), IsNil)
 }
+
+func (s *BasicSuite) TestTruncate(c *C) {
+	f, err := s.FS.Create("foo")
+	c.Assert(err, IsNil)
+
+	for _, sz := range []int64{4, 7, 2, 30, 0, 1} {
+		err = f.Truncate(sz)
+		c.Assert(err, IsNil)
+
+		bs, err := ioutil.ReadAll(f)
+		c.Assert(err, IsNil)
+		c.Assert(len(bs), Equals, int(sz))
+
+		_, err = f.Seek(0, io.SeekStart)
+		c.Assert(err, IsNil)
+	}
+
+	c.Assert(f.Close(), IsNil)
+}

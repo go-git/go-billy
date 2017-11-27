@@ -140,4 +140,6 @@ type File interface {
 	Lock() error
 	// Unlock unlocks the file.
 	Unlock() error
+	// Truncate the file.
+	Truncate(size int64) error
 }

@@ -130,3 +130,7 @@ func (*FileMock) Lock() error {
 func (*FileMock) Unlock() error {
 	return nil
 }
+
+func (*FileMock) Truncate(size int64) error {
+	return nil
+}
