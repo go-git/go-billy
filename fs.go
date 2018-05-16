@@ -13,6 +13,28 @@ var (
 	ErrCrossedBoundary = errors.New("chroot boundary crossed")
 )
 
+// Capability holds the supported features of a filesystem.
+type Capability uint64
+
+const (
+	// CapWrite means that the fs is writable.
+	CapWrite Capability = 1 << iota
+	// CapRead means that the fs is readable.
+	CapRead
+	// CapReadAndWrite is the ability to open a file in read and write mode.
+	CapReadAndWrite
+	// CapSeek means it is able to move position inside the file.
+	CapSeek
+	// CapTruncate means that a file can be truncated.
+	CapTruncate
+	// CapLock is the ability to lock a file.
+	CapLock
+
+	// CapAll lists all capable features.
+	CapAll Capability = CapWrite | CapRead | CapReadAndWrite |
+		CapSeek | CapTruncate | CapLock
+)
+
 // Filesystem abstract the operations in a storage-agnostic interface.
 // Each method implementation mimics the behavior of the equivalent functions
 // at the os package from the standard library.
@@ -142,4 +164,21 @@ type File interface {
 	Unlock() error
 	// Truncate the file.
 	Truncate(size int64) error
+}
+
+// Capable interface can return the available features of a filesystem.
+type Capable interface {
+	// Capabilities returns the capabilities of a filesystem in bit flags.
+	Capabilities() Capability
+}
+
+// Capabilities returns the features supported by a filesystem. If the FS
+// does not implement Capable interface it returns all features.
+func Capabilities(fs Basic) Capability {
+	capable, ok := fs.(Capable)
+	if !ok {
+		return CapAll
+	}
+
+	return capable.Capabilities()
 }
