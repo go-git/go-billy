@@ -182,3 +182,10 @@ func Capabilities(fs Basic) Capability {
 
 	return capable.Capabilities()
 }
+
+// CapabilityCheck tests the filesystem for the provided capabilities and
+// returns true in case it supports all of them.
+func CapabilityCheck(fs Basic, capabilities Capability) bool {
+	fsCaps := Capabilities(fs)
+	return fsCaps&capabilities == capabilities
+}
