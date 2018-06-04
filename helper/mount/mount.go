@@ -169,7 +169,7 @@ func (h *Mount) Underlying() billy.Basic {
 
 // Capabilities implements the Capable interface.
 func (fs *Mount) Capabilities() billy.Capability {
-	return billy.Capabilities(fs.underlying)
+	return billy.Capabilities(fs.underlying) & billy.Capabilities(fs.source)
 }
 
 func (fs *Mount) getBasicAndPath(path string) (billy.Basic, string) {

@@ -27,5 +27,5 @@ func (s *MemorySuite) TestCapabilities(c *C) {
 	c.Assert(ok, Equals, true)
 
 	caps := billy.Capabilities(s.FS)
-	c.Assert(caps, Equals, billy.CapAll&^billy.CapLock)
+	c.Assert(caps, Equals, billy.CapDefault&^billy.CapLock)
 }

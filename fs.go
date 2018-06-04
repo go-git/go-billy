@@ -13,7 +13,10 @@ var (
 	ErrCrossedBoundary = errors.New("chroot boundary crossed")
 )
 
-// Capability holds the supported features of a filesystem.
+// Capability holds the supported features of a billy filesystem. This does
+// not mean that the capability has to be supported by the underlying storage.
+// For example, a billy filesystem may support CapWrite but the storage be
+// mounted in read only mode.
 type Capability uint64
 
 const (
@@ -29,6 +32,12 @@ const (
 	CapTruncate
 	// CapLock is the ability to lock a file.
 	CapLock
+
+	// CapDefault lists all capable features supported by filesystems without
+	// Capability interface. This list should not be changed until a major
+	// version is released.
+	CapDefault Capability = CapWrite | CapRead | CapReadAndWrite |
+		CapSeek | CapTruncate | CapLock
 
 	// CapAll lists all capable features.
 	CapAll Capability = CapWrite | CapRead | CapReadAndWrite |
@@ -177,7 +186,7 @@ type Capable interface {
 func Capabilities(fs Basic) Capability {
 	capable, ok := fs.(Capable)
 	if !ok {
-		return CapAll
+		return CapDefault
 	}
 
 	return capable.Capabilities()
