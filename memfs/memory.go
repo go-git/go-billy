@@ -192,11 +192,11 @@ func (fs *Memory) Readlink(link string) (string, error) {
 
 // Capabilities implements the Capable interface.
 func (fs *Memory) Capabilities() billy.Capability {
-	return billy.CapWrite |
-		billy.CapRead |
-		billy.CapReadAndWrite |
-		billy.CapSeek |
-		billy.CapTruncate
+	return billy.WriteCapability |
+		billy.ReadCapability |
+		billy.ReadAndWriteCapability |
+		billy.SeekCapability |
+		billy.TruncateCapability
 }
 
 type file struct {

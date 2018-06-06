@@ -15,33 +15,35 @@ var (
 
 // Capability holds the supported features of a billy filesystem. This does
 // not mean that the capability has to be supported by the underlying storage.
-// For example, a billy filesystem may support CapWrite but the storage be
-// mounted in read only mode.
+// For example, a billy filesystem may support WriteCapability but the
+// storage be mounted in read only mode.
 type Capability uint64
 
 const (
-	// CapWrite means that the fs is writable.
-	CapWrite Capability = 1 << iota
-	// CapRead means that the fs is readable.
-	CapRead
-	// CapReadAndWrite is the ability to open a file in read and write mode.
-	CapReadAndWrite
-	// CapSeek means it is able to move position inside the file.
-	CapSeek
-	// CapTruncate means that a file can be truncated.
-	CapTruncate
-	// CapLock is the ability to lock a file.
-	CapLock
+	// WriteCapability means that the fs is writable.
+	WriteCapability Capability = 1 << iota
+	// ReadCapability means that the fs is readable.
+	ReadCapability
+	// ReadAndWriteCapability is the ability to open a file in read and write mode.
+	ReadAndWriteCapability
+	// SeekCapability means it is able to move position inside the file.
+	SeekCapability
+	// TruncateCapability means that a file can be truncated.
+	TruncateCapability
+	// LockCapability is the ability to lock a file.
+	LockCapability
 
-	// CapDefault lists all capable features supported by filesystems without
-	// Capability interface. This list should not be changed until a major
-	// version is released.
-	CapDefault Capability = CapWrite | CapRead | CapReadAndWrite |
-		CapSeek | CapTruncate | CapLock
+	// DefaultCapabilities lists all capable features supported by filesystems
+	// without Capability interface. This list should not be changed until a
+	// major version is released.
+	DefaultCapabilities Capability = WriteCapability | ReadCapability |
+		ReadAndWriteCapability | SeekCapability | TruncateCapability |
+		LockCapability
 
-	// CapAll lists all capable features.
-	CapAll Capability = CapWrite | CapRead | CapReadAndWrite |
-		CapSeek | CapTruncate | CapLock
+	// AllCapabilities lists all capable features.
+	AllCapabilities Capability = WriteCapability | ReadCapability |
+		ReadAndWriteCapability | SeekCapability | TruncateCapability |
+		LockCapability
 )
 
 // Filesystem abstract the operations in a storage-agnostic interface.
@@ -186,7 +188,7 @@ type Capable interface {
 func Capabilities(fs Basic) Capability {
 	capable, ok := fs.(Capable)
 	if !ok {
-		return CapDefault
+		return DefaultCapabilities
 	}
 
 	return capable.Capabilities()

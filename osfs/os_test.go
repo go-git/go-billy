@@ -44,5 +44,5 @@ func (s *OSSuite) TestCapabilities(c *C) {
 	c.Assert(ok, Equals, true)
 
 	caps := billy.Capabilities(s.FS)
-	c.Assert(caps, Equals, billy.CapAll)
+	c.Assert(caps, Equals, billy.AllCapabilities)
 }

@@ -20,15 +20,15 @@ func (s *FSSuite) TestCapabilities(c *C) {
 		caps     Capability
 		expected bool
 	}{
-		{CapLock, false},
-		{CapRead, true},
-		{CapRead | CapWrite, true},
-		{CapRead | CapWrite | CapReadAndWrite | CapTruncate, true},
-		{CapRead | CapWrite | CapReadAndWrite | CapTruncate | CapLock, false},
-		{CapTruncate | CapLock, false},
+		{LockCapability, false},
+		{ReadCapability, true},
+		{ReadCapability | WriteCapability, true},
+		{ReadCapability | WriteCapability | ReadAndWriteCapability | TruncateCapability, true},
+		{ReadCapability | WriteCapability | ReadAndWriteCapability | TruncateCapability | LockCapability, false},
+		{TruncateCapability | LockCapability, false},
 	}
 
-	// This filesystem supports all capabilities except for CapLock
+	// This filesystem supports all capabilities except for LockCapability
 	mem := memfs.New()
 
 	for _, e := range cases {
