@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	. "gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/memfs"
+	"gopkg.in/src-d/go-billy.v4/test"
 
 	. "gopkg.in/check.v1"
 )
@@ -29,9 +29,12 @@ func (s *FSSuite) TestCapabilities(c *C) {
 	}
 
 	// This filesystem supports all capabilities except for LockCapability
-	mem := memfs.New()
+	fs := new(test.NoLockCapFs)
 
 	for _, e := range cases {
-		c.Assert(CapabilityCheck(mem, e.caps), Equals, e.expected)
+		c.Assert(CapabilityCheck(fs, e.caps), Equals, e.expected)
 	}
+
+	dummy := new(test.BasicMock)
+	c.Assert(Capabilities(dummy), Equals, DefaultCapabilities)
 }
