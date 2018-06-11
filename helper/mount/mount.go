@@ -167,6 +167,11 @@ func (h *Mount) Underlying() billy.Basic {
 	return h.underlying
 }
 
+// Capabilities implements the Capable interface.
+func (fs *Mount) Capabilities() billy.Capability {
+	return billy.Capabilities(fs.underlying) & billy.Capabilities(fs.source)
+}
+
 func (fs *Mount) getBasicAndPath(path string) (billy.Basic, string) {
 	path = cleanPath(path)
 	if !fs.isMountpoint(path) {
