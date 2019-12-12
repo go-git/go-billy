@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gopkg.in/src-d/go-billy.v4"
@@ -23,6 +24,14 @@ var _ = Suite(&OSSuite{})
 
 func (s *OSSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
+	if runtime.GOOS == "plan9" {
+		// On Plan 9, permission mode of newly created files
+		// or directories are based on the permission mode of
+		// the containing directory (see http://man.cat-v.org/plan_9/5/open).
+		// Since TestOpenFileWithModes and TestStat creates files directly
+		// in the temporary directory, we need to make it more permissive.
+		c.Assert(os.Chmod(s.path, 0777), IsNil)
+	}
 	s.FilesystemSuite = test.NewFilesystemSuite(New(s.path))
 }
 

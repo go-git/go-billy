@@ -3,6 +3,7 @@ package test
 import (
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v4"
@@ -19,6 +20,9 @@ type SymlinkSuite struct {
 }
 
 func (s *SymlinkSuite) TestSymlink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -31,6 +35,9 @@ func (s *SymlinkSuite) TestSymlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkCrossDirs(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "foo/file", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -43,6 +50,9 @@ func (s *SymlinkSuite) TestSymlinkCrossDirs(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkNested(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "file", []byte("hello world!"), 0644)
 	c.Assert(err, IsNil)
 
@@ -59,6 +69,9 @@ func (s *SymlinkSuite) TestSymlinkNested(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkWithNonExistentdTarget(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
@@ -67,6 +80,9 @@ func (s *SymlinkSuite) TestSymlinkWithNonExistentdTarget(c *C) {
 }
 
 func (s *SymlinkSuite) TestSymlinkWithExistingLink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "link", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -75,6 +91,9 @@ func (s *SymlinkSuite) TestSymlinkWithExistingLink(c *C) {
 }
 
 func (s *SymlinkSuite) TestOpenWithSymlinkToRelativePath(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
@@ -91,6 +110,9 @@ func (s *SymlinkSuite) TestOpenWithSymlinkToRelativePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestOpenWithSymlinkToAbsolutePath(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
@@ -107,6 +129,9 @@ func (s *SymlinkSuite) TestOpenWithSymlinkToAbsolutePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "file", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -115,6 +140,9 @@ func (s *SymlinkSuite) TestReadlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithRelativePath(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -127,6 +155,9 @@ func (s *SymlinkSuite) TestReadlinkWithRelativePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithAbsolutePath(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)
 
@@ -139,6 +170,9 @@ func (s *SymlinkSuite) TestReadlinkWithAbsolutePath(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithNonExistentTarget(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
@@ -148,11 +182,17 @@ func (s *SymlinkSuite) TestReadlinkWithNonExistentTarget(c *C) {
 }
 
 func (s *SymlinkSuite) TestReadlinkWithNonExistentLink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	_, err := s.FS.Readlink("link")
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (s *SymlinkSuite) TestStatLink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
@@ -178,6 +218,9 @@ func (s *SymlinkSuite) TestLstat(c *C) {
 }
 
 func (s *SymlinkSuite) TestLstatLink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	util.WriteFile(s.FS, "foo/bar", []byte("fosddddaaao"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
@@ -190,6 +233,9 @@ func (s *SymlinkSuite) TestLstatLink(c *C) {
 }
 
 func (s *SymlinkSuite) TestRenameWithSymlink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := s.FS.Symlink("file", "link")
 	c.Assert(err, IsNil)
 
@@ -201,6 +247,9 @@ func (s *SymlinkSuite) TestRenameWithSymlink(c *C) {
 }
 
 func (s *SymlinkSuite) TestRemoveWithSymlink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 

@@ -6,6 +6,7 @@ os_archs=(
     darwin/amd64
     freebsd/amd64
     linux/amd64
+    plan9/386
     solaris/amd64
     windows/amd64
 )

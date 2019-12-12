@@ -72,7 +72,7 @@ func (fs *OS) Rename(from, to string) error {
 		return err
 	}
 
-	return os.Rename(from, to)
+	return rename(from, to)
 }
 
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {

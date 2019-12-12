@@ -2,6 +2,7 @@ package test
 
 import (
 	"os"
+	"runtime"
 
 	. "gopkg.in/check.v1"
 	. "gopkg.in/src-d/go-billy.v4"
@@ -33,6 +34,9 @@ func NewFilesystemSuite(fs Filesystem) FilesystemSuite {
 }
 
 func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := s.FS.MkdirAll("dir", 0755)
 	c.Assert(err, IsNil)
 
@@ -46,6 +50,9 @@ func (s *FilesystemSuite) TestSymlinkToDir(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkReadDir(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
@@ -85,6 +92,9 @@ func (s *ChrootSuite) TestReadDirWithChroot(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkWithChrootBasic(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	qux, _ := s.FS.Chroot("/qux")
 
 	err := util.WriteFile(qux, "file", nil, 0644)
@@ -103,6 +113,9 @@ func (s *FilesystemSuite) TestSymlinkWithChrootBasic(c *C) {
 }
 
 func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	qux, _ := s.FS.Chroot("/qux")
 	util.WriteFile(s.FS, "file", []byte("foo"), customMode)
 
@@ -115,6 +128,9 @@ func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
 }
 
 func (s *FilesystemSuite) TestReadDirWithLink(c *C) {
+	if runtime.GOOS == "plan9" {
+		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
 	util.WriteFile(s.FS, "foo/bar", []byte("foo"), customMode)
 	s.FS.Symlink("bar", "foo/qux")
 
