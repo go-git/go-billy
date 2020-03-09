@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/src-d/go-billy.v4"
+	"github.com/go-git/go-billy/v5"
 )
 
 // Glob returns the names of all files matching pattern or nil

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/helper/polyfill"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/helper/polyfill"
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.

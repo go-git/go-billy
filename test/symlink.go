@@ -6,8 +6,8 @@ import (
 	"runtime"
 
 	. "gopkg.in/check.v1"
-	. "gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/util"
+	. "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 // SymlinkSuite is a convenient test suite to validate any implementation of

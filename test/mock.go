@@ -6,7 +6,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"gopkg.in/src-d/go-billy.v4"
+	"github.com/go-git/go-billy/v5"
 )
 
 type BasicMock struct {

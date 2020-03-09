@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"testing"
 
-	"gopkg.in/src-d/go-billy.v4/memfs"
-	"gopkg.in/src-d/go-billy.v4/util"
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 func TestTempFile(t *testing.T) {

@@ -1,5 +1,5 @@
 // Package memfs provides a billy filesystem base on memory.
-package memfs // import "gopkg.in/src-d/go-billy.v4/memfs"
+package memfs // import "github.com/go-git/go-billy/v5/memfs"
 
 import (
 	"errors"
@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/helper/chroot"
-	"gopkg.in/src-d/go-billy.v4/util"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/helper/chroot"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 const separator = filepath.Separator
