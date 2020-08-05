@@ -289,6 +289,11 @@ func (f *file) Truncate(size int64) error {
 	return nil
 }
 
+func (f *file) Readdir(count int) ([]os.FileInfo, error) {
+	// Not implemented
+	return nil, nil
+}
+
 func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
 	new := &file{
 		name:    filename,

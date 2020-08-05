@@ -135,6 +135,10 @@ func (*FileMock) Truncate(size int64) error {
 	return nil
 }
 
+func (*FileMock) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, nil
+}
+
 type OnlyReadCapFs struct {
 	BasicMock
 }
