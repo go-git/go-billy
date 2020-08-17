@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.
@@ -222,6 +223,15 @@ func (fs *ChrootHelper) Capabilities() billy.Capability {
 	return billy.Capabilities(fs.underlying)
 }
 
+type fileInfo struct {
+	os.FileInfo
+	name string
+}
+
+func (fi *fileInfo) Name() string {
+	return fi.name
+}
+
 type file struct {
 	billy.File
 	name string
@@ -239,4 +249,13 @@ func newFile(fs billy.Filesystem, f billy.File, filename string) billy.File {
 
 func (f *file) Name() string {
 	return f.name
+}
+
+func (f *file) Stat() (os.FileInfo, error) {
+	fi, err := util.Stat(f.File)
+	if err != nil {
+		return fi, err
+	}
+	name := f.Name()
+	return &fileInfo{fi, name}, nil
 }
