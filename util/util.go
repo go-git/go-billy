@@ -207,15 +207,6 @@ func TempDir(fs billy.Dir, dir, prefix string) (name string, err error) {
 	return
 }
 
-// Stat returns the os.FileInfo structure describing file.
-func Stat(f billy.File) (os.FileInfo, error) {
-	fi, ok := f.(interface{ Stat() (os.FileInfo, error) })
-	if !ok {
-		return nil, billy.ErrNotSupported
-	}
-	return fi.Stat()
-}
-
 type underlying interface {
 	Underlying() billy.Basic
 }

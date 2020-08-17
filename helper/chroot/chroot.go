@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
-	"github.com/go-git/go-billy/v5/util"
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.
@@ -252,7 +251,7 @@ func (f *file) Name() string {
 }
 
 func (f *file) Stat() (os.FileInfo, error) {
-	fi, err := util.Stat(f.File)
+	fi, err := billy.Stat(f.File)
 	if err != nil {
 		return fi, err
 	}
