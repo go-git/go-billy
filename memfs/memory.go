@@ -229,7 +229,7 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 		return 0, os.ErrClosed
 	}
 
-	if !isReadAndWrite(f.flag) && !isReadOnly(f.flag) {
+	if isWriteOnly(f.flag) {
 		return 0, errors.New("read not supported")
 	}
 
