@@ -44,3 +44,27 @@ func (s *MemorySuite) TestNegativeOffsets(c *C) {
 	_, err = f.Write(buf)
 	c.Assert(err, ErrorMatches, "writeat negative: negative offset")
 }
+
+func (s *MemorySuite) TestOrder(c *C) {
+	var err error
+
+	files := []string{
+		"a",
+		"b",
+		"c",
+	}
+	for _, f := range files {
+		_, err = s.FS.Create(f)
+		c.Assert(err, IsNil)
+	}
+
+	attemps := 30
+	for n := 0; n < attemps; n++ {
+		actual, err := s.FS.ReadDir("")
+		c.Assert(err, IsNil)
+
+		for i, f := range files {
+			c.Assert(actual[i].Name(), Equals, f)
+		}
+	}
+}
