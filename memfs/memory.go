@@ -52,6 +52,10 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 			return nil, err
 		}
 	} else {
+		if isExclusive(flag) {
+			return nil, os.ErrExist
+		}
+
 		if target, isLink := fs.resolveLink(filename, f); isLink {
 			return fs.OpenFile(target, flag, perm)
 		}
@@ -375,6 +379,10 @@ func (c *content) Len() int {
 
 func isCreate(flag int) bool {
 	return flag&os.O_CREATE != 0
+}
+
+func isExclusive(flag int) bool {
+	return flag&os.O_EXCL != 0
 }
 
 func isAppend(flag int) bool {
