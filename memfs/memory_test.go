@@ -59,6 +59,7 @@ func (s *MemorySuite) TestExclusive(c *C) {
 
 	_, err = s.FS.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	c.Assert(err, ErrorMatches, os.ErrExist.Error())
+}
 
 func (s *MemorySuite) TestOrder(c *C) {
 	var err error
