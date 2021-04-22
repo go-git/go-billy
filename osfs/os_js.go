@@ -1,3 +1,5 @@
+// +build js
+
 package osfs
 
 import (
@@ -9,15 +11,7 @@ import (
 // globalMemFs is the global memory fs
 var globalMemFs = memfs.New()
 
-const (
-	defaultDirectoryMode = 0755
-	defaultCreateMode    = 0666
-)
-
-// OS is a filesystem shim for js.
-type OS struct{}
-
 // New returns a new OS filesystem.
 func New(baseDir string) billy.Filesystem {
-	return chroot.New(globalMemFs, baseDir)
+	return chroot.New(globalMemFs, globalMemFs.Join("/", baseDir))
 }
