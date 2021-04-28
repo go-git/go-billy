@@ -18,12 +18,15 @@ const (
 	defaultCreateMode    = 0666
 )
 
+// Default Filesystem representing the root of the os filesystem.
+var Default = &OS{}
+
 // OS is a filesystem based on the os filesystem.
 type OS struct{}
 
 // New returns a new OS filesystem.
 func New(baseDir string) billy.Filesystem {
-	return chroot.New(&OS{}, baseDir)
+	return chroot.New(Default, baseDir)
 }
 
 func (fs *OS) Create(filename string) (billy.File, error) {

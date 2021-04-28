@@ -11,7 +11,11 @@ import (
 // globalMemFs is the global memory fs
 var globalMemFs = memfs.New()
 
+// Default Filesystem representing the root of in-memory filesystem for a
+// js/wasm environment.
+var Default = memfs.New()
+
 // New returns a new OS filesystem.
 func New(baseDir string) billy.Filesystem {
-	return chroot.New(globalMemFs, globalMemFs.Join("/", baseDir))
+	return chroot.New(Default, Default.Join("/", baseDir))
 }
