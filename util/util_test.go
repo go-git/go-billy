@@ -41,3 +41,24 @@ func TestTempDir(t *testing.T) {
 		}
 	}
 }
+
+func TestReadFile(t *testing.T) {
+	fs := memfs.New()
+	f, err := util.TempFile(fs, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.Write([]byte("foo"))
+	f.Close()
+
+	data, err := util.ReadFile(fs, f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(data) != "foo" || err != nil {
+		t.Errorf("ReadFile(%q, %q) = %v, %v", fs, f.Name(), data, err)
+	}
+
+}
