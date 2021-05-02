@@ -25,7 +25,7 @@ func TestTempFile(t *testing.T) {
 	}
 }
 
-func TestTempDir(t *testing.T) {
+func TestTempDir_WithDir(t *testing.T) {
 	fs := memfs.New()
 
 	dir := os.TempDir()
@@ -61,4 +61,31 @@ func TestReadFile(t *testing.T) {
 		t.Errorf("ReadFile(%q, %q) = %v, %v", fs, f.Name(), data, err)
 	}
 
+}
+
+func TestTempDir(t *testing.T) {
+	fs := memfs.New()
+	f, err := util.TempDir(fs, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = filepath.Rel(os.TempDir(), f)
+	if err != nil {
+		t.Errorf(`TempDir(fs, "", "") = %s, should be relative to os.TempDir if root filesystem`, f)
+	}
+}
+
+func TestTempDir_WithNonRoot(t *testing.T) {
+	fs := memfs.New()
+	fs, _ = fs.Chroot("foo")
+	f, err := util.TempDir(fs, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = filepath.Rel(os.TempDir(), f)
+	if err == nil {
+		t.Errorf(`TempDir(fs, "", "") = %s, should not be relative to os.TempDir on not root filesystem`, f)
+	}
 }
