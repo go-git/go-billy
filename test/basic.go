@@ -116,6 +116,12 @@ func (s *BasicSuite) TestOpenFile(c *C) {
 	c.Assert(f.Name(), Equals, "foo1")
 	s.testReadClose(c, f, "foo1overwritten")
 
+	// Read-only if it exists
+	f, err = s.FS.OpenFile("foo1", os.O_RDONLY|os.O_CREATE, defaultMode)
+	c.Assert(err, IsNil)
+	c.Assert(f.Name(), Equals, "foo1")
+	s.testReadClose(c, f, "foo1overwritten")
+
 	// Create when it does exist
 	f, err = s.FS.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultMode)
 	c.Assert(err, IsNil)
