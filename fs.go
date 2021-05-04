@@ -200,3 +200,12 @@ func CapabilityCheck(fs Basic, capabilities Capability) bool {
 	fsCaps := Capabilities(fs)
 	return fsCaps&capabilities == capabilities
 }
+
+// Stat returns the os.FileInfo structure describing file.
+func Stat(f File) (os.FileInfo, error) {
+	fi, ok := f.(interface{ Stat() (os.FileInfo, error) })
+	if !ok {
+		return nil, ErrNotSupported
+	}
+	return fi.Stat()
+}
