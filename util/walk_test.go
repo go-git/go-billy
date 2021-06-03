@@ -3,7 +3,7 @@ package util_test
 import (
 	"errors"
 	"fmt"
-	"io/fs"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -23,19 +23,19 @@ var _ = Suite(&WalkSuite{})
 
 func (s *WalkSuite) TestWalkCanSkipTopDirectory(c *C) {
 	filesystem := memfs.New()
-	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info fs.FileInfo, err error) error { return filepath.SkipDir }), IsNil)
+	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return filepath.SkipDir }), IsNil)
 }
 
 func (s *WalkSuite) TestWalkReturnsAnErrorWhenRootDoesNotExist(c *C) {
 	filesystem := memfs.New()
-	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info fs.FileInfo, err error) error { return err }), NotNil)
+	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return err }), NotNil)
 }
 
 func (s *WalkSuite) TestWalkOnPlainFile(c *C) {
 	filesystem := memfs.New()
 	createFile(c, filesystem, "./README.md")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "./README.md", func(path string, info fs.FileInfo, err error) error {
+	c.Assert(util.Walk(filesystem, "./README.md", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
 	}), IsNil)
@@ -47,7 +47,7 @@ func (s *WalkSuite) TestWalkOnExistingFolder(c *C) {
 	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(c, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info fs.FileInfo, err error) error {
+	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
 	}), IsNil)
@@ -66,7 +66,7 @@ func (s *WalkSuite) TestWalkCanSkipFolder(c *C) {
 	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(c, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info fs.FileInfo, err error) error {
+	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == "path/to/some/subfolder" {
 			return filepath.SkipDir
@@ -88,7 +88,7 @@ func (s *WalkSuite) TestWalkStopsOnError(c *C) {
 	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(c, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info fs.FileInfo, err error) error {
+	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == "path/to/some/subfolder" {
 			return errors.New("uncaught error")
@@ -109,7 +109,7 @@ func (s *WalkSuite) TestWalkForwardsStatErrors(c *C) {
 	memFilesystem := memfs.New()
 	filesystem := &fnFs{
 		Filesystem: memFilesystem,
-		lstat: func(path string) (fs.FileInfo, error) {
+		lstat: func(path string) (os.FileInfo, error) {
 			if path == "path/to/some/subfolder" {
 				return nil, errors.New("uncaught error")
 			}
@@ -120,7 +120,7 @@ func (s *WalkSuite) TestWalkForwardsStatErrors(c *C) {
 	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(c, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info fs.FileInfo, err error) error {
+	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == "path/to/some/subfolder" {
 			c.Assert(err, NotNil)
@@ -147,10 +147,10 @@ func createFile(c *C, filesystem billy.Filesystem, path string) {
 
 type fnFs struct {
 	billy.Filesystem
-	lstat func(path string) (fs.FileInfo, error)
+	lstat func(path string) (os.FileInfo, error)
 }
 
-func (f *fnFs) Lstat(path string) (fs.FileInfo, error) {
+func (f *fnFs) Lstat(path string) (os.FileInfo, error) {
 	if f.lstat != nil {
 		return f.lstat(path)
 	}
