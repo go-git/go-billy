@@ -46,25 +46,27 @@ func walk(fs billy.Filesystem, path string, info os.FileInfo, walkFn filepath.Wa
 	return nil
 }
 
-// Walk walks the file tree rooted at root, calling fn for each file or directory in the tree, including root.
+// Walk walks the file tree rooted at root, calling fn for each file or 
+// directory in the tree, including root. All errors that arise visiting files
+// and directories are filtered by fn: see the WalkFunc documentation for
+// details.
 //
-// All errors that arise visiting files and directories are filtered by fn: see the WalkFunc documentation for details.
-//
-// The files are walked in lexical order, which makes the output deterministic but requires Walk to read an entire directory into memory before proceeding to walk that directory.
-//
-// Walk does not follow symbolic links.
-//
-// adapted from https://github.com/golang/go/blob/3b770f2ccb1fa6fecc22ea822a19447b10b70c5c/src/path/filepath/path.go#L500
+// The files are walked in lexical order, which makes the output deterministic
+// but requires Walk to read an entire directory into memory before proceeding
+// to walk that directory. Walk does not follow symbolic links.
+// 
+// Function adapted from https://github.com/golang/go/blob/3b770f2ccb1fa6fecc22ea822a19447b10b70c5c/src/path/filepath/path.go#L500
 func Walk(fs billy.Filesystem, root string, walkFn filepath.WalkFunc) error {
 	info, err := fs.Lstat(root)
-
 	if err != nil {
 		err = walkFn(root, nil, err)
 	} else {
 		err = walk(fs, root, info, walkFn)
 	}
+	
 	if err == filepath.SkipDir {
 		return nil
 	}
+	
 	return err
 }
