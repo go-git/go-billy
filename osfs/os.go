@@ -81,7 +81,7 @@ func (fs *OS) Rename(from, to string) error {
 }
 
 func (fs *OS) MkdirAll(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, defaultDirectoryMode)
+	return os.MkdirAll(path, perm)
 }
 
 func (fs *OS) Open(filename string) (billy.File, error) {
