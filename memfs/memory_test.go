@@ -47,7 +47,6 @@ func (s *MemorySuite) TestNegativeOffsets(c *C) {
 	c.Assert(err, ErrorMatches, "writeat negative: negative offset")
 }
 
-
 func (s *MemorySuite) TestExclusive(c *C) {
 	f, err := s.FS.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	c.Assert(err, IsNil)
@@ -74,8 +73,8 @@ func (s *MemorySuite) TestOrder(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	attemps := 30
-	for n := 0; n < attemps; n++ {
+	attempts := 30
+	for n := 0; n < attempts; n++ {
 		actual, err := s.FS.ReadDir("")
 		c.Assert(err, IsNil)
 
