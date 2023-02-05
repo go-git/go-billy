@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/test"
+	"github.com/go-git/go-billy/v5/util"
 
 	. "gopkg.in/check.v1"
 )
@@ -82,4 +83,23 @@ func (s *MemorySuite) TestOrder(c *C) {
 			c.Assert(actual[i].Name(), Equals, f)
 		}
 	}
+}
+
+func (s *MemorySuite) TestTruncateAppend(c *C) {
+	err := util.WriteFile(s.FS, "truncate_append", []byte("file-content"), 0666)
+	c.Assert(err, IsNil)
+
+	f, err := s.FS.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0666)
+	c.Assert(err, IsNil)
+
+	n, err := f.Write([]byte("replace"))
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, len("replace"))
+
+	err = f.Close()
+	c.Assert(err, IsNil)
+
+	data, err := util.ReadFile(s.FS, "truncate_append")
+	c.Assert(err, IsNil)
+	c.Assert(string(data), Equals, "replace")
 }
