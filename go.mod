@@ -1,7 +1,7 @@
 module github.com/go-git/go-billy/v5
 
 // go-git supports the last 3 stable Go versions.
-go 1.18
+go 1.19
 
 require (
 	golang.org/x/sys v0.8.0
