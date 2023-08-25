@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 package osfs
@@ -17,14 +18,14 @@ import (
 
 func Test(t *testing.T) { TestingT(t) }
 
-type OSSuite struct {
+type ChrootOSSuite struct {
 	test.FilesystemSuite
 	path string
 }
 
-var _ = Suite(&OSSuite{})
+var _ = Suite(&ChrootOSSuite{})
 
-func (s *OSSuite) SetUpTest(c *C) {
+func (s *ChrootOSSuite) SetUpTest(c *C) {
 	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
 	if runtime.GOOS == "plan9" {
 		// On Plan 9, permission mode of newly created files
@@ -34,15 +35,15 @@ func (s *OSSuite) SetUpTest(c *C) {
 		// in the temporary directory, we need to make it more permissive.
 		c.Assert(os.Chmod(s.path, 0777), IsNil)
 	}
-	s.FilesystemSuite = test.NewFilesystemSuite(New(s.path))
+	s.FilesystemSuite = test.NewFilesystemSuite(newChrootOS(s.path))
 }
 
-func (s *OSSuite) TearDownTest(c *C) {
+func (s *ChrootOSSuite) TearDownTest(c *C) {
 	err := os.RemoveAll(s.path)
 	c.Assert(err, IsNil)
 }
 
-func (s *OSSuite) TestOpenDoesNotCreateDir(c *C) {
+func (s *ChrootOSSuite) TestOpenDoesNotCreateDir(c *C) {
 	_, err := s.FS.Open("dir/non-existent")
 	c.Assert(err, NotNil)
 
@@ -50,7 +51,7 @@ func (s *OSSuite) TestOpenDoesNotCreateDir(c *C) {
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
-func (s *OSSuite) TestCapabilities(c *C) {
+func (s *ChrootOSSuite) TestCapabilities(c *C) {
 	_, ok := s.FS.(billy.Capable)
 	c.Assert(ok, Equals, true)
 
