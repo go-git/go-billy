@@ -18,6 +18,9 @@ const (
 	defaultCreateMode    = 0o666
 )
 
+// Default Filesystem representing the root of the os filesystem.
+var Default = &ChrootOS{}
+
 // New returns a new OS filesystem.
 func New(baseDir string, opts ...Option) billy.Filesystem {
 	o := &options{}

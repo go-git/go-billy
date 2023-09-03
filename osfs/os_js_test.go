@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/helper/chroot"
 	"github.com/go-git/go-billy/v5/test"
 
 	. "gopkg.in/check.v1"
@@ -45,4 +47,17 @@ func (s *OSSuite) TestCapabilities(c *C) {
 
 	caps := billy.Capabilities(s.FS)
 	c.Assert(caps, Equals, billy.DefaultCapabilities&^billy.LockCapability)
+}
+
+func TestDefault(t *testing.T) {
+	want := &chroot.ChrootHelper{} // memfs is wrapped around ChrootHelper.
+	got := Default
+
+	if reflect.TypeOf(got) != reflect.TypeOf(want) {
+		t.Errorf("wanted Default to be %T got %T", want, got)
+	}
+}
+
+func TestNewAPI(t *testing.T) {
+	_ = New("/")
 }
