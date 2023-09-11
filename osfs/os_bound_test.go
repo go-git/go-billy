@@ -43,7 +43,7 @@ func TestOpen(t *testing.T) {
 			name: "file: rel same dir",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
@@ -51,7 +51,7 @@ func TestOpen(t *testing.T) {
 			name: "file: rel path to above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
 		},
@@ -60,7 +60,7 @@ func TestOpen(t *testing.T) {
 			before: func(dir string) billy.Filesystem {
 				os.Mkdir(filepath.Join(dir, "sub"), 0o700)
 				os.WriteFile(filepath.Join(dir, "sub/rel-below-cwd"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "sub/rel-below-cwd",
 		},
@@ -68,7 +68,7 @@ func TestOpen(t *testing.T) {
 			name: "file: abs inside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
 			makeAbs:  true,
@@ -76,7 +76,7 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "/some/path/outside/cwd",
 			wantErr:  notFoundError(),
@@ -87,7 +87,7 @@ func TestOpen(t *testing.T) {
 				target := filepath.Join(dir, "target-file")
 				os.WriteFile(target, []byte("anything"), 0o600)
 				os.Symlink(target, filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
@@ -95,7 +95,7 @@ func TestOpen(t *testing.T) {
 			name: "symlink: rel outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("../../../../../../outside/cwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -105,7 +105,7 @@ func TestOpen(t *testing.T) {
 			name: "symlink: abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/some/path/outside/cwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -116,7 +116,7 @@ func TestOpen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -185,7 +185,7 @@ func Test_Symlink(t *testing.T) {
 			link: "new-dir/symlink",
 			before: func(dir string) billy.Filesystem {
 				os.Mkdir(filepath.Join(dir, "new-dir"), 0o701)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			target: filepath.FromSlash("../../../some/random/path"),
 		},
@@ -194,7 +194,7 @@ func Test_Symlink(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -238,7 +238,7 @@ func Test_Symlink(t *testing.T) {
 func TestTempFile(t *testing.T) {
 	g := gomega.NewWithT(t)
 	dir := t.TempDir()
-	fs := newBoundOS(dir)
+	fs := newBoundOS(dir, true)
 
 	f, err := fs.TempFile("", "prefix")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -266,7 +266,7 @@ func TestTempFile(t *testing.T) {
 func TestChroot(t *testing.T) {
 	g := gomega.NewWithT(t)
 	tmp := t.TempDir()
-	fs := newBoundOS(tmp)
+	fs := newBoundOS(tmp, true)
 
 	f, err := fs.Chroot("test")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -277,7 +277,7 @@ func TestChroot(t *testing.T) {
 func TestRoot(t *testing.T) {
 	g := gomega.NewWithT(t)
 	dir := t.TempDir()
-	fs := newBoundOS(dir)
+	fs := newBoundOS(dir, true)
 
 	root := fs.Root()
 	g.Expect(root).To(gomega.Equal(dir))
@@ -297,7 +297,7 @@ func TestReadLink(t *testing.T) {
 			name: "symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			expected: filepath.FromSlash("/etc/passwd"),
@@ -311,7 +311,7 @@ func TestReadLink(t *testing.T) {
 			name: "symlink: abs symlink pointing outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -329,7 +329,7 @@ func TestReadLink(t *testing.T) {
 				os.Symlink(outside, filepath.Join(cwd, "symlink"))
 				os.WriteFile(filepath.Join(outside, "file"), []byte("anything"), 0o600)
 
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "current-dir/symlink/file",
 			makeAbs:  true,
@@ -348,7 +348,7 @@ func TestReadLink(t *testing.T) {
 				os.Symlink(cwdTarget, cwd)
 				os.Symlink(cwdTarget, cwdAlt)
 				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename:        "symlink-file",
 			expected:        filepath.Join("cwd-target/file"),
@@ -369,7 +369,7 @@ func TestReadLink(t *testing.T) {
 				os.Symlink(cwdTarget, cwd)
 				os.Symlink(outsideDir, outside)
 				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-outside/symlink-file",
 			wantErr:  "path outside base dir",
@@ -379,7 +379,7 @@ func TestReadLink(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -420,7 +420,7 @@ func TestLstat(t *testing.T) {
 			name: "rel symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
@@ -428,7 +428,7 @@ func TestLstat(t *testing.T) {
 			name: "rel symlink: pointing to rel path above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
@@ -436,7 +436,7 @@ func TestLstat(t *testing.T) {
 			name: "abs symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -445,7 +445,7 @@ func TestLstat(t *testing.T) {
 			name: "abs symlink: pointing to rel outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  false,
@@ -463,7 +463,7 @@ func TestLstat(t *testing.T) {
 				os.Symlink(cwdTarget, cwd)
 				os.Symlink(cwdTarget, cwdAlt)
 				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-file",
 			makeAbs:  false,
@@ -483,7 +483,7 @@ func TestLstat(t *testing.T) {
 				os.Symlink(cwdTarget, cwd)
 				os.Symlink(outsideDir, outside)
 				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-outside/symlink-file",
 			makeAbs:  false,
@@ -503,7 +503,7 @@ func TestLstat(t *testing.T) {
 			name: "file: rel",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
@@ -511,7 +511,7 @@ func TestLstat(t *testing.T) {
 			name: "file: abs",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 			makeAbs:  true,
@@ -521,7 +521,7 @@ func TestLstat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -557,7 +557,7 @@ func TestStat(t *testing.T) {
 			name: "rel symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			wantErr:  notFoundError(),
@@ -566,7 +566,7 @@ func TestStat(t *testing.T) {
 			name: "rel symlink: pointing to rel path above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			wantErr:  notFoundError(),
@@ -576,7 +576,7 @@ func TestStat(t *testing.T) {
 			name: "abs symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -586,7 +586,7 @@ func TestStat(t *testing.T) {
 			name: "abs symlink: pointing to rel outside cwd",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  false,
@@ -606,7 +606,7 @@ func TestStat(t *testing.T) {
 			name: "rel file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
@@ -614,7 +614,7 @@ func TestStat(t *testing.T) {
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 			makeAbs:  true,
@@ -624,7 +624,7 @@ func TestStat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -669,7 +669,7 @@ func TestRemove(t *testing.T) {
 		{
 			name: "inexistent dir",
 			before: func(dir string) billy.Filesystem {
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "inexistent",
 			wantErr:  notFoundError(),
@@ -678,7 +678,7 @@ func TestRemove(t *testing.T) {
 			name: "same dir file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
@@ -688,7 +688,7 @@ func TestRemove(t *testing.T) {
 				target := filepath.Join(dir, "target-file")
 				os.WriteFile(target, []byte("anything"), 0o600)
 				os.Symlink(target, filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
@@ -696,7 +696,7 @@ func TestRemove(t *testing.T) {
 			name: "rel path to file above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
 		},
@@ -704,7 +704,7 @@ func TestRemove(t *testing.T) {
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
 			makeAbs:  true,
@@ -719,7 +719,7 @@ func TestRemove(t *testing.T) {
 				os.MkdirAll(filepath.Dir(outsideFile), 0o700)
 				os.WriteFile(outsideFile, []byte("anything"), 0o600)
 				os.Symlink(outsideFile, filepath.Join(cwd, "remove-abs-symlink"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "remove-abs-symlink",
 			wantErr:  notFoundError(),
@@ -734,7 +734,7 @@ func TestRemove(t *testing.T) {
 				os.MkdirAll(filepath.Dir(outsideFile), 0o700)
 				os.WriteFile(outsideFile, []byte("anything"), 0o600)
 				os.Symlink(filepath.Join("..", "outside-cwd", "file2"), filepath.Join(cwd, "remove-abs-symlink2"))
-				return newBoundOS(cwd)
+				return newBoundOS(cwd, true)
 			},
 			filename: "remove-rel-symlink",
 			wantErr:  notFoundError(),
@@ -744,7 +744,7 @@ func TestRemove(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			fs := newBoundOS(dir, true)
 
 			if tt.before != nil {
 				fs = tt.before(dir)
@@ -778,7 +778,7 @@ func TestRemoveAll(t *testing.T) {
 			name: "parent with children",
 			before: func(dir string) billy.Filesystem {
 				os.MkdirAll(filepath.Join(dir, "parent/children"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "parent",
 		},
@@ -790,7 +790,7 @@ func TestRemoveAll(t *testing.T) {
 			name: "same dir file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
@@ -800,7 +800,7 @@ func TestRemoveAll(t *testing.T) {
 				target := filepath.Join(dir, "target-file")
 				os.WriteFile(target, []byte("anything"), 0o600)
 				os.Symlink(target, filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
@@ -808,7 +808,7 @@ func TestRemoveAll(t *testing.T) {
 			name: "rel path to file above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
 		},
@@ -816,7 +816,7 @@ func TestRemoveAll(t *testing.T) {
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
 			makeAbs:  true,
@@ -825,7 +825,7 @@ func TestRemoveAll(t *testing.T) {
 			name: "abs symlink",
 			before: func(dir string) billy.Filesystem {
 				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
-				return newBoundOS(dir)
+				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 			makeAbs:  true,
@@ -835,7 +835,7 @@ func TestRemoveAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir).(*BoundOS)
+			fs := newBoundOS(dir, true).(*BoundOS)
 
 			if tt.before != nil {
 				fs = tt.before(dir).(*BoundOS)
@@ -886,7 +886,7 @@ func TestJoin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.wanted, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-			fs := newBoundOS(t.TempDir())
+			fs := newBoundOS(t.TempDir(), true)
 
 			got := fs.Join(tt.elems...)
 			g.Expect(got).To(gomega.Equal(tt.wanted))
@@ -903,6 +903,7 @@ func TestAbs(t *testing.T) {
 		expected        string
 		makeExpectedAbs bool
 		wantErr         string
+		deduplicatePath bool
 		before          func(dir string)
 	}{
 		{
@@ -936,10 +937,17 @@ func TestAbs(t *testing.T) {
 			expected: filepath.FromSlash("/working/dir/file"),
 		},
 		{
-			name:     "path: abs file within cwd",
+			name:            "path: abs file within cwd",
+			cwd:             filepath.FromSlash("/working/dir"),
+			filename:        filepath.FromSlash("/working/dir/abs-file"),
+			expected:        filepath.FromSlash("/working/dir/abs-file"),
+			deduplicatePath: true,
+		},
+		{
+			name:     "path: abs file within cwd wo deduplication",
 			cwd:      filepath.FromSlash("/working/dir"),
 			filename: filepath.FromSlash("/working/dir/abs-file"),
-			expected: filepath.FromSlash("/working/dir/abs-file"),
+			expected: filepath.FromSlash("/working/dir/working/dir/abs-file"),
 		},
 		{
 			name:     "path: abs file within cwd",
@@ -956,6 +964,7 @@ func TestAbs(t *testing.T) {
 			before: func(dir string) {
 				os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
 			},
+			deduplicatePath: true,
 		},
 		{
 			name:            "abs symlink: within cwd w rel descending target",
@@ -966,6 +975,7 @@ func TestAbs(t *testing.T) {
 			before: func(dir string) {
 				os.Symlink("within-cwd", filepath.Join(dir, "ln-rel-cwd-cwd"))
 			},
+			deduplicatePath: true,
 		},
 		{
 			name:            "abs symlink: within cwd w abs ascending target",
@@ -976,6 +986,7 @@ func TestAbs(t *testing.T) {
 			before: func(dir string) {
 				os.Symlink("/some/outside/dir", filepath.Join(dir, "ln-cwd-up"))
 			},
+			deduplicatePath: true,
 		},
 		{
 			name:            "abs symlink: within cwd w rel ascending target",
@@ -986,6 +997,7 @@ func TestAbs(t *testing.T) {
 			before: func(dir string) {
 				os.Symlink("../../outside-cwd", filepath.Join(dir, "ln-rel-cwd-up"))
 			},
+			deduplicatePath: true,
 		},
 		{
 			name:            "rel symlink: within cwd w abs descending target",
@@ -995,6 +1007,7 @@ func TestAbs(t *testing.T) {
 			before: func(dir string) {
 				os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
 			},
+			deduplicatePath: true,
 		},
 		{
 			name:            "rel symlink: within cwd w rel descending target",
@@ -1032,7 +1045,7 @@ func TestAbs(t *testing.T) {
 				cwd = t.TempDir()
 			}
 
-			fs := newBoundOS(cwd).(*BoundOS)
+			fs := newBoundOS(cwd, tt.deduplicatePath).(*BoundOS)
 			if tt.before != nil {
 				tt.before(cwd)
 			}
@@ -1063,7 +1076,7 @@ func TestAbs(t *testing.T) {
 func TestReadDir(t *testing.T) {
 	g := gomega.NewWithT(t)
 	dir := t.TempDir()
-	fs := newBoundOS(dir)
+	fs := newBoundOS(dir, true)
 
 	f, err := os.Create(filepath.Join(dir, "file1"))
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -1098,7 +1111,7 @@ func TestMkdirAll(t *testing.T) {
 	cwd := filepath.Join(root, "cwd")
 	target := "abc"
 	targetAbs := filepath.Join(cwd, target)
-	fs := newBoundOS(cwd)
+	fs := newBoundOS(cwd, true)
 
 	// Even if CWD is changed outside of the fs instance,
 	// the base dir must still be observed.
@@ -1132,7 +1145,7 @@ func TestMkdirAll(t *testing.T) {
 func TestRename(t *testing.T) {
 	g := gomega.NewWithT(t)
 	dir := t.TempDir()
-	fs := newBoundOS(dir)
+	fs := newBoundOS(dir, true)
 
 	oldFile := "old-file"
 	newFile := filepath.Join("newdir", "newfile")

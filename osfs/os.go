@@ -22,14 +22,18 @@ const (
 var Default = &ChrootOS{}
 
 // New returns a new OS filesystem.
+// By default paths are deduplicated, but still enforced
+// under baseDir. For more info refer to WithDeduplicatePath.
 func New(baseDir string, opts ...Option) billy.Filesystem {
-	o := &options{}
+	o := &options{
+		deduplicatePath: true,
+	}
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	if o.Type == BoundOSFS {
-		return newBoundOS(baseDir)
+		return newBoundOS(baseDir, o.deduplicatePath)
 	}
 
 	return newChrootOS(baseDir)
@@ -49,8 +53,23 @@ func WithChrootOS() Option {
 	}
 }
 
+// WithDeduplicatePath toggles the deduplication of the base dir in the path.
+// This occurs when absolute links are being used.
+// Assuming base dir /base/dir and an absolute symlink /base/dir/target:
+//
+// With DeduplicatePath (default): /base/dir/target
+// Without DeduplicatePath: /base/dir/base/dir/target
+//
+// This option is only used by the BoundOS OS type.
+func WithDeduplicatePath(enabled bool) Option {
+	return func(o *options) {
+		o.deduplicatePath = enabled
+	}
+}
+
 type options struct {
 	Type
+	deduplicatePath bool
 }
 
 type Type int
