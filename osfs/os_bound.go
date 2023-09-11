@@ -41,11 +41,12 @@ import (
 //  3. Readlink and Lstat ensures that the link file is located within the base
 //     dir, evaluating any symlinks that file or base dir may contain.
 type BoundOS struct {
-	baseDir string
+	baseDir         string
+	deduplicatePath bool
 }
 
-func newBoundOS(d string) billy.Filesystem {
-	return &BoundOS{baseDir: d}
+func newBoundOS(d string, deduplicatePath bool) billy.Filesystem {
+	return &BoundOS{baseDir: d, deduplicatePath: deduplicatePath}
 }
 
 func (fs *BoundOS) Create(filename string) (billy.File, error) {
@@ -212,10 +213,21 @@ func (fs *BoundOS) createDir(fullpath string) error {
 func (fs *BoundOS) abs(filename string) (string, error) {
 	if filename == fs.baseDir {
 		filename = string(filepath.Separator)
-	} else if cw := fs.baseDir + string(filepath.Separator); strings.HasPrefix(filename, cw) {
-		filename = strings.TrimPrefix(filename, cw)
 	}
-	return securejoin.SecureJoin(fs.baseDir, filename)
+
+	path, err := securejoin.SecureJoin(fs.baseDir, filename)
+	if err != nil {
+		return "", nil
+	}
+
+	if fs.deduplicatePath {
+		vol := filepath.VolumeName(fs.baseDir)
+		dup := filepath.Join(fs.baseDir, fs.baseDir[len(vol):])
+		if strings.HasPrefix(path, dup+string(filepath.Separator)) {
+			return fs.abs(path[len(dup):])
+		}
+	}
+	return path, nil
 }
 
 // insideBaseDir checks whether filename is located within
