@@ -5,9 +5,9 @@ import (
 	"os"
 	"runtime"
 
-	. "gopkg.in/check.v1"
 	. "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	. "gopkg.in/check.v1"
 )
 
 // SymlinkSuite is a convenient test suite to validate any implementation of
@@ -113,6 +113,9 @@ func (s *SymlinkSuite) TestOpenWithSymlinkToAbsolutePath(c *C) {
 	if runtime.GOOS == "plan9" {
 		c.Skip("skipping on Plan 9; symlinks are not supported")
 	}
+	if runtime.GOOS == "wasip1" {
+		c.Skip("skipping on wasip1")
+	}
 	err := util.WriteFile(s.FS, "dir/file", []byte("foo"), 0644)
 	c.Assert(err, IsNil)
 
@@ -157,6 +160,9 @@ func (s *SymlinkSuite) TestReadlinkWithRelativePath(c *C) {
 func (s *SymlinkSuite) TestReadlinkWithAbsolutePath(c *C) {
 	if runtime.GOOS == "plan9" {
 		c.Skip("skipping on Plan 9; symlinks are not supported")
+	}
+	if runtime.GOOS == "wasip1" {
+		c.Skip("skipping on wasip1")
 	}
 	err := util.WriteFile(s.FS, "dir/file", nil, 0644)
 	c.Assert(err, IsNil)

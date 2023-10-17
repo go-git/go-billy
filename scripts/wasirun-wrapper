@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# Wrapper script for wasirun to be executable by go test -exec
+#
+
+which wasirun || go install github.com/stealthrocket/wasi-go/cmd/wasirun@latest
+
+# Make temp dir for for mapping into wasirun
+map_dir=$(mktemp -d)
+
+main_wasm=$1
+shift
+
+wasirun --dir=${map_dir} ${main_wasm} -- $*
