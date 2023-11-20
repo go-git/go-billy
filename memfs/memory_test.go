@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
@@ -83,6 +84,17 @@ func (s *MemorySuite) TestOrder(c *C) {
 			c.Assert(actual[i].Name(), Equals, f)
 		}
 	}
+}
+
+func (s *MemorySuite) TestNotFound(c *C) {
+	files, err := s.FS.ReadDir("asdf")
+	c.Assert(files, HasLen, 0)
+	// JS / wasip have this error message captalised.
+	msg := "open /asdf: (N|n)o such file or directory"
+	if runtime.GOOS == "windows" {
+		msg = `open \\asdf: The system cannot find the file specified\.`
+	}
+	c.Assert(err, ErrorMatches, msg)
 }
 
 func (s *MemorySuite) TestTruncateAppend(c *C) {

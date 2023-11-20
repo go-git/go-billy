@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-git/go-billy/v5"
@@ -25,7 +26,7 @@ type Memory struct {
 	tempCount int
 }
 
-//New returns a new Memory filesystem.
+// New returns a new Memory filesystem.
 func New() billy.Filesystem {
 	fs := &Memory{s: newStorage()}
 	return chroot.New(fs, string(separator))
@@ -133,6 +134,8 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 		if target, isLink := fs.resolveLink(path, f); isLink {
 			return fs.ReadDir(target)
 		}
+	} else {
+		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
 	}
 
 	var entries []os.FileInfo
