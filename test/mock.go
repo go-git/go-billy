@@ -115,6 +115,10 @@ func (*FileMock) ReadAt(b []byte, off int64) (int, error) {
 	return 0, nil
 }
 
+func (*FileMock) WriteAt(b []byte, off int64) (int, error) {
+	return 0, nil
+}
+
 func (*FileMock) Seek(offset int64, whence int) (int64, error) {
 	return 0, nil
 }
