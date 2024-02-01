@@ -1,4 +1,4 @@
-// +build !js
+// +build !js,!tamago
 
 // Package osfs provides a billy filesystem for the OS.
 package osfs // import "github.com/go-git/go-billy/v5/osfs"
