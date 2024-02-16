@@ -1,0 +1,33 @@
+on: [push, pull_request]
+name: Test TamaGo
+jobs:
+  test-tamago:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install TamaGo
+      run: |
+        wget https://github.com/usbarmory/tamago-go/releases/download/tamago-go${VERSION}/tamago-go${VERSION}.linux-amd64.tar.gz
+        sudo tar -xvf tamago-go${VERSION}.linux-amd64.tar.gz -C /
+      env:
+        VERSION: 1.21.6
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Test
+      run: |
+        mkdir test_tamago ; cd test_tamago
+        cat << EOF >> test_tamago.go
+        package main
+        import (
+                _ "github.com/go-git/go-billy/osfs"
+        )
+        func main() {}
+        EOF
+        $TAMAGO mod init test
+        $TAMAGO mod tidy
+        $TAMAGO build test_tamago.go
+      env:
+        GOOS: tamago
+        GOARCH: arm
+        TAMAGO: /usr/local/tamago-go/bin/go
