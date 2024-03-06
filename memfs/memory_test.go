@@ -27,6 +27,12 @@ func (s *MemorySuite) SetUpTest(c *C) {
 	s.FilesystemSuite = test.NewFilesystemSuite(New())
 }
 
+func (s *MemorySuite) TestRootExists(c *C) {
+	f, err := s.FS.Stat("/")
+	c.Assert(err, IsNil)
+	c.Assert(f.IsDir(), Equals, true)
+}
+
 func (s *MemorySuite) TestCapabilities(c *C) {
 	_, ok := s.FS.(billy.Capable)
 	c.Assert(ok, Equals, true)
