@@ -59,6 +59,9 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		}
 
 		if target, isLink := fs.resolveLink(filename, f); isLink {
+			if target == filename {
+				return nil, os.ErrNotExist
+			}
 			return fs.OpenFile(target, flag, perm)
 		}
 	}
