@@ -121,3 +121,9 @@ func (s *MemorySuite) TestTruncateAppend(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "replace")
 }
+
+func (s *MemorySuite) TestSymlink(c *C) {
+	s.FS.Symlink("test", "test")
+	_, err := s.FS.Open("test")
+	c.Assert(err, NotNil)
+}
