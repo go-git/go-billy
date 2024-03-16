@@ -123,7 +123,16 @@ func (s *MemorySuite) TestTruncateAppend(c *C) {
 }
 
 func (s *MemorySuite) TestSymlink(c *C) {
-	s.FS.Symlink("test", "test")
-	_, err := s.FS.Open("test")
-	c.Assert(err, NotNil)
+	err := s.FS.Symlink("test", "test")
+	c.Assert(err, IsNil)
+	_, err = s.FS.Open("test")
+	c.Assert(err, Equals, os.ErrNotExist)
+}
+
+func (s *MemorySuite) TestOpen(c *C) {
+	err := util.WriteFile(s.FS, "foo", []byte("bar"), 0666)
+	c.Assert(err, IsNil)
+
+	_, err = s.FS.Open("foo")
+	c.Assert(err, IsNil)
 }
