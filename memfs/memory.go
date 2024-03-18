@@ -59,10 +59,9 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		}
 
 		if target, isLink := fs.resolveLink(filename, f); isLink {
-			if target == filename {
-				return nil, os.ErrNotExist
+			if target != filename {
+				return fs.OpenFile(target, flag, perm)
 			}
-			return fs.OpenFile(target, flag, perm)
 		}
 	}
 
@@ -136,7 +135,9 @@ func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 	if f, has := fs.s.Get(path); has {
 		if target, isLink := fs.resolveLink(path, f); isLink {
-			return fs.ReadDir(target)
+			if target != path {
+				return fs.ReadDir(target)
+			}
 		}
 	} else {
 		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
