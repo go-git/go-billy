@@ -103,7 +103,10 @@ func WriteFile(fs billy.Basic, filename string, data []byte, perm os.FileMode) (
 	}
 	defer func() {
 		if f != nil {
-			err = f.Close()
+			err1 := f.Close()
+			if err == nil {
+				err = err1
+			}
 		}
 	}()
 
