@@ -248,7 +248,7 @@ func ReadFile(fs billy.Basic, name string) ([]byte, error) {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var size int
 	if info, err := fs.Stat(name); err == nil {
