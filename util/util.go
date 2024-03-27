@@ -96,22 +96,26 @@ func removeAll(fs billy.Basic, path string) error {
 // WriteFile writes data to a file named by filename in the given filesystem.
 // If the file does not exist, WriteFile creates it with permissions perm;
 // otherwise WriteFile truncates it before writing.
-func WriteFile(fs billy.Basic, filename string, data []byte, perm os.FileMode) error {
+func WriteFile(fs billy.Basic, filename string, data []byte, perm os.FileMode) (err error) {
 	f, err := fs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if f != nil {
+			err1 := f.Close()
+			if err == nil {
+				err = err1
+			}
+		}
+	}()
 
 	n, err := f.Write(data)
 	if err == nil && n < len(data) {
 		err = io.ErrShortWrite
 	}
 
-	if err1 := f.Close(); err == nil {
-		err = err1
-	}
-
-	return err
+	return nil
 }
 
 // Random number state.
