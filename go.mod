@@ -1,7 +1,7 @@
 module github.com/go-git/go-billy/v5
 
 // go-git supports the last 3 stable Go versions.
-go 1.19
+go 1.20
 
 require (
 	github.com/cyphar/filepath-securejoin v0.2.4
