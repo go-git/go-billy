@@ -236,6 +236,19 @@ func TestSymlink(t *testing.T) {
 			link:   "/net",
 			want:   "\\net\\bar",
 		},
+		{
+			name:    "duplicate symlink",
+			target:  "/bar",
+			link:    "/foo",
+			wantErr: os.ErrExist.Error(),
+		},
+		{
+			name:    "symlink over existing file",
+			target:  "/foo/bar",
+			link:    "/file",
+			want:    "/file",
+			wantErr: os.ErrExist.Error(),
+		},
 	}
 
 	// Cater for memfs not being os-agnostic.
@@ -272,10 +285,9 @@ func TestSymlink(t *testing.T) {
 
 func TestJoin(t *testing.T) {
 	tests := []struct {
-		name   string
-		legacy bool
-		elem   []string
-		want   string
+		name string
+		elem []string
+		want string
 	}{
 		{name: "empty", elem: []string{""}, want: ""},
 		{name: "c:", elem: []string{"C:"}, want: "C:"},

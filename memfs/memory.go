@@ -182,7 +182,7 @@ func (fs *Memory) Join(elem ...string) string {
 }
 
 func (fs *Memory) Symlink(target, link string) error {
-	_, err := fs.Stat(link)
+	_, err := fs.Lstat(link)
 	if err == nil {
 		return os.ErrExist
 	}
