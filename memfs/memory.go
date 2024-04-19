@@ -19,7 +19,9 @@ import (
 
 const separator = filepath.Separator
 
-// Memory a very convenient filesystem based on memory files
+var errNotLink = errors.New("not a link")
+
+// Memory a very convenient filesystem based on memory files.
 type Memory struct {
 	s *storage
 
@@ -72,8 +74,6 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 	return f.Duplicate(filename, perm, flag), nil
 }
 
-var errNotLink = errors.New("not a link")
-
 func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink bool) {
 	if !isSymlink(f.mode) {
 		return fullpath, false
@@ -91,7 +91,7 @@ func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink b
 // unit (eg.: `C:\`)  to assert that is absolute, but in this mem implementation
 // any path starting by `separator` is also considered absolute.
 func isAbs(path string) bool {
-	return filepath.IsAbs(path) || strings.HasPrefix(path, string(separator))
+	return filepath.IsAbs(path) || strings.HasPrefix(path, string(filepath.Separator))
 }
 
 func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
@@ -177,6 +177,8 @@ func (fs *Memory) Remove(filename string) error {
 	return fs.s.Remove(filename)
 }
 
+// Falls back to Go's filepath.Join, which works differently depending on the
+// OS where the code is being executed.
 func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
@@ -187,7 +189,7 @@ func (fs *Memory) Symlink(target, link string) error {
 		return os.ErrExist
 	}
 
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -238,7 +240,7 @@ func (f *file) Read(b []byte) (int, error) {
 	n, err := f.ReadAt(b, f.position)
 	f.position += int64(n)
 
-	if err == io.EOF && n != 0 {
+	if errors.Is(err, io.EOF) && n != 0 {
 		err = nil
 	}
 
