@@ -91,7 +91,7 @@ func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink b
 // unit (eg.: `C:\`)  to assert that is absolute, but in this mem implementation
 // any path starting by `separator` is also considered absolute.
 func isAbs(path string) bool {
-	return filepath.IsAbs(path) || strings.HasPrefix(path, string(filepath.Separator))
+	return filepath.IsAbs(path) || strings.HasPrefix(path, string(separator))
 }
 
 func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
