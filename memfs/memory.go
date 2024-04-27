@@ -19,7 +19,9 @@ import (
 
 const separator = filepath.Separator
 
-// Memory a very convenient filesystem based on memory files
+var errNotLink = errors.New("not a link")
+
+// Memory a very convenient filesystem based on memory files.
 type Memory struct {
 	s *storage
 
@@ -59,10 +61,9 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 		}
 
 		if target, isLink := fs.resolveLink(filename, f); isLink {
-			if target == filename {
-				return nil, os.ErrNotExist
+			if target != filename {
+				return fs.OpenFile(target, flag, perm)
 			}
-			return fs.OpenFile(target, flag, perm)
 		}
 	}
 
@@ -72,8 +73,6 @@ func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.F
 
 	return f.Duplicate(filename, perm, flag), nil
 }
-
-var errNotLink = errors.New("not a link")
 
 func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink bool) {
 	if !isSymlink(f.mode) {
@@ -136,7 +135,9 @@ func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 	if f, has := fs.s.Get(path); has {
 		if target, isLink := fs.resolveLink(path, f); isLink {
-			return fs.ReadDir(target)
+			if target != path {
+				return fs.ReadDir(target)
+			}
 		}
 	} else {
 		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
@@ -176,17 +177,19 @@ func (fs *Memory) Remove(filename string) error {
 	return fs.s.Remove(filename)
 }
 
+// Falls back to Go's filepath.Join, which works differently depending on the
+// OS where the code is being executed.
 func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
 func (fs *Memory) Symlink(target, link string) error {
-	_, err := fs.Stat(link)
+	_, err := fs.Lstat(link)
 	if err == nil {
 		return os.ErrExist
 	}
 
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -237,7 +240,7 @@ func (f *file) Read(b []byte) (int, error) {
 	n, err := f.ReadAt(b, f.position)
 	f.position += int64(n)
 
-	if err == io.EOF && n != 0 {
+	if errors.Is(err, io.EOF) && n != 0 {
 		err = nil
 	}
 
