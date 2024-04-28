@@ -1105,6 +1105,14 @@ func TestReadDir(t *testing.T) {
 	g.Expect(dirs).To(gomega.BeNil())
 }
 
+func TestInsideBaseDirEval(t*testing.T) {
+	g := gomega.NewWithT(t)
+	fs := BoundOS{baseDir: "/"}
+	b, err :=  fs.insideBaseDirEval("a")
+	g.Expect(b).To(gomega.BeTrue())
+	g.Expect(err).To(gomega.BeNil())
+}
+
 func TestMkdirAll(t *testing.T) {
 	g := gomega.NewWithT(t)
 	root := t.TempDir()
