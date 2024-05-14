@@ -4,7 +4,7 @@ module github.com/go-git/go-billy/v5
 go 1.20
 
 require (
-	github.com/cyphar/filepath-securejoin v0.2.4
+	github.com/cyphar/filepath-securejoin v0.2.5
 	github.com/onsi/gomega v1.33.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.19.0
