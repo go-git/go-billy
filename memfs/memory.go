@@ -1,5 +1,5 @@
 // Package memfs provides a billy filesystem base on memory.
-package memfs // import "github.com/go-git/go-billy/v5/memfs"
+package memfs
 
 import (
 	"errors"
