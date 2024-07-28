@@ -138,7 +138,6 @@ func (s *storage) Rename(from, to string) error {
 func (s *storage) move(from, to string) error {
 	s.files[to] = s.files[from]
 	s.files[to].name = filepath.Base(to)
-	s.children[to] = s.children[from]
 
 	defer func() {
 		delete(s.children, from)
