@@ -1133,8 +1133,14 @@ func TestReadDir(t *testing.T) {
 
 func TestInsideBaseDirEval(t *testing.T) {
 	assert := assert.New(t)
+
 	fs := BoundOS{baseDir: "/"}
 	b, err := fs.insideBaseDirEval("a")
+	assert.True(b)
+	assert.Nil(err)
+
+	fs = BoundOS{baseDir: ""}
+	b, err = fs.insideBaseDirEval(filepath.Join("a", "b", "c"))
 	assert.True(b)
 	assert.Nil(err)
 }

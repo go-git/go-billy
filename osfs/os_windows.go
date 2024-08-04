@@ -52,7 +52,7 @@ func rename(from, to string) error {
 	return os.Rename(from, to)
 }
 
-func umask(new int) func() {
+func umask(_ int) func() {
 	return func() {
 	}
 }

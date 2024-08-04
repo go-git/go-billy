@@ -287,8 +287,7 @@ func (fs *BoundOS) insideBaseDir(filename string) (bool, error) {
 // a dir that is within the fs.baseDir, by first evaluating any symlinks
 // that either filename or fs.baseDir may contain.
 func (fs *BoundOS) insideBaseDirEval(filename string) (bool, error) {
-	// "/" contains all others.
-	if fs.baseDir == "/" || fs.baseDir == filename {
+	if fs.baseDir == "/" || fs.baseDir == "" || fs.baseDir == filename {
 		return true, nil
 	}
 	dir, err := filepath.EvalSymlinks(filepath.Dir(filename))
