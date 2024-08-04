@@ -48,6 +48,14 @@ func TestOpen(t *testing.T) {
 			filename: "test-file",
 		},
 		{
+			name: "file: dot rel same dir",
+			before: func(dir string) billy.Filesystem {
+				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				return newBoundOS(dir, true)
+			},
+			filename: "./test-file",
+		},
+		{
 			name: "file: rel path to above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
@@ -158,6 +166,11 @@ func Test_Symlink(t *testing.T) {
 		{
 			name:   "link to abs valid target",
 			link:   "symlink",
+			target: filepath.FromSlash("/etc/passwd"),
+		},
+		{
+			name:   "dot link to abs valid target",
+			link:   "./symlink",
 			target: filepath.FromSlash("/etc/passwd"),
 		},
 		{
@@ -508,6 +521,14 @@ func TestLstat(t *testing.T) {
 			filename: "test-file",
 		},
 		{
+			name: "file: dot rel",
+			before: func(dir string) billy.Filesystem {
+				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				return newBoundOS(dir, true)
+			},
+			filename: "./test-file",
+		},
+		{
 			name: "file: abs",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
@@ -611,6 +632,13 @@ func TestStat(t *testing.T) {
 			filename: "test-file",
 		},
 		{
+			name: "rel dot dir",
+			before: func(dir string) billy.Filesystem {
+				return newBoundOS(dir, true)
+			},
+			filename: ".",
+		},
+		{
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
@@ -673,6 +701,14 @@ func TestRemove(t *testing.T) {
 			},
 			filename: "inexistent",
 			wantErr:  notFoundError(),
+		},
+		{
+			name: "same dot dir",
+			before: func(dir string) billy.Filesystem {
+				return newBoundOS(dir, true)
+			},
+			filename: ".",
+			wantErr:  "base dir cannot be removed",
 		},
 		{
 			name: "same dir file",
@@ -1105,10 +1141,10 @@ func TestReadDir(t *testing.T) {
 	g.Expect(dirs).To(gomega.BeNil())
 }
 
-func TestInsideBaseDirEval(t*testing.T) {
+func TestInsideBaseDirEval(t *testing.T) {
 	g := gomega.NewWithT(t)
 	fs := BoundOS{baseDir: "/"}
-	b, err :=  fs.insideBaseDirEval("a")
+	b, err := fs.insideBaseDirEval("a")
 	g.Expect(b).To(gomega.BeTrue())
 	g.Expect(err).To(gomega.BeNil())
 }
