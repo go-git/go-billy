@@ -4,57 +4,43 @@
 package osfs
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type ChrootOSSuite struct {
-	test.FilesystemSuite
-	path string
-}
-
-var _ = Suite(&ChrootOSSuite{})
-
-func (s *ChrootOSSuite) SetUpTest(c *C) {
-	s.path, _ = ioutil.TempDir(os.TempDir(), "go-billy-osfs-test")
+func setup(t *testing.T) (billy.Filesystem, string) {
+	path := t.TempDir()
 	if runtime.GOOS == "plan9" {
 		// On Plan 9, permission mode of newly created files
 		// or directories are based on the permission mode of
 		// the containing directory (see http://man.cat-v.org/plan_9/5/open).
 		// Since TestOpenFileWithModes and TestStat creates files directly
 		// in the temporary directory, we need to make it more permissive.
-		c.Assert(os.Chmod(s.path, 0777), IsNil)
+		err := os.Chmod(path, 0777)
+		assert.NoError(t, err)
 	}
-	s.FilesystemSuite = test.NewFilesystemSuite(newChrootOS(s.path))
+	return newChrootOS(path), path
 }
 
-func (s *ChrootOSSuite) TearDownTest(c *C) {
-	err := os.RemoveAll(s.path)
-	c.Assert(err, IsNil)
+func TestOpenDoesNotCreateDir(t *testing.T) {
+	fs, path := setup(t)
+	_, err := fs.Open("dir/non-existent")
+	assert.Error(t, err)
+
+	_, err = os.Stat(filepath.Join(path, "dir"))
+	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func (s *ChrootOSSuite) TestOpenDoesNotCreateDir(c *C) {
-	_, err := s.FS.Open("dir/non-existent")
-	c.Assert(err, NotNil)
+func TestCapabilities(t *testing.T) {
+	fs, _ := setup(t)
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
 
-	_, err = os.Stat(filepath.Join(s.path, "dir"))
-	c.Assert(os.IsNotExist(err), Equals, true)
-}
-
-func (s *ChrootOSSuite) TestCapabilities(c *C) {
-	_, ok := s.FS.(billy.Capable)
-	c.Assert(ok, Equals, true)
-
-	caps := billy.Capabilities(s.FS)
-	c.Assert(caps, Equals, billy.AllCapabilities)
+	caps := billy.Capabilities(fs)
+	assert.Equal(t, billy.AllCapabilities, caps)
 }

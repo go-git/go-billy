@@ -6,363 +6,356 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/go-git/go-billy/v5/internal/test"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&ChrootSuite{})
-
-type ChrootSuite struct{}
-
-func (s *ChrootSuite) TestCreate(c *C) {
+func TestCreate(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	f, err := fs.Create("bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+	assert.NoError(t, err)
+	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
-	c.Assert(m.CreateArgs, HasLen, 1)
-	c.Assert(m.CreateArgs[0], Equals, "/foo/bar/qux")
+	assert.Len(t, m.CreateArgs, 1)
+	assert.Equal(t, m.CreateArgs[0], "/foo/bar/qux")
 }
 
-func (s *ChrootSuite) TestCreateErrCrossedBoundary(c *C) {
+func TestCreateErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Create("../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestLeadingPeriodsPathNotCrossedBoundary(c *C) {
+func TestLeadingPeriodsPathNotCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	f, err := fs.Create("..foo")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, "..foo")
+	assert.NoError(t, err)
+	assert.Equal(t, f.Name(), "..foo")
 }
 
-func (s *ChrootSuite) TestOpen(c *C) {
+func TestOpen(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	f, err := fs.Open("bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+	assert.NoError(t, err)
+	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
-	c.Assert(m.OpenArgs, HasLen, 1)
-	c.Assert(m.OpenArgs[0], Equals, "/foo/bar/qux")
+	assert.Len(t, m.OpenArgs, 1)
+	assert.Equal(t, m.OpenArgs[0], "/foo/bar/qux")
 }
 
-func (s *ChrootSuite) TestChroot(c *C) {
+func TestChroot(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs, _ := New(m, "/foo").Chroot("baz")
 	f, err := fs.Open("bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+	assert.NoError(t, err)
+	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
-	c.Assert(m.OpenArgs, HasLen, 1)
-	c.Assert(m.OpenArgs[0], Equals, "/foo/baz/bar/qux")
+	assert.Len(t, m.OpenArgs, 1)
+	assert.Equal(t, m.OpenArgs[0], "/foo/baz/bar/qux")
 }
 
-func (s *ChrootSuite) TestChrootErrCrossedBoundary(c *C) {
+func TestChrootErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs, err := New(m, "/foo").Chroot("../qux")
-	c.Assert(fs, IsNil)
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.Nil(t, fs)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestOpenErrCrossedBoundary(c *C) {
+func TestOpenErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Open("../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestOpenFile(c *C) {
+func TestOpenFile(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	f, err := fs.OpenFile("bar/qux", 42, 0777)
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+	assert.NoError(t, err)
+	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
-	c.Assert(m.OpenFileArgs, HasLen, 1)
-	c.Assert(m.OpenFileArgs[0], Equals, [3]interface{}{"/foo/bar/qux", 42, os.FileMode(0777)})
+	assert.Len(t, m.OpenFileArgs, 1)
+	assert.Equal(t, m.OpenFileArgs[0], [3]interface{}{"/foo/bar/qux", 42, os.FileMode(0777)})
 }
 
-func (s *ChrootSuite) TestOpenFileErrCrossedBoundary(c *C) {
+func TestOpenFileErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.OpenFile("../foo", 42, 0777)
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestStat(c *C) {
+func TestStat(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Stat("bar/qux")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.StatArgs, HasLen, 1)
-	c.Assert(m.StatArgs[0], Equals, "/foo/bar/qux")
+	assert.Len(t, m.StatArgs, 1)
+	assert.Equal(t, m.StatArgs[0], "/foo/bar/qux")
 }
 
-func (s *ChrootSuite) TestStatErrCrossedBoundary(c *C) {
+func TestStatErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Stat("../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestRename(c *C) {
+func TestRename(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Rename("bar/qux", "qux/bar")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.RenameArgs, HasLen, 1)
-	c.Assert(m.RenameArgs[0], Equals, [2]string{"/foo/bar/qux", "/foo/qux/bar"})
+	assert.Len(t, m.RenameArgs, 1)
+	assert.Equal(t, m.RenameArgs[0], [2]string{"/foo/bar/qux", "/foo/qux/bar"})
 }
 
-func (s *ChrootSuite) TestRenameErrCrossedBoundary(c *C) {
+func TestRenameErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Rename("../foo", "bar")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 
 	err = fs.Rename("foo", "../bar")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestRemove(c *C) {
+func TestRemove(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Remove("bar/qux")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.RemoveArgs, HasLen, 1)
-	c.Assert(m.RemoveArgs[0], Equals, "/foo/bar/qux")
+	assert.Len(t, m.RemoveArgs, 1)
+	assert.Equal(t, m.RemoveArgs[0], "/foo/bar/qux")
 }
 
-func (s *ChrootSuite) TestRemoveErrCrossedBoundary(c *C) {
+func TestRemoveErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Remove("../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestTempFile(c *C) {
+func TestTempFile(t *testing.T) {
 	m := &test.TempFileMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.TempFile("bar", "qux")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.TempFileArgs, HasLen, 1)
-	c.Assert(m.TempFileArgs[0], Equals, [2]string{"/foo/bar", "qux"})
+	assert.Len(t, m.TempFileArgs, 1)
+	assert.Equal(t, m.TempFileArgs[0], [2]string{"/foo/bar", "qux"})
 }
 
-func (s *ChrootSuite) TestTempFileErrCrossedBoundary(c *C) {
+func TestTempFileErrCrossedBoundary(t *testing.T) {
 	m := &test.TempFileMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.TempFile("../foo", "qux")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestTempFileWithBasic(c *C) {
+func TestTempFileWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.TempFile("", "")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestReadDir(c *C) {
+func TestReadDir(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.ReadDir("bar")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.ReadDirArgs, HasLen, 1)
-	c.Assert(m.ReadDirArgs[0], Equals, "/foo/bar")
+	assert.Len(t, m.ReadDirArgs, 1)
+	assert.Equal(t, m.ReadDirArgs[0], "/foo/bar")
 }
 
-func (s *ChrootSuite) TestReadDirErrCrossedBoundary(c *C) {
+func TestReadDirErrCrossedBoundary(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.ReadDir("../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestReadDirWithBasic(c *C) {
+func TestReadDirWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.ReadDir("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestMkDirAll(c *C) {
+func TestMkDirAll(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
 	err := fs.MkdirAll("bar", 0777)
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.MkdirAllArgs, HasLen, 1)
-	c.Assert(m.MkdirAllArgs[0], Equals, [2]interface{}{"/foo/bar", os.FileMode(0777)})
+	assert.Len(t, m.MkdirAllArgs, 1)
+	assert.Equal(t, m.MkdirAllArgs[0], [2]interface{}{"/foo/bar", os.FileMode(0777)})
 }
 
-func (s *ChrootSuite) TestMkdirAllErrCrossedBoundary(c *C) {
+func TestMkdirAllErrCrossedBoundary(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
 	err := fs.MkdirAll("../foo", 0777)
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestMkdirAllWithBasic(c *C) {
+func TestMkdirAllWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.MkdirAll("", 0)
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestLstat(c *C) {
+func TestLstat(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Lstat("qux")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.LstatArgs, HasLen, 1)
-	c.Assert(m.LstatArgs[0], Equals, "/foo/qux")
+	assert.Len(t, m.LstatArgs, 1)
+	assert.Equal(t, m.LstatArgs[0], "/foo/qux")
 }
 
-func (s *ChrootSuite) TestLstatErrCrossedBoundary(c *C) {
+func TestLstatErrCrossedBoundary(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Lstat("../qux")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestLstatWithBasic(c *C) {
+func TestLstatWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Lstat("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestSymlink(c *C) {
+func TestSymlink(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("../baz", "qux/bar")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.SymlinkArgs, HasLen, 1)
-	c.Assert(m.SymlinkArgs[0], Equals, [2]string{filepath.FromSlash("../baz"), "/foo/qux/bar"})
+	assert.Len(t, m.SymlinkArgs, 1)
+	assert.Equal(t, m.SymlinkArgs[0], [2]string{filepath.FromSlash("../baz"), "/foo/qux/bar"})
 }
 
-func (s *ChrootSuite) TestSymlinkWithAbsoluteTarget(c *C) {
+func TestSymlinkWithAbsoluteTarget(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("/bar", "qux/baz")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	c.Assert(m.SymlinkArgs, HasLen, 1)
-	c.Assert(m.SymlinkArgs[0], Equals, [2]string{filepath.FromSlash("/foo/bar"), "/foo/qux/baz"})
+	assert.Len(t, m.SymlinkArgs, 1)
+	assert.Equal(t, m.SymlinkArgs[0], [2]string{filepath.FromSlash("/foo/bar"), "/foo/qux/baz"})
 }
 
-func (s *ChrootSuite) TestSymlinkErrCrossedBoundary(c *C) {
+func TestSymlinkErrCrossedBoundary(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("qux", "../foo")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestSymlinkWithBasic(c *C) {
+func TestSymlinkWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("qux", "bar")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestReadlink(c *C) {
+func TestReadlink(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	link, err := fs.Readlink("/qux")
-	c.Assert(err, IsNil)
-	c.Assert(link, Equals, filepath.FromSlash("/qux"))
+	assert.NoError(t, err)
+	assert.Equal(t, link, filepath.FromSlash("/qux"))
 
-	c.Assert(m.ReadlinkArgs, HasLen, 1)
-	c.Assert(m.ReadlinkArgs[0], Equals, "/foo/qux")
+	assert.Len(t, m.ReadlinkArgs, 1)
+	assert.Equal(t, m.ReadlinkArgs[0], "/foo/qux")
 }
 
-func (s *ChrootSuite) TestReadlinkWithRelative(c *C) {
+func TestReadlinkWithRelative(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	link, err := fs.Readlink("qux/bar")
-	c.Assert(err, IsNil)
-	c.Assert(link, Equals, filepath.FromSlash("/qux/bar"))
+	assert.NoError(t, err)
+	assert.Equal(t, link, filepath.FromSlash("/qux/bar"))
 
-	c.Assert(m.ReadlinkArgs, HasLen, 1)
-	c.Assert(m.ReadlinkArgs[0], Equals, "/foo/qux/bar")
+	assert.Len(t, m.ReadlinkArgs, 1)
+	assert.Equal(t, m.ReadlinkArgs[0], "/foo/qux/bar")
 }
 
-func (s *ChrootSuite) TestReadlinkErrCrossedBoundary(c *C) {
+func TestReadlinkErrCrossedBoundary(t *testing.T) {
 	m := &test.SymlinkMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Readlink("../qux")
-	c.Assert(err, Equals, billy.ErrCrossedBoundary)
+	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func (s *ChrootSuite) TestReadlinkWithBasic(c *C) {
+func TestReadlinkWithBasic(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
 	_, err := fs.Readlink("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *ChrootSuite) TestCapabilities(c *C) {
-	testCapabilities(c, new(test.BasicMock))
-	testCapabilities(c, new(test.OnlyReadCapFs))
-	testCapabilities(c, new(test.NoLockCapFs))
+func TestCapabilities(t *testing.T) {
+	testCapabilities(t, new(test.BasicMock))
+	testCapabilities(t, new(test.OnlyReadCapFs))
+	testCapabilities(t, new(test.NoLockCapFs))
 }
 
-func testCapabilities(c *C, basic billy.Basic) {
+func testCapabilities(t *testing.T, basic billy.Basic) {
 	baseCapabilities := billy.Capabilities(basic)
 
 	fs := New(basic, "/foo")
 	capabilities := billy.Capabilities(fs)
 
-	c.Assert(capabilities, Equals, baseCapabilities)
+	assert.Equal(t, capabilities, baseCapabilities)
 }

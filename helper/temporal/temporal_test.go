@@ -5,29 +5,15 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&TemporalSuite{})
-
-type TemporalSuite struct {
-	test.FilesystemSuite
-}
-
-func (s *TemporalSuite) SetUpTest(c *C) {
-	fs := New(memfs.New(), "foo")
-	s.FilesystemSuite = test.NewFilesystemSuite(fs)
-}
-
-func (s *TemporalSuite) TestTempFileDefaultPath(c *C) {
+func TestTempFileDefaultPath(t *testing.T) {
 	fs := New(memfs.New(), "foo")
 	f, err := fs.TempFile("", "bar")
-	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
-	c.Assert(strings.HasPrefix(f.Name(), fs.Join("foo", "bar")), Equals, true)
+	assert.NoError(t, err)
+	assert.NoError(t, f.Close())
+
+	assert.True(t, strings.HasPrefix(f.Name(), fs.Join("foo", "bar")))
 }

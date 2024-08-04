@@ -5,30 +5,26 @@ import (
 	"sort"
 	"testing"
 
-	. "gopkg.in/check.v1"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&UtilSuite{})
-
-type UtilSuite struct{}
-
-func (s *UtilSuite) TestCreate(c *C) {
+func TestCreate(t *testing.T) {
 	fs := memfs.New()
-	util.WriteFile(fs, "foo/qux", nil, 0644)
-	util.WriteFile(fs, "foo/bar", nil, 0644)
-	util.WriteFile(fs, "foo/baz/foo", nil, 0644)
+	util.WriteFile(fs, "foo/qux", nil, 0o644)
+	util.WriteFile(fs, "foo/bar", nil, 0o644)
+	util.WriteFile(fs, "foo/baz/foo", nil, 0o644)
 
 	names, err := util.Glob(fs, "*/b*")
-	c.Assert(err, IsNil)
-	c.Assert(names, HasLen, 2)
+	assert := assert.New(t)
+	assert.NoError(err)
+	assert.Len(names, 2)
+
 	sort.Strings(names)
-	c.Assert(names, DeepEquals, []string{
+
+	assert.Equal(names, []string{
 		filepath.Join("foo", "bar"),
 		filepath.Join("foo", "baz"),
 	})
-
 }

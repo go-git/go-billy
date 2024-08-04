@@ -2,111 +2,115 @@ package util_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type WalkSuite struct{}
-
-func TestWalk(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&WalkSuite{})
 var targetSubfolder = filepath.FromSlash("path/to/some/subfolder")
 
-func (s *WalkSuite) TestWalkCanSkipTopDirectory(c *C) {
+func TestWalkCanSkipTopDirectory(t *testing.T) {
 	filesystem := memfs.New()
-	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return filepath.SkipDir }), IsNil)
+	err := util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return filepath.SkipDir })
+
+	assert.NoError(t, err)
 }
 
-func (s *WalkSuite) TestWalkReturnsAnErrorWhenRootDoesNotExist(c *C) {
+func TestWalkReturnsAnErrorWhenRootDoesNotExist(t *testing.T) {
 	filesystem := memfs.New()
-	c.Assert(util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return err }), NotNil)
+	err := util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return err })
+
+	assert.Error(t, err)
 }
 
-func (s *WalkSuite) TestWalkOnPlainFile(c *C) {
+func TestWalkOnPlainFile(t *testing.T) {
 	filesystem := memfs.New()
-	createFile(c, filesystem, "./README.md")
+	createFile(t, filesystem, "./README.md")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "./README.md", func(path string, info os.FileInfo, err error) error {
+
+	err := util.Walk(filesystem, "./README.md", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
-	}), IsNil)
-	c.Assert(discoveredPaths, DeepEquals, []string{"./README.md"})
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"./README.md"}, discoveredPaths)
 }
 
-func (s *WalkSuite) TestWalkOnExistingFolder(c *C) {
+func TestWalkOnExistingFolder(t *testing.T) {
 	filesystem := memfs.New()
-	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
-	createFile(c, filesystem, "path/to/some/file")
+	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
+	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
-	}), IsNil)
-	c.Assert(discoveredPaths, Contains, "path")
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/file"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder/that"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder/that/contain"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
+	})
+	assert.NoError(t, err)
+
+	assert.Contains(t, discoveredPaths, "path")
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/file"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
 }
 
-func (s *WalkSuite) TestWalkCanSkipFolder(c *C) {
+func TestWalkCanSkipFolder(t *testing.T) {
 	filesystem := memfs.New()
-	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
-	createFile(c, filesystem, "path/to/some/file")
+	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
+	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
 			return filepath.SkipDir
 		}
 		return nil
-	}), IsNil)
-	c.Assert(discoveredPaths, Contains, "path")
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/file"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, discoveredPaths, "path")
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/file"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
 }
 
-func (s *WalkSuite) TestWalkStopsOnError(c *C) {
+func TestWalkStopsOnError(t *testing.T) {
 	filesystem := memfs.New()
-	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
-	createFile(c, filesystem, "path/to/some/file")
+	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
+	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
 			return errors.New("uncaught error")
 		}
 		return nil
-	}), NotNil)
-	c.Assert(discoveredPaths, Contains, "path")
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/file"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
+	})
+	assert.Error(t, err)
+	assert.Contains(t, discoveredPaths, "path")
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/file"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
 }
 
-func (s *WalkSuite) TestWalkForwardsStatErrors(c *C) {
+func TestWalkForwardsStatErrors(t *testing.T) {
 	memFilesystem := memfs.New()
 	filesystem := &fnFs{
 		Filesystem: memFilesystem,
@@ -118,32 +122,32 @@ func (s *WalkSuite) TestWalkForwardsStatErrors(c *C) {
 		},
 	}
 
-	createFile(c, filesystem, "path/to/some/subfolder/that/contain/file")
-	createFile(c, filesystem, "path/to/some/file")
+	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
+	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	c.Assert(util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
-			c.Assert(err, NotNil)
+			assert.Error(t, err)
 		}
 		return err
-	}), NotNil)
-	c.Assert(discoveredPaths, Contains, "path")
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/file"))
-	c.Assert(discoveredPaths, Contains, filepath.FromSlash("path/to/some/subfolder"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain"))
-	c.Assert(discoveredPaths, NotContain, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
+	})
+	assert.Error(t, err)
+	assert.Contains(t, discoveredPaths, "path")
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/file"))
+	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain"))
+	assert.NotContains(t, discoveredPaths, filepath.FromSlash("path/to/some/subfolder/that/contain/file"))
 }
 
-func createFile(c *C, filesystem billy.Filesystem, path string) {
+func createFile(t *testing.T, filesystem billy.Filesystem, path string) {
 	fd, err := filesystem.Create(path)
-	c.Assert(err, IsNil)
-	if err != nil {
-		fd.Close()
-	}
+
+	require.NoError(t, err)
+	fd.Close()
 }
 
 type fnFs struct {
@@ -157,39 +161,3 @@ func (f *fnFs) Lstat(path string) (os.FileInfo, error) {
 	}
 	return nil, errors.New("not implemented")
 }
-
-type containsChecker struct {
-	*CheckerInfo
-}
-
-func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, err string) {
-	defer func() {
-		if v := recover(); v != nil {
-			result = false
-			err = fmt.Sprint(v)
-		}
-	}()
-
-	value := reflect.ValueOf(params[0])
-	result = false
-	err = fmt.Sprintf("%v does not contain %v", params[0], params[1])
-	switch value.Kind() {
-	case reflect.Array, reflect.Slice:
-		for i := 0; i < value.Len(); i++ {
-			r := reflect.DeepEqual(value.Index(i).Interface(), params[1])
-			if r {
-				result = true
-				err = ""
-			}
-		}
-	default:
-		return false, "obtained value type is not iterable"
-	}
-	return
-}
-
-var Contains Checker = &containsChecker{
-	&CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
-}
-
-var NotContain Checker = Not(Contains)

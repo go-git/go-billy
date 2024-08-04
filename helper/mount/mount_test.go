@@ -6,22 +6,11 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/internal/test"
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-billy/v5/test"
 	"github.com/go-git/go-billy/v5/util"
-
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
-
-func Test(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&MountSuite{})
-
-type MountSuite struct {
-	Helper     *Mount
-	Underlying mock
-	Source     mock
-}
 
 type mock struct {
 	test.BasicMock
@@ -29,135 +18,154 @@ type mock struct {
 	test.SymlinkMock
 }
 
-func (s *MountSuite) SetUpTest(c *C) {
-	s.Underlying.BasicMock = test.BasicMock{}
-	s.Underlying.DirMock = test.DirMock{}
-	s.Underlying.SymlinkMock = test.SymlinkMock{}
-	s.Source.BasicMock = test.BasicMock{}
-	s.Source.DirMock = test.DirMock{}
-	s.Source.SymlinkMock = test.SymlinkMock{}
+func setup() (helper *Mount, underlying *mock, source *mock) {
+	underlying = &mock{
+		BasicMock:   test.BasicMock{},
+		DirMock:     test.DirMock{},
+		SymlinkMock: test.SymlinkMock{},
+	}
 
-	s.Helper = New(&s.Underlying, "/foo", &s.Source)
+	source = &mock{
+		BasicMock:   test.BasicMock{},
+		DirMock:     test.DirMock{},
+		SymlinkMock: test.SymlinkMock{},
+	}
+
+	helper = New(underlying, "/foo", source)
+	return
 }
 
-func (s *MountSuite) TestCreate(c *C) {
-	f, err := s.Helper.Create("bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+func TestCreate(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.Create("bar/qux")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.CreateArgs, HasLen, 1)
-	c.Assert(s.Underlying.CreateArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.CreateArgs, HasLen, 0)
+	assert.Len(t, underlying.CreateArgs, 1)
+	assert.Equal(t, filepath.Join("bar", "qux"), underlying.CreateArgs[0])
+	assert.Len(t, source.CreateArgs, 0)
 }
 
-func (s *MountSuite) TestCreateMountPoint(c *C) {
-	f, err := s.Helper.Create("foo")
-	c.Assert(f, IsNil)
-	c.Assert(err, Equals, os.ErrInvalid)
+func TestCreateMountPoint(t *testing.T) {
+	helper, _, _ := setup()
+	f, err := helper.Create("foo")
+	assert.Nil(t, f)
+	assert.ErrorIs(t, err, os.ErrInvalid)
 }
 
-func (s *MountSuite) TestCreateInMount(c *C) {
-	f, err := s.Helper.Create("foo/bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("foo", "bar", "qux"))
+func TestCreateInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.Create("foo/bar/qux")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.CreateArgs, HasLen, 0)
-	c.Assert(s.Source.CreateArgs, HasLen, 1)
-	c.Assert(s.Source.CreateArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.CreateArgs, 0)
+	assert.Len(t, source.CreateArgs, 1)
+	assert.Equal(t, filepath.Join("bar", "qux"), source.CreateArgs[0])
 }
 
-func (s *MountSuite) TestOpen(c *C) {
-	f, err := s.Helper.Open("bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+func TestOpen(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.Open("bar/qux")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.OpenArgs, HasLen, 1)
-	c.Assert(s.Underlying.OpenArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.OpenArgs, HasLen, 0)
+	assert.Len(t, underlying.OpenArgs, 1)
+	assert.Equal(t, filepath.Join("bar", "qux"), underlying.OpenArgs[0])
+	assert.Len(t, source.OpenArgs, 0)
 }
 
-func (s *MountSuite) TestOpenMountPoint(c *C) {
-	f, err := s.Helper.Open("foo")
-	c.Assert(f, IsNil)
-	c.Assert(err, Equals, os.ErrInvalid)
+func TestOpenMountPoint(t *testing.T) {
+	helper, _, _ := setup()
+	f, err := helper.Open("foo")
+	assert.Nil(t, f)
+	assert.ErrorIs(t, err, os.ErrInvalid)
 }
 
-func (s *MountSuite) TestOpenInMount(c *C) {
-	f, err := s.Helper.Open("foo/bar/qux")
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("foo", "bar", "qux"))
+func TestOpenInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.Open("foo/bar/qux")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.OpenArgs, HasLen, 0)
-	c.Assert(s.Source.OpenArgs, HasLen, 1)
-	c.Assert(s.Source.OpenArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.OpenArgs, 0)
+	assert.Len(t, source.OpenArgs, 1)
+	assert.Equal(t, source.OpenArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestOpenFile(c *C) {
-	f, err := s.Helper.OpenFile("bar/qux", 42, 0777)
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("bar", "qux"))
+func TestOpenFile(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.OpenFile("bar/qux", 42, 0777)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.OpenFileArgs, HasLen, 1)
-	c.Assert(s.Underlying.OpenFileArgs[0], Equals,
+	assert.Len(t, underlying.OpenFileArgs, 1)
+	assert.Equal(t, underlying.OpenFileArgs[0],
 		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
-	c.Assert(s.Source.OpenFileArgs, HasLen, 0)
+	assert.Len(t, source.OpenFileArgs, 0)
 }
 
-func (s *MountSuite) TestOpenFileMountPoint(c *C) {
-	f, err := s.Helper.OpenFile("foo", 42, 0777)
-	c.Assert(f, IsNil)
-	c.Assert(err, Equals, os.ErrInvalid)
+func TestOpenFileMountPoint(t *testing.T) {
+	helper, _, _ := setup()
+	f, err := helper.OpenFile("foo", 42, 0777)
+	assert.Nil(t, f)
+	assert.ErrorIs(t, err, os.ErrInvalid)
 }
 
-func (s *MountSuite) TestOpenFileInMount(c *C) {
-	f, err := s.Helper.OpenFile("foo/bar/qux", 42, 0777)
-	c.Assert(err, IsNil)
-	c.Assert(f.Name(), Equals, filepath.Join("foo", "bar", "qux"))
+func TestOpenFileInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.OpenFile("foo/bar/qux", 42, 0777)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	c.Assert(s.Underlying.OpenFileArgs, HasLen, 0)
-	c.Assert(s.Source.OpenFileArgs, HasLen, 1)
-	c.Assert(s.Source.OpenFileArgs[0], Equals,
+	assert.Len(t, underlying.OpenFileArgs, 0)
+	assert.Len(t, source.OpenFileArgs, 1)
+	assert.Equal(t, source.OpenFileArgs[0],
 		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
 }
 
-func (s *MountSuite) TestStat(c *C) {
-	_, err := s.Helper.Stat("bar/qux")
-	c.Assert(err, IsNil)
+func TestStat(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Stat("bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.StatArgs, HasLen, 1)
-	c.Assert(s.Underlying.StatArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.StatArgs, HasLen, 0)
+	assert.Len(t, underlying.StatArgs, 1)
+	assert.Equal(t, underlying.StatArgs[0], filepath.Join("bar", "qux"))
+	assert.Len(t, source.StatArgs, 0)
 }
 
-func (s *MountSuite) TestStatInMount(c *C) {
-	_, err := s.Helper.Stat("foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestStatInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Stat("foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.StatArgs, HasLen, 0)
-	c.Assert(s.Source.StatArgs, HasLen, 1)
-	c.Assert(s.Source.StatArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.StatArgs, 0)
+	assert.Len(t, source.StatArgs, 1)
+	assert.Equal(t, source.StatArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestRename(c *C) {
-	err := s.Helper.Rename("bar/qux", "qux")
-	c.Assert(err, IsNil)
+func TestRename(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Rename("bar/qux", "qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.RenameArgs, HasLen, 1)
-	c.Assert(s.Underlying.RenameArgs[0], Equals, [2]string{"bar/qux", "qux"})
-	c.Assert(s.Source.RenameArgs, HasLen, 0)
+	assert.Len(t, underlying.RenameArgs, 1)
+	assert.Equal(t, underlying.RenameArgs[0], [2]string{"bar/qux", "qux"})
+	assert.Len(t, source.RenameArgs, 0)
 }
 
-func (s *MountSuite) TestRenameInMount(c *C) {
-	err := s.Helper.Rename("foo/bar/qux", "foo/qux")
-	c.Assert(err, IsNil)
+func TestRenameInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Rename("foo/bar/qux", "foo/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.RenameArgs, HasLen, 0)
-	c.Assert(s.Source.RenameArgs, HasLen, 1)
-	c.Assert(s.Source.RenameArgs[0], Equals,
+	assert.Len(t, underlying.RenameArgs, 0)
+	assert.Len(t, source.RenameArgs, 1)
+	assert.Equal(t, source.RenameArgs[0],
 		[2]string{filepath.Join("bar", "qux"), "qux"})
 }
 
-func (s *MountSuite) TestRenameCross(c *C) {
+func TestRenameCross(t *testing.T) {
 	underlying := memfs.New()
 	source := memfs.New()
 
@@ -165,192 +173,208 @@ func (s *MountSuite) TestRenameCross(c *C) {
 
 	fs := New(underlying, "/foo", source)
 	err := fs.Rename("file", "foo/file")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
 	_, err = underlying.Stat("file")
-	c.Assert(err, Equals, os.ErrNotExist)
+	assert.Equal(t, err, os.ErrNotExist)
 
 	_, err = source.Stat("file")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
 	err = fs.Rename("foo/file", "file")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
 	_, err = underlying.Stat("file")
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
 	_, err = source.Stat("file")
-	c.Assert(err, Equals, os.ErrNotExist)
+	assert.Equal(t, err, os.ErrNotExist)
 }
 
-func (s *MountSuite) TestRemove(c *C) {
-	err := s.Helper.Remove("bar/qux")
-	c.Assert(err, IsNil)
+func TestRemove(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Remove("bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.RemoveArgs, HasLen, 1)
-	c.Assert(s.Underlying.RemoveArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.RemoveArgs, HasLen, 0)
+	assert.Len(t, underlying.RemoveArgs, 1)
+	assert.Equal(t, underlying.RemoveArgs[0], filepath.Join("bar", "qux"))
+	assert.Len(t, source.RemoveArgs, 0)
 }
 
-func (s *MountSuite) TestRemoveMountPoint(c *C) {
-	err := s.Helper.Remove("foo")
-	c.Assert(err, Equals, os.ErrInvalid)
+func TestRemoveMountPoint(t *testing.T) {
+	helper, _, _ := setup()
+	err := helper.Remove("foo")
+	assert.ErrorIs(t, err, os.ErrInvalid)
 }
 
-func (s *MountSuite) TestRemoveInMount(c *C) {
-	err := s.Helper.Remove("foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestRemoveInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Remove("foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.RemoveArgs, HasLen, 0)
-	c.Assert(s.Source.RemoveArgs, HasLen, 1)
-	c.Assert(s.Source.RemoveArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.RemoveArgs, 0)
+	assert.Len(t, source.RemoveArgs, 1)
+	assert.Equal(t, source.RemoveArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestReadDir(c *C) {
-	_, err := s.Helper.ReadDir("bar/qux")
-	c.Assert(err, IsNil)
+func TestReadDir(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.ReadDir("bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.ReadDirArgs, HasLen, 1)
-	c.Assert(s.Underlying.ReadDirArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.ReadDirArgs, HasLen, 0)
+	assert.Len(t, underlying.ReadDirArgs, 1)
+	assert.Equal(t, underlying.ReadDirArgs[0], filepath.Join("bar", "qux"))
+	assert.Len(t, source.ReadDirArgs, 0)
 }
 
-func (s *MountSuite) TestJoin(c *C) {
-	s.Helper.Join("foo", "bar")
+func TestJoin(t *testing.T) {
+	helper, underlying, source := setup()
+	helper.Join("foo", "bar")
 
-	c.Assert(s.Underlying.JoinArgs, HasLen, 1)
-	c.Assert(s.Underlying.JoinArgs[0], DeepEquals, []string{"foo", "bar"})
-	c.Assert(s.Source.JoinArgs, HasLen, 0)
+	assert.Len(t, underlying.JoinArgs, 1)
+	assert.Equal(t, underlying.JoinArgs[0], []string{"foo", "bar"})
+	assert.Len(t, source.JoinArgs, 0)
 }
 
-func (s *MountSuite) TestReadDirInMount(c *C) {
-	_, err := s.Helper.ReadDir("foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestReadDirInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.ReadDir("foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.ReadDirArgs, HasLen, 0)
-	c.Assert(s.Source.ReadDirArgs, HasLen, 1)
-	c.Assert(s.Source.ReadDirArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.ReadDirArgs, 0)
+	assert.Len(t, source.ReadDirArgs, 1)
+	assert.Equal(t, source.ReadDirArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestMkdirAll(c *C) {
-	err := s.Helper.MkdirAll("bar/qux", 0777)
-	c.Assert(err, IsNil)
+func TestMkdirAll(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.MkdirAll("bar/qux", 0777)
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.MkdirAllArgs, HasLen, 1)
-	c.Assert(s.Underlying.MkdirAllArgs[0], Equals,
+	assert.Len(t, underlying.MkdirAllArgs, 1)
+	assert.Equal(t, underlying.MkdirAllArgs[0],
 		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
-	c.Assert(s.Source.MkdirAllArgs, HasLen, 0)
+	assert.Len(t, source.MkdirAllArgs, 0)
 }
 
-func (s *MountSuite) TestMkdirAllInMount(c *C) {
-	err := s.Helper.MkdirAll("foo/bar/qux", 0777)
-	c.Assert(err, IsNil)
+func TestMkdirAllInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.MkdirAll("foo/bar/qux", 0777)
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.MkdirAllArgs, HasLen, 0)
-	c.Assert(s.Source.MkdirAllArgs, HasLen, 1)
-	c.Assert(s.Source.MkdirAllArgs[0], Equals,
+	assert.Len(t, underlying.MkdirAllArgs, 0)
+	assert.Len(t, source.MkdirAllArgs, 1)
+	assert.Equal(t, source.MkdirAllArgs[0],
 		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
 }
 
-func (s *MountSuite) TestLstat(c *C) {
-	_, err := s.Helper.Lstat("bar/qux")
-	c.Assert(err, IsNil)
+func TestLstat(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Lstat("bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.LstatArgs, HasLen, 1)
-	c.Assert(s.Underlying.LstatArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.LstatArgs, HasLen, 0)
+	assert.Len(t, underlying.LstatArgs, 1)
+	assert.Equal(t, underlying.LstatArgs[0], filepath.Join("bar", "qux"))
+	assert.Len(t, source.LstatArgs, 0)
 }
 
-func (s *MountSuite) TestLstatInMount(c *C) {
-	_, err := s.Helper.Lstat("foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestLstatInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Lstat("foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.LstatArgs, HasLen, 0)
-	c.Assert(s.Source.LstatArgs, HasLen, 1)
-	c.Assert(s.Source.LstatArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.LstatArgs, 0)
+	assert.Len(t, source.LstatArgs, 1)
+	assert.Equal(t, source.LstatArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestSymlink(c *C) {
-	err := s.Helper.Symlink("../baz", "bar/qux")
-	c.Assert(err, IsNil)
+func TestSymlink(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Symlink("../baz", "bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.SymlinkArgs, HasLen, 1)
-	c.Assert(s.Underlying.SymlinkArgs[0], Equals,
+	assert.Len(t, underlying.SymlinkArgs, 1)
+	assert.Equal(t, underlying.SymlinkArgs[0],
 		[2]string{"../baz", filepath.Join("bar", "qux")})
-	c.Assert(s.Source.SymlinkArgs, HasLen, 0)
+	assert.Len(t, source.SymlinkArgs, 0)
 }
 
-func (s *MountSuite) TestSymlinkCrossMount(c *C) {
-	err := s.Helper.Symlink("../foo", "bar/qux")
-	c.Assert(err, NotNil)
+func TestSymlinkCrossMount(t *testing.T) {
+	helper, _, _ := setup()
+	err := helper.Symlink("../foo", "bar/qux")
+	assert.Error(t, err)
 
-	err = s.Helper.Symlink("../foo/qux", "bar/qux")
-	c.Assert(err, NotNil)
+	err = helper.Symlink("../foo/qux", "bar/qux")
+	assert.Error(t, err)
 
-	err = s.Helper.Symlink("../baz", "foo")
-	c.Assert(err, NotNil)
+	err = helper.Symlink("../baz", "foo")
+	assert.Error(t, err)
 
-	err = s.Helper.Symlink("../../../foo", "foo/bar/qux")
-	c.Assert(err, NotNil)
+	err = helper.Symlink("../../../foo", "foo/bar/qux")
+	assert.Error(t, err)
 }
 
-func (s *MountSuite) TestSymlinkInMount(c *C) {
-	err := s.Helper.Symlink("../baz", "foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestSymlinkInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	err := helper.Symlink("../baz", "foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.SymlinkArgs, HasLen, 0)
-	c.Assert(s.Source.SymlinkArgs, HasLen, 1)
-	c.Assert(s.Source.SymlinkArgs[0], Equals,
+	assert.Len(t, underlying.SymlinkArgs, 0)
+	assert.Len(t, source.SymlinkArgs, 1)
+	assert.Equal(t, source.SymlinkArgs[0],
 		[2]string{"../baz", filepath.Join("bar", "qux")})
 }
 
-func (s *MountSuite) TestRadlink(c *C) {
-	_, err := s.Helper.Readlink("bar/qux")
-	c.Assert(err, IsNil)
+func TestRadlink(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Readlink("bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.ReadlinkArgs, HasLen, 1)
-	c.Assert(s.Underlying.ReadlinkArgs[0], Equals, filepath.Join("bar", "qux"))
-	c.Assert(s.Source.ReadlinkArgs, HasLen, 0)
+	assert.Len(t, underlying.ReadlinkArgs, 1)
+	assert.Equal(t, underlying.ReadlinkArgs[0], filepath.Join("bar", "qux"))
+	assert.Len(t, source.ReadlinkArgs, 0)
 }
 
-func (s *MountSuite) TestReadlinkInMount(c *C) {
-	_, err := s.Helper.Readlink("foo/bar/qux")
-	c.Assert(err, IsNil)
+func TestReadlinkInMount(t *testing.T) {
+	helper, underlying, source := setup()
+	_, err := helper.Readlink("foo/bar/qux")
+	assert.NoError(t, err)
 
-	c.Assert(s.Underlying.ReadlinkArgs, HasLen, 0)
-	c.Assert(s.Source.ReadlinkArgs, HasLen, 1)
-	c.Assert(s.Source.ReadlinkArgs[0], Equals, filepath.Join("bar", "qux"))
+	assert.Len(t, underlying.ReadlinkArgs, 0)
+	assert.Len(t, source.ReadlinkArgs, 1)
+	assert.Equal(t, source.ReadlinkArgs[0], filepath.Join("bar", "qux"))
 }
 
-func (s *MountSuite) TestUnderlyingNotSupported(c *C) {
+func TestUnderlyingNotSupported(t *testing.T) {
 	h := New(&test.BasicMock{}, "/foo", &test.BasicMock{})
 	_, err := h.ReadDir("qux")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.Equal(t, err, billy.ErrNotSupported)
 	_, err = h.Readlink("qux")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.Equal(t, err, billy.ErrNotSupported)
 }
 
-func (s *MountSuite) TestSourceNotSupported(c *C) {
-	h := New(&s.Underlying, "/foo", &test.BasicMock{})
+func TestSourceNotSupported(t *testing.T) {
+	_, underlying, _ := setup()
+	h := New(underlying, "/foo", &test.BasicMock{})
 	_, err := h.ReadDir("foo")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.Equal(t, err, billy.ErrNotSupported)
 	_, err = h.Readlink("foo")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+	assert.Equal(t, err, billy.ErrNotSupported)
 }
 
-func (s *MountSuite) TestCapabilities(c *C) {
-	testCapabilities(c, new(test.BasicMock), new(test.BasicMock))
-	testCapabilities(c, new(test.BasicMock), new(test.OnlyReadCapFs))
-	testCapabilities(c, new(test.BasicMock), new(test.NoLockCapFs))
-	testCapabilities(c, new(test.OnlyReadCapFs), new(test.BasicMock))
-	testCapabilities(c, new(test.OnlyReadCapFs), new(test.OnlyReadCapFs))
-	testCapabilities(c, new(test.OnlyReadCapFs), new(test.NoLockCapFs))
-	testCapabilities(c, new(test.NoLockCapFs), new(test.BasicMock))
-	testCapabilities(c, new(test.NoLockCapFs), new(test.OnlyReadCapFs))
-	testCapabilities(c, new(test.NoLockCapFs), new(test.NoLockCapFs))
+func TestCapabilities(t *testing.T) {
+	testCapabilities(t, new(test.BasicMock), new(test.BasicMock))
+	testCapabilities(t, new(test.BasicMock), new(test.OnlyReadCapFs))
+	testCapabilities(t, new(test.BasicMock), new(test.NoLockCapFs))
+	testCapabilities(t, new(test.OnlyReadCapFs), new(test.BasicMock))
+	testCapabilities(t, new(test.OnlyReadCapFs), new(test.OnlyReadCapFs))
+	testCapabilities(t, new(test.OnlyReadCapFs), new(test.NoLockCapFs))
+	testCapabilities(t, new(test.NoLockCapFs), new(test.BasicMock))
+	testCapabilities(t, new(test.NoLockCapFs), new(test.OnlyReadCapFs))
+	testCapabilities(t, new(test.NoLockCapFs), new(test.NoLockCapFs))
 }
 
-func testCapabilities(c *C, a, b billy.Basic) {
+func testCapabilities(t *testing.T, a, b billy.Basic) {
 	aCapabilities := billy.Capabilities(a)
 	bCapabilities := billy.Capabilities(b)
 
@@ -359,12 +383,12 @@ func testCapabilities(c *C, a, b billy.Basic) {
 
 	unionCapabilities := aCapabilities & bCapabilities
 
-	c.Assert(capabilities, Equals, unionCapabilities)
+	assert.Equal(t, capabilities, unionCapabilities)
 
 	fs = New(b, "/foo", a)
 	capabilities = billy.Capabilities(fs)
 
 	unionCapabilities = aCapabilities & bCapabilities
 
-	c.Assert(capabilities, Equals, unionCapabilities)
+	assert.Equal(t, capabilities, unionCapabilities)
 }

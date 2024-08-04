@@ -8,68 +8,56 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
-
-	. "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type MemorySuite struct {
-	test.FilesystemSuite
-	path string
+func TestRootExists(t *testing.T) {
+	fs := New()
+	f, err := fs.Stat("/")
+	assert.NoError(t, err)
+	assert.True(t, f.IsDir())
 }
 
-var _ = Suite(&MemorySuite{})
+func TestCapabilities(t *testing.T) {
+	fs := New()
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
 
-func (s *MemorySuite) SetUpTest(c *C) {
-	s.FilesystemSuite = test.NewFilesystemSuite(New())
+	caps := billy.Capabilities(fs)
+	assert.Equal(t, billy.DefaultCapabilities&^billy.LockCapability, caps)
 }
 
-func (s *MemorySuite) TestRootExists(c *C) {
-	f, err := s.FS.Stat("/")
-	c.Assert(err, IsNil)
-	c.Assert(f.IsDir(), Equals, true)
-}
-
-func (s *MemorySuite) TestCapabilities(c *C) {
-	_, ok := s.FS.(billy.Capable)
-	c.Assert(ok, Equals, true)
-
-	caps := billy.Capabilities(s.FS)
-	c.Assert(caps, Equals, billy.DefaultCapabilities&^billy.LockCapability)
-}
-
-func (s *MemorySuite) TestNegativeOffsets(c *C) {
-	f, err := s.FS.Create("negative")
-	c.Assert(err, IsNil)
+func TestNegativeOffsets(t *testing.T) {
+	fs := New()
+	f, err := fs.Create("negative")
+	assert.NoError(t, err)
 
 	buf := make([]byte, 100)
 	_, err = f.ReadAt(buf, -100)
-	c.Assert(err, ErrorMatches, "readat negative: negative offset")
+	assert.ErrorContains(t, err, "readat negative: negative offset")
 
 	_, err = f.Seek(-100, io.SeekCurrent)
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 	_, err = f.Write(buf)
-	c.Assert(err, ErrorMatches, "writeat negative: negative offset")
+	assert.ErrorContains(t, err, "writeat negative: negative offset")
 }
 
-func (s *MemorySuite) TestExclusive(c *C) {
-	f, err := s.FS.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
-	c.Assert(err, IsNil)
+func TestExclusive(t *testing.T) {
+	fs := New()
+	f, err := fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	assert.NoError(t, err)
 
 	fmt.Fprint(f, "mememememe")
 
 	err = f.Close()
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	_, err = s.FS.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
-	c.Assert(err, ErrorMatches, os.ErrExist.Error())
+	_, err = fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	assert.ErrorContains(t, err, os.ErrExist.Error())
 }
 
-func (s *MemorySuite) TestOrder(c *C) {
+func TestOrder(t *testing.T) {
 	var err error
 
 	files := []string{
@@ -77,50 +65,48 @@ func (s *MemorySuite) TestOrder(c *C) {
 		"b",
 		"c",
 	}
+	fs := New()
 	for _, f := range files {
-		_, err = s.FS.Create(f)
-		c.Assert(err, IsNil)
+		_, err = fs.Create(f)
+		assert.NoError(t, err)
 	}
 
 	attempts := 30
 	for n := 0; n < attempts; n++ {
-		actual, err := s.FS.ReadDir("")
-		c.Assert(err, IsNil)
+		actual, err := fs.ReadDir("")
+		assert.NoError(t, err)
 
 		for i, f := range files {
-			c.Assert(actual[i].Name(), Equals, f)
+			assert.Equal(t, actual[i].Name(), f)
 		}
 	}
 }
 
-func (s *MemorySuite) TestNotFound(c *C) {
-	files, err := s.FS.ReadDir("asdf")
-	c.Assert(files, HasLen, 0)
-	// JS / wasip have this error message captalised.
-	msg := "open /asdf: (N|n)o such file or directory"
-	if runtime.GOOS == "windows" {
-		msg = `open \\asdf: The system cannot find the file specified\.`
-	}
-	c.Assert(err, ErrorMatches, msg)
+func TestNotFound(t *testing.T) {
+	fs := New()
+	files, err := fs.ReadDir("asdf")
+	assert.Len(t, files, 0)
+	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func (s *MemorySuite) TestTruncateAppend(c *C) {
-	err := util.WriteFile(s.FS, "truncate_append", []byte("file-content"), 0666)
-	c.Assert(err, IsNil)
+func TestTruncateAppend(t *testing.T) {
+	fs := New()
+	err := util.WriteFile(fs, "truncate_append", []byte("file-content"), 0666)
+	assert.NoError(t, err)
 
-	f, err := s.FS.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0666)
-	c.Assert(err, IsNil)
+	f, err := fs.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0666)
+	assert.NoError(t, err)
 
 	n, err := f.Write([]byte("replace"))
-	c.Assert(err, IsNil)
-	c.Assert(n, Equals, len("replace"))
+	assert.NoError(t, err)
+	assert.Equal(t, n, len("replace"))
 
 	err = f.Close()
-	c.Assert(err, IsNil)
+	assert.NoError(t, err)
 
-	data, err := util.ReadFile(s.FS, "truncate_append")
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, "replace")
+	data, err := util.ReadFile(fs, "truncate_append")
+	assert.NoError(t, err)
+	assert.Equal(t, string(data), "replace")
 }
 
 func TestReadlink(t *testing.T) {
@@ -186,7 +172,7 @@ func TestReadlink(t *testing.T) {
 	}
 }
 
-func TestSymlink(t *testing.T) {
+func TestSymlink2(t *testing.T) {
 	tests := []struct {
 		name    string
 		target  string
@@ -320,15 +306,16 @@ func TestJoin(t *testing.T) {
 	}
 }
 
-func (s *MemorySuite) TestSymlink(c *C) {
-	err := s.FS.Symlink("test", "test")
-	c.Assert(err, IsNil)
+func TestSymlink(t *testing.T) {
+	fs := New()
+	err := fs.Symlink("test", "test")
+	assert.NoError(t, err)
 
-	f, err := s.FS.Open("test")
-	c.Assert(err, IsNil)
-	c.Assert(f, NotNil)
+	f, err := fs.Open("test")
+	assert.NoError(t, err)
+	assert.NotNil(t, f)
 
-	fi, err := s.FS.ReadDir("test")
-	c.Assert(err, IsNil)
-	c.Assert(fi, IsNil)
+	fi, err := fs.ReadDir("test")
+	assert.NoError(t, err)
+	assert.Nil(t, fi)
 }

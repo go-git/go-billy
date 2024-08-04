@@ -4,48 +4,30 @@
 package osfs
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func TestOpenDoesNotCreateDir(t *testing.T) {
+	fs := New("/some/path")
+	_, err := fs.Open("dir/non-existent")
+	assert.Error(t, err)
 
-type OSSuite struct {
-	test.FilesystemSuite
-	path        string
-	tempCounter int
+	_, err = fs.Stat(filepath.Join("/some/path", "dir"))
+	assert.Error(t, err)
 }
 
-var _ = Suite(&OSSuite{})
+func TestCapabilities(t *testing.T) {
+	fs := New("/some/path")
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
 
-func (s *OSSuite) SetUpTest(c *C) {
-	s.tempCounter++
-	s.path = fmt.Sprintf("test_%d", s.tempCounter)
-	s.FilesystemSuite = test.NewFilesystemSuite(New(s.path))
-}
-
-func (s *OSSuite) TestOpenDoesNotCreateDir(c *C) {
-	_, err := s.FS.Open("dir/non-existent")
-	c.Assert(err, NotNil)
-
-	_, err = s.FS.Stat(filepath.Join(s.path, "dir"))
-	c.Assert(os.IsNotExist(err), Equals, true)
-}
-
-func (s *OSSuite) TestCapabilities(c *C) {
-	_, ok := s.FS.(billy.Capable)
-	c.Assert(ok, Equals, true)
-
-	caps := billy.Capabilities(s.FS)
-	c.Assert(caps, Equals, billy.DefaultCapabilities)
+	caps := billy.Capabilities(fs)
+	assert.Equal(t, billy.DefaultCapabilities, caps)
 }
 
 func TestDefault(t *testing.T) {

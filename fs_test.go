@@ -4,18 +4,11 @@ import (
 	"testing"
 
 	. "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/go-git/go-billy/v5/internal/test"
+	"github.com/stretchr/testify/assert"
 )
 
-type FSSuite struct{}
-
-func Test(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&FSSuite{})
-
-func (s *FSSuite) TestCapabilities(c *C) {
+func TestCapabilities(t *testing.T) {
 	cases := []struct {
 		caps     Capability
 		expected bool
@@ -32,9 +25,9 @@ func (s *FSSuite) TestCapabilities(c *C) {
 	fs := new(test.NoLockCapFs)
 
 	for _, e := range cases {
-		c.Assert(CapabilityCheck(fs, e.caps), Equals, e.expected)
+		assert.Equal(t, CapabilityCheck(fs, e.caps), e.expected)
 	}
 
 	dummy := new(test.BasicMock)
-	c.Assert(Capabilities(dummy), Equals, DefaultCapabilities)
+	assert.Equal(t, Capabilities(dummy), DefaultCapabilities)
 }

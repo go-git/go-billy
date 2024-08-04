@@ -5,74 +5,63 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/test"
-
-	. "gopkg.in/check.v1"
+	"github.com/go-git/go-billy/v5/internal/test"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+var (
+	helper = New(&test.BasicMock{})
+)
 
-var _ = Suite(&PolyfillSuite{})
-
-type PolyfillSuite struct {
-	Helper     billy.Filesystem
-	Underlying billy.Filesystem
+func TestTempFile(t *testing.T) {
+	_, err := helper.TempFile("", "")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) SetUpTest(c *C) {
-	s.Helper = New(&test.BasicMock{})
+func TestReadDir(t *testing.T) {
+	_, err := helper.ReadDir("")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestTempFile(c *C) {
-	_, err := s.Helper.TempFile("", "")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestMkdirAll(t *testing.T) {
+	err := helper.MkdirAll("", 0)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestReadDir(c *C) {
-	_, err := s.Helper.ReadDir("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestSymlink(t *testing.T) {
+	err := helper.Symlink("", "")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestMkdirAll(c *C) {
-	err := s.Helper.MkdirAll("", 0)
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestReadlink(t *testing.T) {
+	_, err := helper.Readlink("")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestSymlink(c *C) {
-	err := s.Helper.Symlink("", "")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestLstat(t *testing.T) {
+	_, err := helper.Lstat("")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestReadlink(c *C) {
-	_, err := s.Helper.Readlink("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestChroot(t *testing.T) {
+	_, err := helper.Chroot("")
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
-func (s *PolyfillSuite) TestLstat(c *C) {
-	_, err := s.Helper.Lstat("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestRoot(t *testing.T) {
+	assert.Equal(t, string(filepath.Separator), helper.Root())
 }
 
-func (s *PolyfillSuite) TestChroot(c *C) {
-	_, err := s.Helper.Chroot("")
-	c.Assert(err, Equals, billy.ErrNotSupported)
+func TestCapabilities(t *testing.T) {
+	testCapabilities(t, new(test.BasicMock))
+	testCapabilities(t, new(test.OnlyReadCapFs))
+	testCapabilities(t, new(test.NoLockCapFs))
 }
 
-func (s *PolyfillSuite) TestRoot(c *C) {
-	c.Assert(s.Helper.Root(), Equals, string(filepath.Separator))
-}
-
-func (s *PolyfillSuite) TestCapabilities(c *C) {
-	testCapabilities(c, new(test.BasicMock))
-	testCapabilities(c, new(test.OnlyReadCapFs))
-	testCapabilities(c, new(test.NoLockCapFs))
-}
-
-func testCapabilities(c *C, basic billy.Basic) {
+func testCapabilities(t *testing.T, basic billy.Basic) {
 	baseCapabilities := billy.Capabilities(basic)
 
 	fs := New(basic)
 	capabilities := billy.Capabilities(fs)
-
-	c.Assert(capabilities, Equals, baseCapabilities)
+	assert.Equal(t, baseCapabilities, capabilities)
 }
