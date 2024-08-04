@@ -217,14 +217,14 @@ func (fs *BoundOS) Readlink(link string) (string, error) {
 	return os.Readlink(link)
 }
 
-// Chroot returns a new OS filesystem, with the base dir set to the
+// Chroot returns a new BoundOS filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	joined, err := securejoin.SecureJoin(fs.baseDir, path)
 	if err != nil {
 		return nil, err
 	}
-	return New(joined), nil
+	return New(joined, WithBoundOS()), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.

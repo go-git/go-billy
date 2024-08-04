@@ -285,6 +285,7 @@ func TestChroot(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(f).ToNot(gomega.BeNil())
 	g.Expect(f.Root()).To(gomega.Equal(filepath.Join(tmp, "test")))
+	g.Expect(f).Should(gomega.BeAssignableToTypeOf(&BoundOS{}))
 }
 
 func TestRoot(t *testing.T) {
