@@ -3,6 +3,8 @@ package iofs
 import (
 	"errors"
 	"io/fs"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -38,24 +40,7 @@ func TestWithFSTest(t *testing.T) {
 
 	err := fstest.TestFS(iofs, created_files...)
 	if err != nil {
-		if unwrapped := errors.Unwrap(err); unwrapped != nil {
-			err = unwrapped
-		}
-		if errs, ok := err.(errorList); ok {
-			for _, e := range errs.Unwrap() {
-
-				if strings.Contains(e.Error(), "ModTime") {
-					// Memfs returns the current time for Stat().ModTime(), which triggers
-					// a diff complaint in fstest.  We can ignore this, or store modtimes
-					// for every file in Memfs (at a cost of 16 bytes / file).
-					t.Log("Skipping ModTime error (ok).")
-				} else {
-					t.Errorf("Unexpected fstest error: %v", e)
-				}
-			}
-		} else {
-			t.Fatalf("Failed to test fs:\n%v", err)
-		}
+		checkFsTestError(t, err, files)
 	}
 }
 
@@ -98,5 +83,66 @@ func makeFile(fs billyfs.Basic, t *testing.T, filename string, contents string) 
 	_, err = file.Write([]byte(contents))
 	if err != nil {
 		t.Fatalf("failed to write to file %s: %v", filename, err)
+	}
+}
+
+func checkFsTestError(t *testing.T, err error, files map[string]string) {
+	t.Helper()
+
+	if unwrapped := errors.Unwrap(err); unwrapped != nil {
+		err = unwrapped
+	}
+
+	// Go >= 1.23 (after https://cs.opensource.google/go/go/+/74cce866f865c3188a34309e4ebc7a5c9ed0683d)
+	// has nicely-Joined wrapped errors.  Try that first.
+	if errs, ok := err.(errorList); ok {
+		for _, e := range errs.Unwrap() {
+
+			if strings.Contains(e.Error(), "ModTime") {
+				// Memfs returns the current time for Stat().ModTime(), which triggers
+				// a diff complaint in fstest.  We can ignore this, or store modtimes
+				// for every file in Memfs (at a cost of 16 bytes / file).
+				t.Log("Skipping ModTime error (ok).")
+			} else {
+				t.Errorf("Unexpected fstest error: %v", e)
+			}
+		}
+	} else {
+		if runtime.Version() >= "go1.23" {
+			t.Fatalf("Failed to test fs:\n%v", err)
+		}
+		// filter lines from the error text corresponding to the above errors;
+		// output looks like:
+		//         bar.txt: mismatch:
+		//		entry.Info() = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.377023639 +0000 UTC m=+0.002625548
+		//		file.Stat() = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.376907011 +0000 UTC m=+0.002508970
+		//
+		//	bar.txt: fs.Stat(...) = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.381356651 +0000 UTC m=+0.006959191
+		//		want bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.376907011 +0000 UTC m=+0.002508970
+		//	bar.txt: fsys.Stat(...) = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.381488617 +0000 UTC m=+0.007090346
+		//		want bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.376907011 +0000 UTC m=+0.002508970
+		// We filter on "empty line" or "ModTime" or "$filename: mismatch" to ignore these.
+		lines := strings.Split(err.Error(), "\n")
+		filtered := make([]string, 0, len(lines))
+		filename_mismatches := make(map[string]struct{}, len(files) * 2)
+		for name, _ := range files {
+			for dirname := name; dirname != "."; dirname = filepath.Dir(dirname) {
+				filename_mismatches[dirname + ": mismatch:"] = struct{}{}
+			}
+		}
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.Contains(line, "ModTime=") {
+				continue
+			}
+
+			if _, ok := filename_mismatches[line]; ok {
+				continue
+			}
+			filtered = append(filtered, line)
+		}
+		if len(filtered) > 0 {
+			t.Fatalf("Failed to test fs:\n%s", strings.Join(filtered, "\n"))
+		}
 	}
 }
