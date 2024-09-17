@@ -113,6 +113,7 @@ func checkFsTestError(t *testing.T, err error, files map[string]string) {
 		}
 		// filter lines from the error text corresponding to the above errors;
 		// output looks like:
+		// TestFS found errors:
 		//         bar.txt: mismatch:
 		//		entry.Info() = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.377023639 +0000 UTC m=+0.002625548
 		//		file.Stat() = bar.txt IsDir=false Mode=-rw-rw-rw- Size=14 ModTime=2024-09-17 10:09:00.376907011 +0000 UTC m=+0.002508970
@@ -124,19 +125,22 @@ func checkFsTestError(t *testing.T, err error, files map[string]string) {
 		// We filter on "empty line" or "ModTime" or "$filename: mismatch" to ignore these.
 		lines := strings.Split(err.Error(), "\n")
 		filtered := make([]string, 0, len(lines))
-		filename_mismatches := make(map[string]struct{}, len(files) * 2)
-		for name, _ := range files {
+		filename_mismatches := make(map[string]struct{}, len(files)*2)
+		for name := range files {
 			for dirname := name; dirname != "."; dirname = filepath.Dir(dirname) {
-				filename_mismatches[dirname + ": mismatch:"] = struct{}{}
+				filename_mismatches[dirname+": mismatch:"] = struct{}{}
 			}
 		}
+		if strings.TrimSpace(lines[0]) == "TestFS found errors:" {
+			lines = lines[1:]
+		}
 		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.Contains(line, "ModTime=") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.Contains(trimmed, "ModTime=") {
 				continue
 			}
 
-			if _, ok := filename_mismatches[line]; ok {
+			if _, ok := filename_mismatches[trimmed]; ok {
 				continue
 			}
 			filtered = append(filtered, line)
