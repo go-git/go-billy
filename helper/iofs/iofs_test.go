@@ -25,7 +25,7 @@ type wrappedError interface {
 func TestWithFSTest(t *testing.T) {
 	t.Parallel()
 	memfs := memfs.New()
-	iofs := Wrap(memfs)
+	iofs := New(memfs)
 
 	files := map[string]string{
 		"foo.txt":                       "hello, world",
@@ -51,7 +51,7 @@ func TestWithFSTest(t *testing.T) {
 func TestDeletes(t *testing.T) {
 	t.Parallel()
 	memfs := memfs.New()
-	iofs := Wrap(memfs).(fs.ReadFileFS)
+	iofs := New(memfs).(fs.ReadFileFS)
 
 	makeFile(memfs, t, "foo.txt", "hello, world")
 	makeFile(memfs, t, "deleted", "nothing to see")
