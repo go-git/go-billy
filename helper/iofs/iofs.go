@@ -12,7 +12,7 @@ import (
 )
 
 // Wrap adapts a billy.Filesystem to a io.fs.FS.
-func Wrap(fs billyfs.Basic) fs.FS {
+func New(fs billyfs.Basic) fs.FS {
 	return &adapterFs{fs: polyfill.New(fs)}
 }
 
