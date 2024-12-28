@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "build"
 
@@ -13,3 +13,7 @@ updates:
       interval: "daily"
     commit-message:
       prefix: "build"
+    groups:
+      golang.org:
+        patterns:
+          - "golang.org/*"
