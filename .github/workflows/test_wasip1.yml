@@ -1,6 +1,12 @@
-on: [push, pull_request]
 name: Test wasip1
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+
 permissions: {}
+
 jobs:
   test:
     strategy:
