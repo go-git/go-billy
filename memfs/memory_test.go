@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
@@ -33,6 +34,10 @@ func TestModTime(t *testing.T) {
 	fs := New()
 	_, err := fs.Create("/file1")
 	require.NoError(t, err)
+
+	if runtime.GOOS == "windows" {
+		time.Sleep(20 * time.Millisecond)
+	}
 
 	_, err = fs.Create("/file2")
 	require.NoError(t, err)
