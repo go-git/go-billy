@@ -16,6 +16,21 @@ func New(fs billyfs.Basic) fs.FS {
 	return &adapterFs{fs: polyfill.New(fs)}
 }
 
+// NewStatFS adapts a billy.Filesystem to a io.fs.StatFS.
+func NewStatFS(fs billyfs.Basic) fs.StatFS {
+	return &adapterFs{fs: polyfill.New(fs)}
+}
+
+// NewReadDirFS adapts a billy.Filesystem to a io.fs.ReadDirFS.
+func NewReadDirFS(fs billyfs.Basic) fs.ReadDirFS {
+	return &adapterFs{fs: polyfill.New(fs)}
+}
+
+// NewReadFileFS adapts a billy.Filesystem to a io.fs.ReadFileFS.
+func NewReadFileFS(fs billyfs.Basic) fs.ReadFileFS {
+	return &adapterFs{fs: polyfill.New(fs)}
+}
+
 type adapterFs struct {
 	fs billyfs.Filesystem
 }
