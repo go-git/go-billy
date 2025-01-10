@@ -103,7 +103,7 @@ func tempFile(dir, prefix string) (billy.File, error) {
 	return &file{File: f}, nil
 }
 
-func openFile(fn string, flag int, perm os.FileMode, createDir func(string) error) (billy.File, error) {
+func openFile(fn string, flag int, perm fs.FileMode, createDir func(string) error) (billy.File, error) {
 	if flag&os.O_CREATE != 0 {
 		if createDir == nil {
 			return nil, fmt.Errorf("createDir func cannot be nil if file needs to be opened in create mode")

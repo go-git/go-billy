@@ -22,6 +22,7 @@ package osfs
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,7 +60,7 @@ func (fs *BoundOS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-func (fs *BoundOS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
+func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
 	filename = fs.expandDot(filename)
 	fn, err := fs.abs(filename)
 	if err != nil {
@@ -102,7 +103,7 @@ func (fs *BoundOS) Rename(from, to string) error {
 	return os.Rename(f, t)
 }
 
-func (fs *BoundOS) MkdirAll(path string, perm os.FileMode) error {
+func (fs *BoundOS) MkdirAll(path string, perm fs.FileMode) error {
 	path = fs.expandDot(path)
 	dir, err := fs.abs(path)
 	if err != nil {

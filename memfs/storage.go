@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,7 @@ func (s *storage) Has(path string) bool {
 	return ok
 }
 
-func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
+func (s *storage) New(path string, mode fs.FileMode, flag int) (*file, error) {
 	path = clean(path)
 	if s.Has(path) {
 		if !s.MustGet(path).mode.IsDir() {
@@ -55,7 +56,7 @@ func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
 	return f, nil
 }
 
-func (s *storage) createParent(path string, mode os.FileMode, f *file) error {
+func (s *storage) createParent(path string, mode fs.FileMode, f *file) error {
 	base := filepath.Dir(path)
 	base = clean(base)
 	if f.Name() == string(separator) {

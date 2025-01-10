@@ -2,6 +2,7 @@ package mount
 
 import (
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +54,7 @@ func (h *Mount) Open(path string) (billy.File, error) {
 	return wrapFile(f, path), err
 }
 
-func (h *Mount) OpenFile(path string, flag int, mode os.FileMode) (billy.File, error) {
+func (h *Mount) OpenFile(path string, flag int, mode fs.FileMode) (billy.File, error) {
 	fs, fullpath := h.getBasicAndPath(path)
 	if fullpath == "." {
 		return nil, os.ErrInvalid
@@ -118,7 +119,7 @@ func (h *Mount) ReadDir(path string) ([]os.FileInfo, error) {
 	return fs.ReadDir(fullpath)
 }
 
-func (h *Mount) MkdirAll(filename string, perm os.FileMode) error {
+func (h *Mount) MkdirAll(filename string, perm fs.FileMode) error {
 	fs, fullpath, err := h.getDirAndPath(filename)
 	if err != nil {
 		return err

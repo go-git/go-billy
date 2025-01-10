@@ -30,7 +30,7 @@ func (fs *BasicMock) Open(filename string) (billy.File, error) {
 	return &FileMock{name: filename}, nil
 }
 
-func (fs *BasicMock) OpenFile(filename string, flag int, mode os.FileMode) (billy.File, error) {
+func (fs *BasicMock) OpenFile(filename string, flag int, mode fs.FileMode) (billy.File, error) {
 	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]interface{}{filename, flag, mode})
 	return &FileMock{name: filename}, nil
 }
@@ -76,7 +76,7 @@ func (fs *DirMock) ReadDir(path string) ([]os.FileInfo, error) {
 	return nil, nil
 }
 
-func (fs *DirMock) MkdirAll(filename string, perm os.FileMode) error {
+func (fs *DirMock) MkdirAll(filename string, perm fs.FileMode) error {
 	fs.MkdirAllArgs = append(fs.MkdirAllArgs, [2]interface{}{filename, perm})
 	return nil
 }

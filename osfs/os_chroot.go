@@ -4,6 +4,7 @@
 package osfs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -31,7 +32,7 @@ func (fs *ChrootOS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-func (fs *ChrootOS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
+func (fs *ChrootOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
 	return openFile(filename, flag, perm, fs.createDir)
 }
 
@@ -58,7 +59,7 @@ func (fs *ChrootOS) Rename(from, to string) error {
 	return rename(from, to)
 }
 
-func (fs *ChrootOS) MkdirAll(path string, perm os.FileMode) error {
+func (fs *ChrootOS) MkdirAll(path string, perm fs.FileMode) error {
 	return os.MkdirAll(path, defaultDirectoryMode)
 }
 

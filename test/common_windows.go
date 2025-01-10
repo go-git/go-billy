@@ -4,7 +4,7 @@
 package test
 
 import (
-	"os"
+	"io/fs"
 
 	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/memfs"
@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	customMode            os.FileMode = 0o666
+	customMode            fs.FileMode = 0o666
 	expectedSymlinkTarget             = "\\dir\\file"
 )
 

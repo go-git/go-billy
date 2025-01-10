@@ -1,6 +1,7 @@
 package chroot
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
 	return newFile(fs, f, filename), nil
 }
 
-func (fs *ChrootHelper) OpenFile(filename string, flag int, mode os.FileMode) (billy.File, error) {
+func (fs *ChrootHelper) OpenFile(filename string, flag int, mode fs.FileMode) (billy.File, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
 	return fs.underlying.(billy.Dir).ReadDir(fullpath)
 }
 
-func (fs *ChrootHelper) MkdirAll(filename string, perm os.FileMode) error {
+func (fs *ChrootHelper) MkdirAll(filename string, perm fs.FileMode) error {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return err
