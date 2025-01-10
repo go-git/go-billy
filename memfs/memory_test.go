@@ -3,6 +3,7 @@ package memfs
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"runtime"
 	"testing"
@@ -13,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var _ fs.File = &file{}
 
 func TestRootExists(t *testing.T) {
 	fs := New()

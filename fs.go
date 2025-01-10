@@ -3,6 +3,7 @@ package billy
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"time"
 )
@@ -161,15 +162,15 @@ type Chroot interface {
 
 // File represent a file, being a subset of the os.File
 type File interface {
+	fs.File
+
 	// Name returns the name of the file as presented to Open.
 	Name() string
 	io.Writer
-	// TODO: Add io.WriterAt for v6  
+	// TODO: Add io.WriterAt for v6
 	// io.WriterAt
-	io.Reader
 	io.ReaderAt
 	io.Seeker
-	io.Closer
 	// Lock locks the file like e.g. flock. It protects against access from
 	// other processes.
 	Lock() error

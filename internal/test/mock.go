@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -133,6 +134,10 @@ func (*FileMock) Lock() error {
 
 func (*FileMock) Unlock() error {
 	return nil
+}
+
+func (*FileMock) Stat() (fs.FileInfo, error) {
+	return nil, nil
 }
 
 func (*FileMock) Truncate(size int64) error {
