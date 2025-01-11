@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultDirectoryMode = 0o755
+	defaultDirectoryMode = 0o777
 	defaultCreateMode    = 0o666
 )
 
