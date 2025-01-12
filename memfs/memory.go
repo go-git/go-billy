@@ -228,6 +228,7 @@ type file struct {
 	position int64
 	flag     int
 	mode     os.FileMode
+	modTime  time.Time
 
 	isClosed bool
 }
@@ -291,6 +292,7 @@ func (f *file) WriteAt(p []byte, off int64) (int, error) {
 		return 0, errors.New("write not supported")
 	}
 
+	f.modTime = time.Now()
 	n, err := f.content.WriteAt(p, off)
 	f.position = off + int64(n)
 
@@ -322,6 +324,7 @@ func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File
 		content: f.content,
 		mode:    mode,
 		flag:    flag,
+		modTime: f.modTime,
 	}
 
 	if isTruncate(flag) {
@@ -337,9 +340,10 @@ func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File
 
 func (f *file) Stat() (os.FileInfo, error) {
 	return &fileInfo{
-		name: f.Name(),
-		mode: f.mode,
-		size: f.content.Len(),
+		name:    f.Name(),
+		mode:    f.mode,
+		size:    f.content.Len(),
+		modTime: f.modTime,
 	}, nil
 }
 
@@ -354,9 +358,10 @@ func (f *file) Unlock() error {
 }
 
 type fileInfo struct {
-	name string
-	size int
-	mode os.FileMode
+	name    string
+	size    int
+	mode    os.FileMode
+	modTime time.Time
 }
 
 func (fi *fileInfo) Name() string {
@@ -371,8 +376,8 @@ func (fi *fileInfo) Mode() os.FileMode {
 	return fi.mode
 }
 
-func (*fileInfo) ModTime() time.Time {
-	return time.Now()
+func (fi *fileInfo) ModTime() time.Time {
+	return fi.modTime
 }
 
 func (fi *fileInfo) IsDir() bool {

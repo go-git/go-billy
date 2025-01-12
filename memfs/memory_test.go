@@ -6,10 +6,12 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRootExists(t *testing.T) {
@@ -26,6 +28,39 @@ func TestCapabilities(t *testing.T) {
 
 	caps := billy.Capabilities(fs)
 	assert.Equal(t, billy.DefaultCapabilities&^billy.LockCapability, caps)
+}
+
+func TestModTime(t *testing.T) {
+	fs := New()
+	_, err := fs.Create("/file1")
+	require.NoError(t, err)
+
+	if runtime.GOOS == "windows" {
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	_, err = fs.Create("/file2")
+	require.NoError(t, err)
+
+	fi1a, err := fs.Stat("/file1")
+	require.NoError(t, err)
+
+	fi2, err := fs.Stat("/file2")
+	require.NoError(t, err)
+
+	fi1b, err := fs.Stat("/file1")
+	require.NoError(t, err)
+
+	modtime := fi1a.ModTime()
+
+	// file 1 and file 2 should have different mod times.
+	assert.NotEqual(t, modtime, fi2.ModTime())
+
+	// a new file info for the same unmodified file, should still match mod time.
+	assert.Equal(t, modtime, fi1b.ModTime())
+
+	// new calls to ModTime() retain existing mod time.
+	assert.Equal(t, modtime, fi1a.ModTime())
 }
 
 func TestNegativeOffsets(t *testing.T) {

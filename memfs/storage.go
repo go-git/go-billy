@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type storage struct {
@@ -46,6 +47,7 @@ func (s *storage) New(path string, mode os.FileMode, flag int) (*file, error) {
 		content: &content{name: name},
 		mode:    mode,
 		flag:    flag,
+		modTime: time.Now(),
 	}
 
 	s.files[path] = f
