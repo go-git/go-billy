@@ -8,8 +8,8 @@ import (
 
 	"fmt"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/polyfill"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/polyfill"
 )
 
 var separator = string(filepath.Separator)

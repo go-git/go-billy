@@ -10,7 +10,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v6"
 )
 
 const (

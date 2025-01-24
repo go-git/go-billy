@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v6"
 )
 
 // RemoveAll removes path and any children it contains. It removes everything it

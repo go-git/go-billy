@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/chroot"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/chroot"
 	"github.com/stretchr/testify/assert"
 )
 
