@@ -3,14 +3,14 @@
 package test
 
 import (
-	"os"
+	"io/fs"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/memfs"
 )
 
 var (
-	customMode            os.FileMode = 0o600
+	customMode            fs.FileMode = 0o600
 	expectedSymlinkTarget             = "/dir/file"
 )
 

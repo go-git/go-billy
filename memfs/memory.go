@@ -1,10 +1,11 @@
 // Package memfs provides a billy filesystem base on memory.
-package memfs // import "github.com/go-git/go-billy/v5/memfs"
+package memfs // import "github.com/go-git/go-billy/v6/memfs"
 
 import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/chroot"
-	"github.com/go-git/go-billy/v5/util"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/chroot"
+	"github.com/go-git/go-billy/v6/util"
 )
 
 const separator = filepath.Separator
@@ -43,7 +44,7 @@ func (fs *Memory) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-func (fs *Memory) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
+func (fs *Memory) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
 	f, has := fs.s.Get(filename)
 	if !has {
 		if !isCreate(flag) {
@@ -154,7 +155,7 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 	return entries, nil
 }
 
-func (fs *Memory) MkdirAll(path string, perm os.FileMode) error {
+func (fs *Memory) MkdirAll(path string, perm fs.FileMode) error {
 	_, err := fs.s.New(path, perm|os.ModeDir, 0)
 	return err
 }
@@ -318,7 +319,7 @@ func (f *file) Truncate(size int64) error {
 	return nil
 }
 
-func (f *file) Duplicate(filename string, mode os.FileMode, flag int) billy.File {
+func (f *file) Duplicate(filename string, mode fs.FileMode, flag int) billy.File {
 	new := &file{
 		name:    filename,
 		content: f.content,
@@ -372,7 +373,7 @@ func (fi *fileInfo) Size() int64 {
 	return int64(fi.size)
 }
 
-func (fi *fileInfo) Mode() os.FileMode {
+func (fi *fileInfo) Mode() fs.FileMode {
 	return fi.mode
 }
 
@@ -424,6 +425,6 @@ func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
 }
 
-func isSymlink(m os.FileMode) bool {
+func isSymlink(m fs.FileMode) bool {
 	return m&os.ModeSymlink != 0
 }

@@ -3,13 +3,14 @@ package util
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v6"
 )
 
 // RemoveAll removes path and any children it contains. It removes everything it
@@ -97,7 +98,7 @@ func removeAll(fs billy.Basic, path string) error {
 // WriteFile writes data to a file named by filename in the given filesystem.
 // If the file does not exist, WriteFile creates it with permissions perm;
 // otherwise WriteFile truncates it before writing.
-func WriteFile(fs billy.Basic, filename string, data []byte, perm os.FileMode) (err error) {
+func WriteFile(fs billy.Basic, filename string, data []byte, perm fs.FileMode) (err error) {
 	f, err := fs.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err

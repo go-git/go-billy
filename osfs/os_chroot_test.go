@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v6"
 	"github.com/stretchr/testify/assert"
 )
 

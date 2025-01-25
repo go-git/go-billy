@@ -1,10 +1,11 @@
 package polyfill
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v6"
 )
 
 // Polyfill is a helper that implements all missing method from billy.Filesystem.
@@ -47,7 +48,7 @@ func (h *Polyfill) ReadDir(path string) ([]os.FileInfo, error) {
 	return h.Basic.(billy.Dir).ReadDir(path)
 }
 
-func (h *Polyfill) MkdirAll(filename string, perm os.FileMode) error {
+func (h *Polyfill) MkdirAll(filename string, perm fs.FileMode) error {
 	if !h.c.dir {
 		return billy.ErrNotSupported
 	}

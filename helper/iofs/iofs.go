@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	billyfs "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/polyfill"
+	billyfs "github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/polyfill"
 )
 
 // Wrap adapts a billy.Filesystem to a io.fs.FS.

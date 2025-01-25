@@ -4,11 +4,12 @@
 package osfs
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/chroot"
+	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/chroot"
 )
 
 // ChrootOS is a legacy filesystem based on a "soft chroot" of the os filesystem.
@@ -31,7 +32,7 @@ func (fs *ChrootOS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-func (fs *ChrootOS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
+func (fs *ChrootOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
 	return openFile(filename, flag, perm, fs.createDir)
 }
 
@@ -58,7 +59,7 @@ func (fs *ChrootOS) Rename(from, to string) error {
 	return rename(from, to)
 }
 
-func (fs *ChrootOS) MkdirAll(path string, perm os.FileMode) error {
+func (fs *ChrootOS) MkdirAll(path string, perm fs.FileMode) error {
 	return os.MkdirAll(path, defaultDirectoryMode)
 }
 

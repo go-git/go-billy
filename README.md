@@ -1,4 +1,4 @@
-# go-billy [![GoDoc](https://godoc.org/gopkg.in/go-git/go-billy.v5?status.svg)](https://pkg.go.dev/github.com/go-git/go-billy/v5) [![Test](https://github.com/go-git/go-billy/workflows/Test/badge.svg)](https://github.com/go-git/go-billy/actions?query=workflow%3ATest)
+# go-billy [![GoDoc](https://godoc.org/gopkg.in/go-git/go-billy.v6?status.svg)](https://pkg.go.dev/github.com/go-git/go-billy/v6) [![Test](https://github.com/go-git/go-billy/workflows/Test/badge.svg)](https://github.com/go-git/go-billy/actions?query=workflow%3ATest)
 
 The missing interface filesystem abstraction for Go.
 Billy implements an interface based on the `os` standard library, allowing to develop applications without dependency on the underlying storage. Makes it virtually free to implement mocks and testing over filesystem operations.
@@ -8,14 +8,14 @@ Billy was born as part of [go-git/go-git](https://github.com/go-git/go-git) proj
 ## Installation
 
 ```go
-import "github.com/go-git/go-billy/v5" // with go modules enabled (GO111MODULE=on or outside GOPATH)
+import "github.com/go-git/go-billy/v6" // with go modules enabled (GO111MODULE=on or outside GOPATH)
 import "github.com/go-git/go-billy" // with go modules disabled
 ```
 
 ## Usage
 
 Billy exposes filesystems using the
-[`Filesystem` interface](https://pkg.go.dev/github.com/go-git/go-billy/v5?tab=doc#Filesystem).
+[`Filesystem` interface](https://pkg.go.dev/github.com/go-git/go-billy/v6?tab=doc#Filesystem).
 Each filesystem implementation gives you a `New` method, whose arguments depend on
 the implementation itself, that returns a new `Filesystem`.
 

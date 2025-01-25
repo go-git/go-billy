@@ -4,9 +4,12 @@
 package osfs
 
 import (
+	"io/fs"
 	"reflect"
 	"testing"
 )
+
+var _ fs.File = &file{}
 
 func TestDefault(t *testing.T) {
 	want := &ChrootOS{}

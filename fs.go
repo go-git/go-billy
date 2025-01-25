@@ -3,7 +3,7 @@ package billy
 import (
 	"errors"
 	"io"
-	"os"
+	"io/fs"
 	"time"
 )
 
@@ -72,9 +72,9 @@ type Basic interface {
 	// instead. It opens the named file with specified flag (O_RDONLY etc.) and
 	// perm, (0666 etc.) if applicable. If successful, methods on the returned
 	// File can be used for I/O.
-	OpenFile(filename string, flag int, perm os.FileMode) (File, error)
+	OpenFile(filename string, flag int, perm fs.FileMode) (File, error)
 	// Stat returns a FileInfo describing the named file.
-	Stat(filename string) (os.FileInfo, error)
+	Stat(filename string) (fs.FileInfo, error)
 	// Rename renames (moves) oldpath to newpath. If newpath already exists and
 	// is not a directory, Rename replaces it. OS-specific restrictions may
 	// apply when oldpath and newpath are in different directories.
@@ -105,12 +105,12 @@ type TempFile interface {
 type Dir interface {
 	// ReadDir reads the directory named by dirname and returns a list of
 	// directory entries sorted by filename.
-	ReadDir(path string) ([]os.FileInfo, error)
+	ReadDir(path string) ([]fs.FileInfo, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
 	// perm are used for all directories that MkdirAll creates. If path is/
 	// already a directory, MkdirAll does nothing and returns nil.
-	MkdirAll(filename string, perm os.FileMode) error
+	MkdirAll(filename string, perm fs.FileMode) error
 }
 
 // Symlink abstract the symlink related operations in a storage-agnostic
@@ -119,7 +119,7 @@ type Symlink interface {
 	// Lstat returns a FileInfo describing the named file. If the file is a
 	// symbolic link, the returned FileInfo describes the symbolic link. Lstat
 	// makes no attempt to follow the link.
-	Lstat(filename string) (os.FileInfo, error)
+	Lstat(filename string) (fs.FileInfo, error)
 	// Symlink creates a symbolic-link from link to target. target may be an
 	// absolute or relative path, and need not refer to an existing node.
 	// Parent directories of link are created as necessary.
@@ -133,7 +133,7 @@ type Symlink interface {
 type Change interface {
 	// Chmod changes the mode of the named file to mode. If the file is a
 	// symbolic link, it changes the mode of the link's target.
-	Chmod(name string, mode os.FileMode) error
+	Chmod(name string, mode fs.FileMode) error
 	// Lchown changes the numeric uid and gid of the named file. If the file is
 	// a symbolic link, it changes the uid and gid of the link itself.
 	Lchown(name string, uid, gid int) error
@@ -161,15 +161,14 @@ type Chroot interface {
 
 // File represent a file, being a subset of the os.File
 type File interface {
+	fs.File
+
 	// Name returns the name of the file as presented to Open.
 	Name() string
 	io.Writer
-	// TODO: Add io.WriterAt for v6  
-	// io.WriterAt
-	io.Reader
+	io.WriterAt
 	io.ReaderAt
 	io.Seeker
-	io.Closer
 	// Lock locks the file like e.g. flock. It protects against access from
 	// other processes.
 	Lock() error

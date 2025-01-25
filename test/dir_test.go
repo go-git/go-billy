@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	. "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
+	. "github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 )
 
