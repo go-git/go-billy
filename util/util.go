@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -92,7 +93,6 @@ func removeAll(fs billy.Basic, path string) error {
 	}
 
 	return err
-
 }
 
 // WriteFile writes data to a file named by filename in the given filesystem.
@@ -182,9 +182,12 @@ func TempFile(fs billy.Basic, dir, prefix string) (f billy.File, err error) {
 // to remove the directory when no longer needed.
 func TempDir(fs billy.Dir, dir, prefix string) (name string, err error) {
 	// This implementation is based on stdlib ioutil.TempDir
-
 	if dir == "" {
-		dir = getTempDir(fs.(billy.Basic))
+		base, ok := fs.(billy.Basic)
+		if !ok {
+			return "", fmt.Errorf("fs does not implement billy.Basic")
+		}
+		dir = getTempDir(base)
 	}
 
 	nconflict := 0

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,19 +21,18 @@ import (
 
 const separator = filepath.Separator
 
-var errNotLink = errors.New("not a link")
-
 // Memory a very convenient filesystem based on memory files.
 type Memory struct {
 	s *storage
-
-	tempCount int
 }
 
 // New returns a new Memory filesystem.
 func New() billy.Filesystem {
 	fs := &Memory{s: newStorage()}
-	fs.s.New("/", 0755|os.ModeDir, 0)
+	_, err := fs.s.New("/", 0755|os.ModeDir, 0)
+	if err != nil {
+		log.Printf("failed to create root dir: %v", err)
+	}
 	return chroot.New(fs, string(separator))
 }
 
@@ -162,12 +162,6 @@ func (fs *Memory) MkdirAll(path string, perm fs.FileMode) error {
 
 func (fs *Memory) TempFile(dir, prefix string) (billy.File, error) {
 	return util.TempFile(fs, dir, prefix)
-}
-
-func (fs *Memory) getTempFilename(dir, prefix string) string {
-	fs.tempCount++
-	filename := fmt.Sprintf("%s_%d_%d", prefix, fs.tempCount, time.Now().UnixNano())
-	return fs.Join(dir, filename)
 }
 
 func (fs *Memory) Rename(from, to string) error {
@@ -320,7 +314,7 @@ func (f *file) Truncate(size int64) error {
 }
 
 func (f *file) Duplicate(filename string, mode fs.FileMode, flag int) billy.File {
-	new := &file{
+	nf := &file{
 		name:    filename,
 		content: f.content,
 		mode:    mode,
@@ -329,14 +323,14 @@ func (f *file) Duplicate(filename string, mode fs.FileMode, flag int) billy.File
 	}
 
 	if isTruncate(flag) {
-		new.content.Truncate()
+		nf.content.Truncate()
 	}
 
 	if isAppend(flag) {
-		new.position = int64(new.content.Len())
+		nf.position = int64(nf.content.Len())
 	}
 
-	return new
+	return nf
 }
 
 func (f *file) Stat() (os.FileInfo, error) {

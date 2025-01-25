@@ -112,15 +112,15 @@ func (f *FileMock) Name() string {
 	return f.name
 }
 
-func (*FileMock) ReadAt(b []byte, off int64) (int, error) {
+func (*FileMock) ReadAt(_ []byte, _ int64) (int, error) {
 	return 0, nil
 }
 
-func (*FileMock) WriteAt(b []byte, off int64) (int, error) {
+func (*FileMock) WriteAt(_ []byte, _ int64) (int, error) {
 	return 0, nil
 }
 
-func (*FileMock) Seek(offset int64, whence int) (int64, error) {
+func (*FileMock) Seek(_ int64, _ int) (int64, error) {
 	return 0, nil
 }
 
@@ -140,7 +140,7 @@ func (*FileMock) Stat() (fs.FileInfo, error) {
 	return nil, nil
 }
 
-func (*FileMock) Truncate(size int64) error {
+func (*FileMock) Truncate(_ int64) error {
 	return nil
 }
 

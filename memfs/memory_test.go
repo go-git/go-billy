@@ -20,7 +20,7 @@ var _ fs.File = &file{}
 func TestRootExists(t *testing.T) {
 	fs := New()
 	f, err := fs.Stat("/")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, f.IsDir())
 }
 
@@ -69,14 +69,14 @@ func TestModTime(t *testing.T) {
 func TestNegativeOffsets(t *testing.T) {
 	fs := New()
 	f, err := fs.Create("negative")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	buf := make([]byte, 100)
 	_, err = f.ReadAt(buf, -100)
 	assert.ErrorContains(t, err, "readat negative: negative offset")
 
 	_, err = f.Seek(-100, io.SeekCurrent)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = f.Write(buf)
 	assert.ErrorContains(t, err, "writeat negative: negative offset")
 }
@@ -84,12 +84,12 @@ func TestNegativeOffsets(t *testing.T) {
 func TestExclusive(t *testing.T) {
 	fs := New()
 	f, err := fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fmt.Fprint(f, "mememememe")
 
 	err = f.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	assert.ErrorContains(t, err, os.ErrExist.Error())
@@ -106,13 +106,13 @@ func TestOrder(t *testing.T) {
 	fs := New()
 	for _, f := range files {
 		_, err = fs.Create(f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	attempts := 30
 	for n := 0; n < attempts; n++ {
 		actual, err := fs.ReadDir("")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		for i, f := range files {
 			assert.Equal(t, actual[i].Name(), f)
@@ -130,20 +130,20 @@ func TestNotFound(t *testing.T) {
 func TestTruncateAppend(t *testing.T) {
 	fs := New()
 	err := util.WriteFile(fs, "truncate_append", []byte("file-content"), 0666)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	f, err := fs.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0666)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	n, err := f.Write([]byte("replace"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, n, len("replace"))
 
 	err = f.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	data, err := util.ReadFile(fs, "truncate_append")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, string(data), "replace")
 }
 
@@ -191,17 +191,17 @@ func TestReadlink(t *testing.T) {
 	fs := New()
 
 	// arrange fs for tests.
-	assert.NoError(t, fs.Symlink("/self", "/self"))
-	assert.NoError(t, fs.Symlink("/foo", "/bar"))
-	assert.NoError(t, fs.Symlink("c:\\test\\123", "/win"))
-	assert.NoError(t, fs.Symlink("\\test\\123", "/net"))
+	require.NoError(t, fs.Symlink("/self", "/self"))
+	require.NoError(t, fs.Symlink("/foo", "/bar"))
+	require.NoError(t, fs.Symlink("c:\\test\\123", "/win"))
+	require.NoError(t, fs.Symlink("\\test\\123", "/net"))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := fs.Readlink(tc.link)
 
 			if tc.wantErr == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.want, got)
 			} else {
 				assert.ErrorIs(t, err, *tc.wantErr)
@@ -288,9 +288,9 @@ func TestSymlink2(t *testing.T) {
 
 	// arrange fs for tests.
 	err := fs.MkdirAll("/dir", 0o600)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = fs.Create("/file")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -298,7 +298,7 @@ func TestSymlink2(t *testing.T) {
 
 			if tc.wantErr == "" {
 				got, err := fs.Readlink(tc.link)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.want, got)
 			} else {
 				assert.ErrorContains(t, err, tc.wantErr)
@@ -347,13 +347,13 @@ func TestJoin(t *testing.T) {
 func TestSymlink(t *testing.T) {
 	fs := New()
 	err := fs.Symlink("test", "test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	f, err := fs.Open("test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, f)
 
 	fi, err := fs.ReadDir("test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, fi)
 }

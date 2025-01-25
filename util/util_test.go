@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-git/go-billy/v6/memfs"
 	"github.com/go-git/go-billy/v6/util"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTempFile(t *testing.T) {
@@ -17,7 +18,7 @@ func TestTempFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer util.RemoveAll(fs, dir)
+	defer util.RemoveAll(fs, dir) //nolint
 
 	f, err := util.TempFile(fs, dir, "foo")
 	if f == nil || err != nil {
@@ -34,7 +35,8 @@ func TestTempDir_WithDir(t *testing.T) {
 		t.Errorf("TempDir(dir, `util_test`) = %v, %v", name, err)
 	}
 	if name != "" {
-		util.RemoveAll(fs, name)
+		err = util.RemoveAll(fs, name)
+		require.NoError(t, err)
 		re := regexp.MustCompile("^" + regexp.QuoteMeta(filepath.Join(dir, "util_test")) + "[0-9]+$")
 		if !re.MatchString(name) {
 			t.Errorf("TempDir(`"+dir+"`, `util_test`) created bad name %s", name)
@@ -45,12 +47,12 @@ func TestTempDir_WithDir(t *testing.T) {
 func TestReadFile(t *testing.T) {
 	fs := memfs.New()
 	f, err := util.TempFile(fs, "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	f.Write([]byte("foo"))
-	f.Close()
+	_, err = f.Write([]byte("foo"))
+	require.NoError(t, err)
+	err = f.Close()
+	require.NoError(t, err)
 
 	data, err := util.ReadFile(fs, f.Name())
 	if err != nil {
@@ -60,7 +62,6 @@ func TestReadFile(t *testing.T) {
 	if string(data) != "foo" || err != nil {
 		t.Errorf("ReadFile(%q, %q) = %v, %v", fs, f.Name(), data, err)
 	}
-
 }
 
 func TestTempDir(t *testing.T) {

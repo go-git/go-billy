@@ -5,9 +5,10 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/go-git/go-billy/v6"
+	. "github.com/go-git/go-billy/v6" //nolint
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type chrootFS interface {
@@ -16,6 +17,7 @@ type chrootFS interface {
 }
 
 func eachChrootFS(t *testing.T, test func(t *testing.T, fs chrootFS)) {
+	t.Helper()
 	for _, fs := range allFS(t.TempDir) {
 		t.Run(fmt.Sprintf("%T", fs), func(t *testing.T) {
 			test(t, fs)
@@ -25,38 +27,41 @@ func eachChrootFS(t *testing.T, test func(t *testing.T, fs chrootFS)) {
 
 func TestCreateWithChroot(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Create("bar")
-		assert.Nil(t, err)
-		assert.Nil(t, f.Close())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 		assert.Equal(t, f.Name(), "bar")
 
 		f, err = fs.Open("foo/bar")
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, f.Name(), fs.Join("foo", "bar"))
-		assert.Nil(t, f.Close())
+		require.NoError(t, f.Close())
 	})
 }
 
 func TestOpenWithChroot(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Create("bar")
-		assert.Nil(t, err)
-		assert.Nil(t, f.Close())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 		assert.Equal(t, f.Name(), "bar")
 
 		f, err = chroot.Open("bar")
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, f.Name(), "bar")
-		assert.Nil(t, f.Close())
+		require.NoError(t, f.Close())
 	})
 }
 
 func TestOpenOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		err := util.WriteFile(fs, "bar", nil, 0644)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Open("../bar")
@@ -67,8 +72,9 @@ func TestOpenOutOffBoundary(t *testing.T) {
 
 func TestStatOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		err := util.WriteFile(fs, "bar", nil, 0644)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Stat("../bar")
@@ -79,10 +85,11 @@ func TestStatOutOffBoundary(t *testing.T) {
 
 func TestStatWithChroot(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
 			err := util.WriteFile(fs, name, nil, 0644)
-			assert.Nil(t, err)
+			require.NoError(t, err)
 		}
 
 		// Some implementations detect directories based on a prefix
@@ -92,31 +99,32 @@ func TestStatWithChroot(t *testing.T) {
 		assert.Nil(t, fi)
 
 		fi, err = fs.Stat("qux")
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "qux")
-		assert.Equal(t, fi.IsDir(), true)
+		assert.True(t, fi.IsDir())
 
 		qux, _ := fs.Chroot("qux")
 
 		fi, err = qux.Stat("baz")
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "baz")
-		assert.Equal(t, fi.IsDir(), false)
+		assert.False(t, fi.IsDir())
 
 		fi, err = qux.Stat("/baz")
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "baz")
-		assert.Equal(t, fi.IsDir(), false)
+		assert.False(t, fi.IsDir())
 	})
 }
 
 func TestRenameOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		err := util.WriteFile(fs, "foo/foo", nil, 0644)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		err = util.WriteFile(fs, "bar", nil, 0644)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		err = chroot.Rename("../bar", "foo")
@@ -129,8 +137,9 @@ func TestRenameOutOffBoundary(t *testing.T) {
 
 func TestRemoveOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		err := util.WriteFile(fs, "bar", nil, 0644)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		err = chroot.Remove("../bar")
@@ -140,6 +149,7 @@ func TestRemoveOutOffBoundary(t *testing.T) {
 
 func TestRoot(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
 		assert.NotEmpty(t, fs.Root())
 	})
 }

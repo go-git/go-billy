@@ -11,7 +11,7 @@ import (
 )
 
 // ChrootHelper is a helper to implement billy.Chroot.
-type ChrootHelper struct {
+type ChrootHelper struct { //nolint
 	underlying billy.Filesystem
 	base       string
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type tempFS interface {
@@ -26,8 +27,8 @@ func eachTempFS(t *testing.T, test func(t *testing.T, fs tempFS)) {
 func TestTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		f, err := fs.TempFile("", "bar")
-		assert.NoError(t, err)
-		assert.NoError(t, f.Close())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 
 		assert.NotEqual(t, strings.Index(f.Name(), "bar"), -1)
 	})
@@ -36,8 +37,8 @@ func TestTempFile(t *testing.T) {
 func TestTempFileWithPath(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		f, err := fs.TempFile("foo", "bar")
-		assert.NoError(t, err)
-		assert.NoError(t, f.Close())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 
 		assert.True(t, strings.HasPrefix(f.Name(), fs.Join("foo", "bar")))
 	})
@@ -46,8 +47,8 @@ func TestTempFileWithPath(t *testing.T) {
 func TestTempFileFullWithPath(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		f, err := fs.TempFile("/foo", "bar")
-		assert.NoError(t, err)
-		assert.NoError(t, f.Close())
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 
 		assert.NotEqual(t, strings.Index(f.Name(), fs.Join("foo", "bar")), -1)
 	})
@@ -56,22 +57,22 @@ func TestTempFileFullWithPath(t *testing.T) {
 func TestRemoveTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		f, err := fs.TempFile("test-dir", "test-prefix")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fn := f.Name()
-		assert.NoError(t, f.Close())
-		assert.NoError(t, fs.Remove(fn))
+		require.NoError(t, f.Close())
+		require.NoError(t, fs.Remove(fn))
 	})
 }
 
 func TestRenameTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		f, err := fs.TempFile("test-dir", "test-prefix")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fn := f.Name()
-		assert.NoError(t, f.Close())
-		assert.NoError(t, fs.Rename(fn, "other-path"))
+		require.NoError(t, f.Close())
+		require.NoError(t, fs.Rename(fn, "other-path"))
 	})
 }
 
@@ -82,13 +83,13 @@ func TestTempFileMany(t *testing.T) {
 
 			for j := 0; j < 100; j++ {
 				f, err := fs.TempFile("test-dir", "test-prefix")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				files = append(files, f)
 			}
 
 			for _, f := range files {
-				assert.NoError(t, f.Close())
-				assert.NoError(t, fs.Remove(f.Name()))
+				require.NoError(t, f.Close())
+				require.NoError(t, fs.Remove(f.Name()))
 			}
 		}
 	})
@@ -101,13 +102,13 @@ func TestTempFileManyWithUtil(t *testing.T) {
 
 			for j := 0; j < 100; j++ {
 				f, err := util.TempFile(fs, "test-dir", "test-prefix")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				files = append(files, f)
 			}
 
 			for _, f := range files {
-				assert.NoError(t, f.Close())
-				assert.NoError(t, fs.Remove(f.Name()))
+				require.NoError(t, f.Close())
+				require.NoError(t, fs.Remove(f.Name()))
 			}
 		}
 	})

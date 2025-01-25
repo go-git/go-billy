@@ -21,5 +21,10 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
+
+    - name: Validate
+      if: matrix.platform == 'ubuntu-latest'
+      run: make validate
+
     - name: Test
       run: make test

@@ -102,7 +102,7 @@ func readdirnames(fs billy.Filesystem, dir string) ([]string, error) {
 		return nil, err
 	}
 
-	var names []string
+	names := make([]string, 0, len(files))
 	for _, file := range files {
 		names = append(names, file.Name())
 	}

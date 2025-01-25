@@ -30,8 +30,8 @@ func rename(from, to string) error {
 
 // umask sets umask to a new value, and returns a func which allows the
 // caller to reset it back to what it was originally.
-func umask(new int) func() {
-	old := syscall.Umask(new)
+func umask(m int) func() {
+	old := syscall.Umask(m)
 	return func() {
 		syscall.Umask(old)
 	}

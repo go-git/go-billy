@@ -169,40 +169,40 @@ func (h *Mount) Underlying() billy.Basic {
 }
 
 // Capabilities implements the Capable interface.
-func (fs *Mount) Capabilities() billy.Capability {
-	return billy.Capabilities(fs.underlying) & billy.Capabilities(fs.source)
+func (h *Mount) Capabilities() billy.Capability {
+	return billy.Capabilities(h.underlying) & billy.Capabilities(h.source)
 }
 
-func (fs *Mount) getBasicAndPath(path string) (billy.Basic, string) {
+func (h *Mount) getBasicAndPath(path string) (billy.Basic, string) {
 	path = cleanPath(path)
-	if !fs.isMountpoint(path) {
-		return fs.underlying, path
+	if !h.isMountpoint(path) {
+		return h.underlying, path
 	}
 
-	return fs.source, fs.mustRelToMountpoint(path)
+	return h.source, h.mustRelToMountpoint(path)
 }
 
-func (fs *Mount) getDirAndPath(path string) (billy.Dir, string, error) {
+func (h *Mount) getDirAndPath(path string) (billy.Dir, string, error) {
 	path = cleanPath(path)
-	if !fs.isMountpoint(path) {
-		return fs.underlying.(billy.Dir), path, nil
+	if !h.isMountpoint(path) {
+		return h.underlying.(billy.Dir), path, nil
 	}
 
-	return fs.source.(billy.Dir), fs.mustRelToMountpoint(path), nil
+	return h.source.(billy.Dir), h.mustRelToMountpoint(path), nil
 }
 
-func (fs *Mount) getSymlinkAndPath(path string) (billy.Symlink, string, error) {
+func (h *Mount) getSymlinkAndPath(path string) (billy.Symlink, string, error) {
 	path = cleanPath(path)
-	if !fs.isMountpoint(path) {
-		return fs.underlying.(billy.Symlink), path, nil
+	if !h.isMountpoint(path) {
+		return h.underlying.(billy.Symlink), path, nil
 	}
 
-	return fs.source.(billy.Symlink), fs.mustRelToMountpoint(path), nil
+	return h.source.(billy.Symlink), h.mustRelToMountpoint(path), nil
 }
 
-func (fs *Mount) mustRelToMountpoint(path string) string {
+func (h *Mount) mustRelToMountpoint(path string) string {
 	path = cleanPath(path)
-	fullpath, err := filepath.Rel(fs.mountpoint, path)
+	fullpath, err := filepath.Rel(h.mountpoint, path)
 	if err != nil {
 		panic(err)
 	}
@@ -210,9 +210,9 @@ func (fs *Mount) mustRelToMountpoint(path string) string {
 	return fullpath
 }
 
-func (fs *Mount) isMountpoint(path string) bool {
+func (h *Mount) isMountpoint(path string) bool {
 	path = cleanPath(path)
-	return strings.HasPrefix(path, fs.mountpoint)
+	return strings.HasPrefix(path, h.mountpoint)
 }
 
 func cleanPath(path string) string {

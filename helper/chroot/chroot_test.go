@@ -8,6 +8,7 @@ import (
 	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/internal/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreate(t *testing.T) {
@@ -15,7 +16,7 @@ func TestCreate(t *testing.T) {
 
 	fs := New(m, "/foo")
 	f, err := fs.Create("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.CreateArgs, 1)
@@ -35,7 +36,7 @@ func TestLeadingPeriodsPathNotCrossedBoundary(t *testing.T) {
 
 	fs := New(m, "/foo")
 	f, err := fs.Create("..foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, f.Name(), "..foo")
 }
 
@@ -44,7 +45,7 @@ func TestOpen(t *testing.T) {
 
 	fs := New(m, "/foo")
 	f, err := fs.Open("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.OpenArgs, 1)
@@ -56,7 +57,7 @@ func TestChroot(t *testing.T) {
 
 	fs, _ := New(m, "/foo").Chroot("baz")
 	f, err := fs.Open("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.OpenArgs, 1)
@@ -84,7 +85,7 @@ func TestOpenFile(t *testing.T) {
 
 	fs := New(m, "/foo")
 	f, err := fs.OpenFile("bar/qux", 42, 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.OpenFileArgs, 1)
@@ -104,7 +105,7 @@ func TestStat(t *testing.T) {
 
 	fs := New(m, "/foo")
 	_, err := fs.Stat("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.StatArgs, 1)
 	assert.Equal(t, m.StatArgs[0], "/foo/bar/qux")
@@ -123,7 +124,7 @@ func TestRename(t *testing.T) {
 
 	fs := New(m, "/foo")
 	err := fs.Rename("bar/qux", "qux/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.RenameArgs, 1)
 	assert.Equal(t, m.RenameArgs[0], [2]string{"/foo/bar/qux", "/foo/qux/bar"})
@@ -145,7 +146,7 @@ func TestRemove(t *testing.T) {
 
 	fs := New(m, "/foo")
 	err := fs.Remove("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.RemoveArgs, 1)
 	assert.Equal(t, m.RemoveArgs[0], "/foo/bar/qux")
@@ -164,7 +165,7 @@ func TestTempFile(t *testing.T) {
 
 	fs := New(m, "/foo")
 	_, err := fs.TempFile("bar", "qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.TempFileArgs, 1)
 	assert.Equal(t, m.TempFileArgs[0], [2]string{"/foo/bar", "qux"})
@@ -191,7 +192,7 @@ func TestReadDir(t *testing.T) {
 
 	fs := New(m, "/foo")
 	_, err := fs.ReadDir("bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.ReadDirArgs, 1)
 	assert.Equal(t, m.ReadDirArgs[0], "/foo/bar")
@@ -218,7 +219,7 @@ func TestMkDirAll(t *testing.T) {
 
 	fs := New(m, "/foo")
 	err := fs.MkdirAll("bar", 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.MkdirAllArgs, 1)
 	assert.Equal(t, m.MkdirAllArgs[0], [2]interface{}{"/foo/bar", os.FileMode(0777)})
@@ -245,7 +246,7 @@ func TestLstat(t *testing.T) {
 
 	fs := New(m, "/foo")
 	_, err := fs.Lstat("qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.LstatArgs, 1)
 	assert.Equal(t, m.LstatArgs[0], "/foo/qux")
@@ -272,7 +273,7 @@ func TestSymlink(t *testing.T) {
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("../baz", "qux/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.SymlinkArgs, 1)
 	assert.Equal(t, m.SymlinkArgs[0], [2]string{filepath.FromSlash("../baz"), "/foo/qux/bar"})
@@ -283,7 +284,7 @@ func TestSymlinkWithAbsoluteTarget(t *testing.T) {
 
 	fs := New(m, "/foo")
 	err := fs.Symlink("/bar", "qux/baz")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, m.SymlinkArgs, 1)
 	assert.Equal(t, m.SymlinkArgs[0], [2]string{filepath.FromSlash("/foo/bar"), "/foo/qux/baz"})
@@ -310,7 +311,7 @@ func TestReadlink(t *testing.T) {
 
 	fs := New(m, "/foo")
 	link, err := fs.Readlink("/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, link, filepath.FromSlash("/qux"))
 
 	assert.Len(t, m.ReadlinkArgs, 1)
@@ -322,7 +323,7 @@ func TestReadlinkWithRelative(t *testing.T) {
 
 	fs := New(m, "/foo")
 	link, err := fs.Readlink("qux/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, link, filepath.FromSlash("/qux/bar"))
 
 	assert.Len(t, m.ReadlinkArgs, 1)
