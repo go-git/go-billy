@@ -34,6 +34,8 @@ import (
 var (
 	ErrBaseDirCannotBeRemoved = errors.New("base dir cannot be removed")
 	ErrBaseDirCannotBeRenamed = errors.New("base dir cannot be renamed")
+
+	dotPrefixes = []string{"./", ".\\"}
 )
 
 // BoundOS is a fs implementation based on the OS filesystem which is bound to
@@ -66,6 +68,7 @@ func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.
 	if err != nil {
 		return nil, err
 	}
+
 	return openFile(fn, flag, perm, fs.createDir)
 }
 
@@ -113,7 +116,6 @@ func (fs *BoundOS) MkdirAll(path string, perm fs.FileMode) error {
 }
 
 func (fs *BoundOS) Open(filename string) (billy.File, error) {
-	filename = fs.expandDot(filename)
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
@@ -187,7 +189,7 @@ func (fs *BoundOS) expandDot(p string) string {
 	if p == "." {
 		return fs.baseDir
 	}
-	for _, prefix := range []string{"./", ".\\"} {
+	for _, prefix := range dotPrefixes {
 		if strings.HasPrefix(p, prefix) {
 			return filepath.Join(fs.baseDir, strings.TrimPrefix(p, prefix))
 		}
