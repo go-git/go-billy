@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -31,13 +32,13 @@ func walk(fs billy.Filesystem, path string, info os.FileInfo, walkFn filepath.Wa
 		filename := filepath.Join(path, name)
 		fileInfo, err := fs.Lstat(filename)
 		if err != nil {
-			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
+			if err := walkFn(filename, fileInfo, err); err != nil && !errors.Is(err, filepath.SkipDir) {
 				return err
 			}
 		} else {
 			err = walk(fs, filename, fileInfo, walkFn)
 			if err != nil {
-				if !fileInfo.IsDir() || err != filepath.SkipDir {
+				if !fileInfo.IsDir() || !errors.Is(err, filepath.SkipDir) {
 					return err
 				}
 			}
@@ -64,7 +65,7 @@ func Walk(fs billy.Filesystem, root string, walkFn filepath.WalkFunc) error {
 		err = walk(fs, root, info, walkFn)
 	}
 
-	if err == filepath.SkipDir {
+	if errors.Is(err, filepath.SkipDir) {
 		return nil
 	}
 

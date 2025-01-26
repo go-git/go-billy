@@ -259,7 +259,7 @@ func (fs *BoundOS) abs(filename string) (string, error) {
 
 	path, err := securejoin.SecureJoin(fs.baseDir, filename)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	if fs.deduplicatePath {
@@ -270,18 +270,6 @@ func (fs *BoundOS) abs(filename string) (string, error) {
 		}
 	}
 	return path, nil
-}
-
-// insideBaseDir checks whether filename is located within
-// the fs.baseDir.
-func (fs *BoundOS) insideBaseDir(filename string) (bool, error) {
-	if filename == fs.baseDir {
-		return true, nil
-	}
-	if !strings.HasPrefix(filename, fs.baseDir+string(filepath.Separator)) {
-		return false, fmt.Errorf("path outside base dir")
-	}
-	return true, nil
 }
 
 // insideBaseDirEval checks whether filename is contained within

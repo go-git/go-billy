@@ -18,16 +18,16 @@ var targetSubfolder = filepath.FromSlash("path/to/some/subfolder")
 
 func TestWalkCanSkipTopDirectory(t *testing.T) {
 	filesystem := memfs.New()
-	err := util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return filepath.SkipDir })
+	err := util.Walk(filesystem, "/root/that/does/not/exist", func(_ string, _ os.FileInfo, _ error) error { return filepath.SkipDir })
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestWalkReturnsAnErrorWhenRootDoesNotExist(t *testing.T) {
 	filesystem := memfs.New()
-	err := util.Walk(filesystem, "/root/that/does/not/exist", func(path string, info os.FileInfo, err error) error { return err })
+	err := util.Walk(filesystem, "/root/that/does/not/exist", func(_ string, _ os.FileInfo, err error) error { return err })
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestWalkOnPlainFile(t *testing.T) {
@@ -35,11 +35,11 @@ func TestWalkOnPlainFile(t *testing.T) {
 	createFile(t, filesystem, "./README.md")
 	discoveredPaths := []string{}
 
-	err := util.Walk(filesystem, "./README.md", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "./README.md", func(path string, _ os.FileInfo, _ error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"./README.md"}, discoveredPaths)
 }
 
@@ -48,11 +48,11 @@ func TestWalkOnExistingFolder(t *testing.T) {
 	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, _ os.FileInfo, _ error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Contains(t, discoveredPaths, "path")
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
@@ -69,14 +69,14 @@ func TestWalkCanSkipFolder(t *testing.T) {
 	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, _ os.FileInfo, _ error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
 			return filepath.SkipDir
 		}
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, discoveredPaths, "path")
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
@@ -92,14 +92,14 @@ func TestWalkStopsOnError(t *testing.T) {
 	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, _ os.FileInfo, _ error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
 			return errors.New("uncaught error")
 		}
 		return nil
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, discoveredPaths, "path")
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
@@ -125,14 +125,14 @@ func TestWalkForwardsStatErrors(t *testing.T) {
 	createFile(t, filesystem, "path/to/some/subfolder/that/contain/file")
 	createFile(t, filesystem, "path/to/some/file")
 	discoveredPaths := []string{}
-	err := util.Walk(filesystem, "path", func(path string, info os.FileInfo, err error) error {
+	err := util.Walk(filesystem, "path", func(path string, _ os.FileInfo, err error) error {
 		discoveredPaths = append(discoveredPaths, path)
 		if path == targetSubfolder {
-			assert.Error(t, err)
+			require.Error(t, err)
 		}
 		return err
 	})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, discoveredPaths, "path")
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to"))
 	assert.Contains(t, discoveredPaths, filepath.FromSlash("path/to/some"))
@@ -144,6 +144,7 @@ func TestWalkForwardsStatErrors(t *testing.T) {
 }
 
 func createFile(t *testing.T, filesystem billy.Filesystem, path string) {
+	t.Helper()
 	fd, err := filesystem.Create(path)
 
 	require.NoError(t, err)

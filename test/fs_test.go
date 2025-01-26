@@ -6,9 +6,10 @@ import (
 	"runtime"
 	"testing"
 
-	. "github.com/go-git/go-billy/v6"
+	. "github.com/go-git/go-billy/v6" //nolint
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func eachFS(t *testing.T, test func(t *testing.T, fs Filesystem)) {
@@ -25,13 +26,13 @@ func TestFS_SymlinkToDir(t *testing.T) {
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		err := fs.MkdirAll("dir", 0755)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = fs.Symlink("dir", "link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fi, err := fs.Stat("link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "link")
 		assert.True(t, fi.IsDir())
 	})
@@ -43,13 +44,13 @@ func TestFS_SymlinkReadDir(t *testing.T) {
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = fs.Symlink("dir", "link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		info, err := fs.ReadDir("link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, info, 1)
 
 		assert.Equal(t, info[0].Size(), int64(3))
@@ -61,7 +62,7 @@ func TestFS_SymlinkReadDir(t *testing.T) {
 func TestFS_CreateWithExistantDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		err := fs.MkdirAll("foo", 0644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		f, err := fs.Create("foo")
 		assert.Error(t, err)
@@ -74,13 +75,13 @@ func TestFS_ReadDirWithChroot(t *testing.T) {
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
 			err := util.WriteFile(fs, name, nil, 0644)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		qux, _ := fs.Chroot("/qux")
 
-		info, err := qux.(Filesystem).ReadDir("/")
-		assert.NoError(t, err)
+		info, err := qux.ReadDir("/")
+		require.NoError(t, err)
 		assert.Len(t, info, 2)
 	})
 }
@@ -93,17 +94,17 @@ func TestFS_SymlinkWithChrootBasic(t *testing.T) {
 		qux, _ := fs.Chroot("/qux")
 
 		err := util.WriteFile(qux, "file", nil, 0644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
-		err = qux.(Filesystem).Symlink("file", "link")
-		assert.NoError(t, err)
+		err = qux.Symlink("file", "link")
+		require.NoError(t, err)
 
 		fi, err := qux.Stat("link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "link")
 
 		fi, err = fs.Stat("qux/link")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, fi.Name(), "link")
 	})
 }
@@ -114,9 +115,10 @@ func TestFS_SymlinkWithChrootCrossBounders(t *testing.T) {
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		qux, _ := fs.Chroot("/qux")
-		util.WriteFile(fs, "file", []byte("foo"), customMode)
+		err := util.WriteFile(fs, "file", []byte("foo"), customMode)
+		require.NoError(t, err)
 
-		err := qux.Symlink("../../file", "qux/link")
+		err = qux.Symlink("../../file", "qux/link")
 		assert.Equal(t, err, nil)
 
 		fi, err := qux.Stat("qux/link")
@@ -130,25 +132,28 @@ func TestFS_ReadDirWithLink(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
-		util.WriteFile(fs, "foo/bar", []byte("foo"), customMode)
-		fs.Symlink("bar", "foo/qux")
+		err := util.WriteFile(fs, "foo/bar", []byte("foo"), customMode)
+		require.NoError(t, err)
+
+		err = fs.Symlink("bar", "foo/qux")
+		require.NoError(t, err)
 
 		info, err := fs.ReadDir("/foo")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, info, 2)
 	})
 }
 
 func TestFS_RemoveAllNonExistent(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
-		assert.NoError(t, util.RemoveAll(fs, "non-existent"))
+		require.NoError(t, util.RemoveAll(fs, "non-existent"))
 	})
 }
 
 func TestFS_RemoveAllEmptyDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
-		assert.NoError(t, fs.MkdirAll("empty", os.FileMode(0755)))
-		assert.NoError(t, util.RemoveAll(fs, "empty"))
+		require.NoError(t, fs.MkdirAll("empty", os.FileMode(0755)))
+		require.NoError(t, util.RemoveAll(fs, "empty"))
 		_, err := fs.Stat("empty")
 		assert.Error(t, err)
 		assert.Equal(t, os.IsNotExist(err), true)
@@ -170,10 +175,10 @@ func TestFS_RemoveAll(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		for _, fname := range fnames {
 			err := util.WriteFile(fs, fname, nil, 0644)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
-		assert.NoError(t, util.RemoveAll(fs, "foo"))
+		require.NoError(t, util.RemoveAll(fs, "foo"))
 
 		for _, fname := range fnames {
 			_, err := fs.Stat(fname)
@@ -197,10 +202,10 @@ func TestFS_RemoveAllRelative(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		for _, fname := range fnames {
 			err := util.WriteFile(fs, fname, nil, 0644)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
-		assert.NoError(t, util.RemoveAll(fs, "foo/bar/.."))
+		require.NoError(t, util.RemoveAll(fs, "foo/bar/.."))
 
 		for _, fname := range fnames {
 			_, err := fs.Stat(fname)
@@ -212,20 +217,20 @@ func TestFS_RemoveAllRelative(t *testing.T) {
 func TestFS_ReadDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
 		err := fs.MkdirAll("qux", 0755)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
 			err := util.WriteFile(fs, name, nil, 0644)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		info, err := fs.ReadDir("/")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, info, 3)
 
 		info, err = fs.ReadDir("/qux")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, info, 2)
 	})
 }

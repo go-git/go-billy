@@ -11,9 +11,12 @@ import (
 
 	"github.com/go-git/go-billy/v6"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setup(t *testing.T) (billy.Filesystem, string) {
+	t.Helper()
+
 	path := t.TempDir()
 	if runtime.GOOS == "plan9" {
 		// On Plan 9, permission mode of newly created files
@@ -22,7 +25,7 @@ func setup(t *testing.T) (billy.Filesystem, string) {
 		// Since TestOpenFileWithModes and TestStat creates files directly
 		// in the temporary directory, we need to make it more permissive.
 		err := os.Chmod(path, 0777)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 	return newChrootOS(path), path
 }
@@ -30,10 +33,10 @@ func setup(t *testing.T) (billy.Filesystem, string) {
 func TestOpenDoesNotCreateDir(t *testing.T) {
 	fs, path := setup(t)
 	_, err := fs.Open("dir/non-existent")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = os.Stat(filepath.Join(path, "dir"))
-	assert.ErrorIs(t, err, os.ErrNotExist)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestCapabilities(t *testing.T) {

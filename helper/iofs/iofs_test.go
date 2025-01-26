@@ -17,10 +17,6 @@ type errorList interface {
 	Unwrap() []error
 }
 
-type wrappedError interface {
-	Unwrap() error
-}
-
 // TestWithFSTest leverages the packaged Go fstest package, which seems comprehensive.
 func TestWithFSTest(t *testing.T) {
 	t.Parallel()
@@ -32,17 +28,17 @@ func TestWithFSTest(t *testing.T) {
 		"bar.txt":                       "goodbye, world",
 		filepath.Join("dir", "baz.txt"): "こんにちわ, world",
 	}
-	created_files := make([]string, 0, len(files))
+	createdFiles := make([]string, 0, len(files))
 	for filename, contents := range files {
 		makeFile(memfs, t, filename, contents)
-		created_files = append(created_files, filename)
+		createdFiles = append(createdFiles, filename)
 	}
 
 	if runtime.GOOS == "windows" {
 		t.Skip("fstest.TestFS is not yet windows path aware")
 	}
 
-	err := fstest.TestFS(iofs, created_files...)
+	err := fstest.TestFS(iofs, createdFiles...)
 	if err != nil {
 		checkFsTestError(t, err, files)
 	}
@@ -101,7 +97,6 @@ func checkFsTestError(t *testing.T, err error, files map[string]string) {
 	// has nicely-Joined wrapped errors.  Try that first.
 	if errs, ok := err.(errorList); ok {
 		for _, e := range errs.Unwrap() {
-
 			if strings.Contains(e.Error(), "ModTime") {
 				// Memfs returns the current time for Stat().ModTime(), which triggers
 				// a diff complaint in fstest.  We can ignore this, or store modtimes
@@ -129,10 +124,10 @@ func checkFsTestError(t *testing.T, err error, files map[string]string) {
 		// We filter on "empty line" or "ModTime" or "$filename: mismatch" to ignore these.
 		lines := strings.Split(err.Error(), "\n")
 		filtered := make([]string, 0, len(lines))
-		filename_mismatches := make(map[string]struct{}, len(files)*2)
+		mismatches := make(map[string]struct{}, len(files)*2)
 		for name := range files {
 			for dirname := name; dirname != "."; dirname = filepath.Dir(dirname) {
-				filename_mismatches[dirname+": mismatch:"] = struct{}{}
+				mismatches[dirname+": mismatch:"] = struct{}{}
 			}
 		}
 		if strings.TrimSpace(lines[0]) == "TestFS found errors:" {
@@ -144,7 +139,7 @@ func checkFsTestError(t *testing.T, err error, files map[string]string) {
 				continue
 			}
 
-			if _, ok := filename_mismatches[trimmed]; ok {
+			if _, ok := mismatches[trimmed]; ok {
 				continue
 			}
 			filtered = append(filtered, line)

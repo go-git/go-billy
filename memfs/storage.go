@@ -52,7 +52,11 @@ func (s *storage) New(path string, mode fs.FileMode, flag int) (*file, error) {
 	}
 
 	s.files[path] = f
-	s.createParent(path, mode, f)
+	err := s.createParent(path, mode, f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create parent: %w", err)
+	}
+
 	return f, nil
 }
 

@@ -20,8 +20,9 @@ func TestDefault(t *testing.T) {
 	}
 }
 
-func TestNewAPI(t *testing.T) {
+var (
+	// API call assertions
 	_ = New("/")
 	_ = New("/", WithBoundOS())
 	_ = New("/", WithChrootOS())
-}
+)

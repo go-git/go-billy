@@ -29,6 +29,7 @@ import (
 
 	"github.com/go-git/go-billy/v6"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOpen(t *testing.T) {
@@ -42,7 +43,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: rel same dir",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -50,7 +52,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: dot rel same dir",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "./test-file",
@@ -58,7 +61,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: rel path to above cwd",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
@@ -66,8 +70,10 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: rel path to below cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Mkdir(filepath.Join(dir, "sub"), 0o700)
-				os.WriteFile(filepath.Join(dir, "sub/rel-below-cwd"), []byte("anything"), 0o600)
+				err := os.Mkdir(filepath.Join(dir, "sub"), 0o700)
+				require.NoError(t, err)
+				err = os.WriteFile(filepath.Join(dir, "sub/rel-below-cwd"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "sub/rel-below-cwd",
@@ -75,7 +81,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "file: abs inside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
@@ -93,8 +100,10 @@ func TestOpen(t *testing.T) {
 			name: "symlink: same dir",
 			before: func(dir string) billy.Filesystem {
 				target := filepath.Join(dir, "target-file")
-				os.WriteFile(target, []byte("anything"), 0o600)
-				os.Symlink(target, filepath.Join(dir, "symlink"))
+				err := os.WriteFile(target, []byte("anything"), 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(target, filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -102,7 +111,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "symlink: rel outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("../../../../../../outside/cwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("../../../../../../outside/cwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -112,7 +122,8 @@ func TestOpen(t *testing.T) {
 		{
 			name: "symlink: abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/some/path/outside/cwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/some/path/outside/cwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -137,12 +148,12 @@ func TestOpen(t *testing.T) {
 
 			fi, err := fs.Open(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Nil(fi)
 			} else {
-				assert.NoError(err)
+				require.NoError(t, err)
 				assert.NotNil(fi)
-				assert.NoError(fi.Close())
+				require.NoError(t, fi.Close())
 			}
 		})
 	}
@@ -196,7 +207,8 @@ func Test_Symlink(t *testing.T) {
 			name: "keep dir filemode if exists",
 			link: "new-dir/symlink",
 			before: func(dir string) billy.Filesystem {
-				os.Mkdir(filepath.Join(dir, "new-dir"), 0o701)
+				err := os.Mkdir(filepath.Join(dir, "new-dir"), 0o701)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			target: filepath.FromSlash("../../../some/random/path"),
@@ -215,29 +227,29 @@ func Test_Symlink(t *testing.T) {
 			// Even if CWD is changed outside of the fs instance,
 			// the base dir must still be observed.
 			err := os.Chdir(os.TempDir())
-			assert.NoError(err)
+			require.NoError(t, err)
 
 			link := filepath.Join(dir, tt.link)
 
 			diBefore, _ := os.Lstat(filepath.Dir(link))
 
 			err = fs.Symlink(tt.target, tt.link)
-			assert.NoError(err)
+			require.NoError(t, err)
 
 			fi, err := os.Lstat(link)
 			if tt.wantStatErr != "" {
-				assert.ErrorContains(err, tt.wantStatErr)
+				require.ErrorContains(t, err, tt.wantStatErr)
 			} else {
-				assert.NoError(err)
+				require.NoError(t, err)
 				assert.NotNil(fi)
 			}
 
 			got, err := os.Readlink(link)
-			assert.NoError(err)
+			require.NoError(t, err)
 			assert.Equal(tt.target, got)
 
 			diAfter, err := os.Lstat(filepath.Dir(link))
-			assert.NoError(err)
+			require.NoError(t, err)
 
 			if diBefore != nil {
 				assert.Equal(diBefore.Mode(), diAfter.Mode())
@@ -252,13 +264,13 @@ func TestTempFile(t *testing.T) {
 	fs := newBoundOS(dir, true)
 
 	f, err := fs.TempFile("", "prefix")
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(f)
 	assert.Contains(f.Name(), os.TempDir())
-	assert.NoError(f.Close())
+	require.NoError(t, f.Close())
 
 	f, err = fs.TempFile("/above/cwd", "prefix")
-	assert.ErrorContains(err, fmt.Sprint(dir, filepath.FromSlash("/above/cwd/prefix")))
+	require.ErrorContains(t, err, fmt.Sprint(dir, filepath.FromSlash("/above/cwd/prefix")))
 	assert.Nil(f)
 
 	tempDir := os.TempDir()
@@ -268,7 +280,7 @@ func TestTempFile(t *testing.T) {
 	}
 
 	f, err = fs.TempFile(tempDir, "prefix")
-	assert.ErrorContains(err, filepath.Join(dir, tempDir, "prefix"))
+	require.ErrorContains(t, err, filepath.Join(dir, tempDir, "prefix"))
 	assert.Nil(f)
 }
 
@@ -278,10 +290,10 @@ func TestChroot(t *testing.T) {
 	fs := newBoundOS(tmp, true)
 
 	f, err := fs.Chroot("test")
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(f)
 	assert.Equal(filepath.Join(tmp, "test"), f.Root())
-	assert.IsType(f, &BoundOS{})
+	assert.IsType(&BoundOS{}, f)
 }
 
 func TestRoot(t *testing.T) {
@@ -306,7 +318,8 @@ func TestReadLink(t *testing.T) {
 		{
 			name: "symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -320,7 +333,8 @@ func TestReadLink(t *testing.T) {
 		{
 			name: "symlink: abs symlink pointing outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -333,11 +347,15 @@ func TestReadLink(t *testing.T) {
 				cwd := filepath.Join(dir, "current-dir")
 				outside := filepath.Join(dir, "outside-cwd")
 
-				os.Mkdir(cwd, 0o700)
-				os.Mkdir(outside, 0o700)
+				err := os.Mkdir(cwd, 0o700)
+				require.NoError(t, err)
+				err = os.Mkdir(outside, 0o700)
+				require.NoError(t, err)
 
-				os.Symlink(outside, filepath.Join(cwd, "symlink"))
-				os.WriteFile(filepath.Join(outside, "file"), []byte("anything"), 0o600)
+				err = os.Symlink(outside, filepath.Join(cwd, "symlink"))
+				require.NoError(t, err)
+				err = os.WriteFile(filepath.Join(outside, "file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 
 				return newBoundOS(cwd, true)
 			},
@@ -352,12 +370,17 @@ func TestReadLink(t *testing.T) {
 				cwdAlt := filepath.Join(dir, "symlink-altdir")
 				cwdTarget := filepath.Join(dir, "cwd-target")
 
-				os.MkdirAll(cwdTarget, 0o700)
+				err := os.MkdirAll(cwdTarget, 0o700)
+				require.NoError(t, err)
 
-				os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
-				os.Symlink(cwdTarget, cwd)
-				os.Symlink(cwdTarget, cwdAlt)
-				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
+				err = os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwd)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwdAlt)
+				require.NoError(t, err)
+				err = os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
+				require.NoError(t, err)
 				return newBoundOS(cwd, true)
 			},
 			filename:        "symlink-file",
@@ -366,19 +389,25 @@ func TestReadLink(t *testing.T) {
 		},
 		{
 			name: "symlink: outside cwd + baseDir symlink",
-			before: func(dir string) billy.Filesystem {
+			before: func(dir string) billy.Filesystem { //nolint
 				cwd := filepath.Join(dir, "symlink-dir")
 				outside := filepath.Join(cwd, "symlink-outside")
 				cwdTarget := filepath.Join(dir, "cwd-target")
 				outsideDir := filepath.Join(dir, "outside")
 
-				os.Mkdir(cwdTarget, 0o700)
-				os.Mkdir(outsideDir, 0o700)
+				err := os.Mkdir(cwdTarget, 0o700)
+				require.NoError(t, err)
+				err = os.Mkdir(outsideDir, 0o700)
+				require.NoError(t, err)
 
-				os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
-				os.Symlink(cwdTarget, cwd)
-				os.Symlink(outsideDir, outside)
-				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
+				err = os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwd)
+				require.NoError(t, err)
+				err = os.Symlink(outsideDir, outside)
+				require.NoError(t, err)
+				err = os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
+				require.NoError(t, err)
 				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-outside/symlink-file",
@@ -407,10 +436,10 @@ func TestReadLink(t *testing.T) {
 
 			got, err := fs.Readlink(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Empty(got)
 			} else {
-				assert.Nil(err)
+				require.NoError(t, err)
 				assert.Equal(expected, got)
 			}
 		})
@@ -428,7 +457,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "rel symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -436,7 +466,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "rel symlink: pointing to rel path above cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -444,7 +475,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "abs symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -453,7 +485,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "abs symlink: pointing to rel outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -466,12 +499,17 @@ func TestLstat(t *testing.T) {
 				cwdAlt := filepath.Join(dir, "symlink-altdir")
 				cwdTarget := filepath.Join(dir, "cwd-target")
 
-				os.MkdirAll(cwdTarget, 0o700)
+				err := os.MkdirAll(cwdTarget, 0o700)
+				require.NoError(t, err)
 
-				os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
-				os.Symlink(cwdTarget, cwd)
-				os.Symlink(cwdTarget, cwdAlt)
-				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
+				err = os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwd)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwdAlt)
+				require.NoError(t, err)
+				err = os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(cwdAlt, "symlink-file"))
+				require.NoError(t, err)
 				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-file",
@@ -479,19 +517,26 @@ func TestLstat(t *testing.T) {
 		},
 		{
 			name: "symlink: outside cwd + baseDir symlink",
-			before: func(dir string) billy.Filesystem {
+			before: func(dir string) billy.Filesystem { //nolint
 				cwd := filepath.Join(dir, "symlink-dir")
 				outside := filepath.Join(cwd, "symlink-outside")
 				cwdTarget := filepath.Join(dir, "cwd-target")
 				outsideDir := filepath.Join(dir, "outside")
 
-				os.Mkdir(cwdTarget, 0o700)
-				os.Mkdir(outsideDir, 0o700)
+				err := os.Mkdir(cwdTarget, 0o700)
+				require.NoError(t, err)
+				err = os.Mkdir(outsideDir, 0o700)
+				require.NoError(t, err)
 
-				os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
-				os.Symlink(cwdTarget, cwd)
-				os.Symlink(outsideDir, outside)
-				os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
+				err = os.WriteFile(filepath.Join(cwdTarget, "file"), []byte{}, 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(cwdTarget, cwd)
+				require.NoError(t, err)
+				err = os.Symlink(outsideDir, outside)
+				require.NoError(t, err)
+				err = os.Symlink(filepath.Join(cwdTarget, "file"), filepath.Join(outside, "symlink-file"))
+				require.NoError(t, err)
+
 				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-outside/symlink-file",
@@ -511,7 +556,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "file: rel",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -519,7 +565,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "file: dot rel",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "./test-file",
@@ -527,7 +574,8 @@ func TestLstat(t *testing.T) {
 		{
 			name: "file: abs",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -550,10 +598,10 @@ func TestLstat(t *testing.T) {
 			}
 			fi, err := fs.Lstat(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Nil(fi)
 			} else {
-				assert.Nil(err)
+				require.NoError(t, err)
 				assert.NotNil(fi)
 				assert.Equal(filepath.Base(tt.filename), fi.Name())
 			}
@@ -572,7 +620,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "rel symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -581,7 +630,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "rel symlink: pointing to rel path above cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -591,7 +641,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "abs symlink: pointing to abs outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -601,7 +652,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "abs symlink: pointing to rel outside cwd",
 			before: func(dir string) billy.Filesystem {
-				os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				err := os.Symlink("../../../../../../../../etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -621,7 +673,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "rel file",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -636,7 +689,8 @@ func TestStat(t *testing.T) {
 		{
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -660,10 +714,10 @@ func TestStat(t *testing.T) {
 
 			fi, err := fs.Stat(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Nil(fi)
 			} else {
-				assert.Nil(err)
+				require.NoError(t, err)
 				assert.NotNil(fi)
 			}
 		})
@@ -707,7 +761,8 @@ func TestRemove(t *testing.T) {
 		{
 			name: "same dir file",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
@@ -716,8 +771,10 @@ func TestRemove(t *testing.T) {
 			name: "symlink: same dir",
 			before: func(dir string) billy.Filesystem {
 				target := filepath.Join(dir, "target-file")
-				os.WriteFile(target, []byte("anything"), 0o600)
-				os.Symlink(target, filepath.Join(dir, "symlink"))
+				err := os.WriteFile(target, []byte("anything"), 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(target, filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -725,7 +782,8 @@ func TestRemove(t *testing.T) {
 		{
 			name: "rel path to file above cwd",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
@@ -733,7 +791,8 @@ func TestRemove(t *testing.T) {
 		{
 			name: "abs file",
 			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+				err := os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
@@ -745,10 +804,14 @@ func TestRemove(t *testing.T) {
 				cwd := filepath.Join(dir, "current-dir")
 				outsideFile := filepath.Join(dir, "outside-cwd/file")
 
-				os.Mkdir(cwd, 0o700)
-				os.MkdirAll(filepath.Dir(outsideFile), 0o700)
-				os.WriteFile(outsideFile, []byte("anything"), 0o600)
-				os.Symlink(outsideFile, filepath.Join(cwd, "remove-abs-symlink"))
+				err := os.Mkdir(cwd, 0o700)
+				require.NoError(t, err)
+				err = os.MkdirAll(filepath.Dir(outsideFile), 0o700)
+				require.NoError(t, err)
+				err = os.WriteFile(outsideFile, []byte("anything"), 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(outsideFile, filepath.Join(cwd, "remove-abs-symlink"))
+				require.NoError(t, err)
 				return newBoundOS(cwd, true)
 			},
 			filename: "remove-abs-symlink",
@@ -760,10 +823,14 @@ func TestRemove(t *testing.T) {
 				cwd := filepath.Join(dir, "current-dir")
 				outsideFile := filepath.Join(dir, "outside-cwd", "file2")
 
-				os.Mkdir(cwd, 0o700)
-				os.MkdirAll(filepath.Dir(outsideFile), 0o700)
-				os.WriteFile(outsideFile, []byte("anything"), 0o600)
-				os.Symlink(filepath.Join("..", "outside-cwd", "file2"), filepath.Join(cwd, "remove-abs-symlink2"))
+				err := os.Mkdir(cwd, 0o700)
+				require.NoError(t, err)
+				err = os.MkdirAll(filepath.Dir(outsideFile), 0o700)
+				require.NoError(t, err)
+				err = os.WriteFile(outsideFile, []byte("anything"), 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(filepath.Join("..", "outside-cwd", "file2"), filepath.Join(cwd, "remove-abs-symlink2"))
+				require.NoError(t, err)
 				return newBoundOS(cwd, true)
 			},
 			filename: "remove-rel-symlink",
@@ -772,7 +839,6 @@ func TestRemove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := assert.New(t)
 			dir := t.TempDir()
 			fs := newBoundOS(dir, true)
 
@@ -787,9 +853,9 @@ func TestRemove(t *testing.T) {
 
 			err := fs.Remove(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				assert.Nil(err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -800,13 +866,14 @@ func TestRemoveAll(t *testing.T) {
 		name     string
 		filename string
 		makeAbs  bool
-		before   func(dir string) billy.Filesystem
+		before   func(t *testing.T, dir string) billy.Filesystem
 		wantErr  string
 	}{
 		{
 			name: "parent with children",
-			before: func(dir string) billy.Filesystem {
-				os.MkdirAll(filepath.Join(dir, "parent/children"), 0o600)
+			before: func(t *testing.T, dir string) billy.Filesystem {
+				err := os.MkdirAll(filepath.Join(dir, "parent", "children"), 0o700)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "parent",
@@ -817,34 +884,39 @@ func TestRemoveAll(t *testing.T) {
 		},
 		{
 			name: "same dir file",
-			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+			before: func(t *testing.T, dir string) billy.Filesystem {
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "test-file",
 		},
 		{
 			name: "same dir symlink",
-			before: func(dir string) billy.Filesystem {
+			before: func(t *testing.T, dir string) billy.Filesystem {
 				target := filepath.Join(dir, "target-file")
-				os.WriteFile(target, []byte("anything"), 0o600)
-				os.Symlink(target, filepath.Join(dir, "symlink"))
+				err := os.WriteFile(target, []byte("anything"), 0o600)
+				require.NoError(t, err)
+				err = os.Symlink(target, filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
 		},
 		{
 			name: "rel path to file above cwd",
-			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+			before: func(t *testing.T, dir string) billy.Filesystem {
+				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "../../rel-above-cwd",
 		},
 		{
 			name: "abs file",
-			before: func(dir string) billy.Filesystem {
-				os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+			before: func(t *testing.T, dir string) billy.Filesystem {
+				err := os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "abs-test-file",
@@ -852,8 +924,9 @@ func TestRemoveAll(t *testing.T) {
 		},
 		{
 			name: "abs symlink",
-			before: func(dir string) billy.Filesystem {
-				os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+			before: func(t *testing.T, dir string) billy.Filesystem {
+				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
+				require.NoError(t, err)
 				return newBoundOS(dir, true)
 			},
 			filename: "symlink",
@@ -864,10 +937,12 @@ func TestRemoveAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert := assert.New(t)
 			dir := t.TempDir()
-			fs := newBoundOS(dir, true).(*BoundOS)
+			fs, ok := newBoundOS(dir, true).(*BoundOS)
+			assert.True(ok)
 
 			if tt.before != nil {
-				fs = tt.before(dir).(*BoundOS)
+				fs, ok = tt.before(t, dir).(*BoundOS)
+				assert.True(ok)
 			}
 
 			filename := tt.filename
@@ -877,9 +952,9 @@ func TestRemoveAll(t *testing.T) {
 
 			err := fs.RemoveAll(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				assert.Nil(err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -990,7 +1065,8 @@ func TestAbs(t *testing.T) {
 			expected:        "within-cwd",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
+				err := os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
+				require.NoError(t, err)
 			},
 			deduplicatePath: true,
 		},
@@ -1001,7 +1077,8 @@ func TestAbs(t *testing.T) {
 			expected:        "within-cwd",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("within-cwd", filepath.Join(dir, "ln-rel-cwd-cwd"))
+				err := os.Symlink("within-cwd", filepath.Join(dir, "ln-rel-cwd-cwd"))
+				require.NoError(t, err)
 			},
 			deduplicatePath: true,
 		},
@@ -1012,7 +1089,8 @@ func TestAbs(t *testing.T) {
 			expected:        "/some/outside/dir",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("/some/outside/dir", filepath.Join(dir, "ln-cwd-up"))
+				err := os.Symlink("/some/outside/dir", filepath.Join(dir, "ln-cwd-up"))
+				require.NoError(t, err)
 			},
 			deduplicatePath: true,
 		},
@@ -1023,7 +1101,8 @@ func TestAbs(t *testing.T) {
 			expected:        "outside-cwd",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("../../outside-cwd", filepath.Join(dir, "ln-rel-cwd-up"))
+				err := os.Symlink("../../outside-cwd", filepath.Join(dir, "ln-rel-cwd-up"))
+				require.NoError(t, err)
 			},
 			deduplicatePath: true,
 		},
@@ -1033,7 +1112,8 @@ func TestAbs(t *testing.T) {
 			expected:        "within-cwd",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
+				err := os.Symlink(filepath.Join(dir, "within-cwd"), filepath.Join(dir, "ln-cwd-cwd"))
+				require.NoError(t, err)
 			},
 			deduplicatePath: true,
 		},
@@ -1043,7 +1123,8 @@ func TestAbs(t *testing.T) {
 			expected:        "within-cwd",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("within-cwd", filepath.Join(dir, "ln-rel-cwd-cwd2"))
+				err := os.Symlink("within-cwd", filepath.Join(dir, "ln-rel-cwd-cwd2"))
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -1052,7 +1133,8 @@ func TestAbs(t *testing.T) {
 			expected:        "/outside/path/up",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("/outside/path/up", filepath.Join(dir, "ln-cwd-up2"))
+				err := os.Symlink("/outside/path/up", filepath.Join(dir, "ln-cwd-up2"))
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -1061,7 +1143,8 @@ func TestAbs(t *testing.T) {
 			expected:        "outside",
 			makeExpectedAbs: true,
 			before: func(dir string) {
-				os.Symlink("../../../../outside", filepath.Join(dir, "ln-rel-cwd-up2"))
+				err := os.Symlink("../../../../outside", filepath.Join(dir, "ln-rel-cwd-up2"))
+				require.NoError(t, err)
 			},
 		},
 	}
@@ -1073,7 +1156,9 @@ func TestAbs(t *testing.T) {
 				cwd = t.TempDir()
 			}
 
-			fs := newBoundOS(cwd, tt.deduplicatePath).(*BoundOS)
+			fs, ok := newBoundOS(cwd, tt.deduplicatePath).(*BoundOS)
+			assert.True(ok)
+
 			if tt.before != nil {
 				tt.before(cwd)
 			}
@@ -1090,9 +1175,9 @@ func TestAbs(t *testing.T) {
 
 			got, err := fs.abs(filename)
 			if tt.wantErr != "" {
-				assert.ErrorContains(err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				assert.NoError(err)
+				require.NoError(t, err)
 			}
 
 			assert.Equal(expected, got)
@@ -1106,28 +1191,29 @@ func TestReadDir(t *testing.T) {
 	fs := newBoundOS(dir, true)
 
 	f, err := os.Create(filepath.Join(dir, "file1"))
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(f)
-	assert.NoError(f.Close())
+	require.NoError(t, f.Close())
 
 	f, err = os.Create(filepath.Join(dir, "file2"))
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(f)
-	assert.NoError(f.Close())
+	require.NoError(t, f.Close())
 
 	dirs, err := fs.ReadDir(dir)
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(dirs)
 	assert.Len(dirs, 2)
 
 	dirs, err = fs.ReadDir(".")
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(dirs)
 	assert.Len(dirs, 2)
 
-	os.Symlink("/some/path/outside/cwd", filepath.Join(dir, "symlink"))
+	err = os.Symlink("/some/path/outside/cwd", filepath.Join(dir, "symlink"))
+	require.NoError(t, err)
 	dirs, err = fs.ReadDir("symlink")
-	assert.ErrorContains(err, notFoundError())
+	require.ErrorContains(t, err, notFoundError())
 	assert.Nil(dirs)
 }
 
@@ -1137,12 +1223,12 @@ func TestInsideBaseDirEval(t *testing.T) {
 	fs := BoundOS{baseDir: "/"}
 	b, err := fs.insideBaseDirEval("a")
 	assert.True(b)
-	assert.Nil(err)
+	require.NoError(t, err)
 
 	fs = BoundOS{baseDir: ""}
 	b, err = fs.insideBaseDirEval(filepath.Join("a", "b", "c"))
 	assert.True(b)
-	assert.Nil(err)
+	require.NoError(t, err)
 }
 
 func TestMkdirAll(t *testing.T) {
@@ -1156,22 +1242,22 @@ func TestMkdirAll(t *testing.T) {
 	// Even if CWD is changed outside of the fs instance,
 	// the base dir must still be observed.
 	err := os.Chdir(os.TempDir())
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	err = fs.MkdirAll(target, 0o700)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	fi, err := os.Stat(targetAbs)
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(fi)
 
 	err = os.Mkdir(filepath.Join(root, "outside"), 0o700)
-	assert.NoError(err)
+	require.NoError(t, err)
 	err = os.Symlink(filepath.Join(root, "outside"), filepath.Join(cwd, "symlink"))
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	err = fs.MkdirAll(filepath.Join(cwd, "symlink", "new-dir"), 0o700)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	// For windows, the volume name must be removed from the path or
 	// it will lead to an invalid path.
@@ -1193,24 +1279,24 @@ func TestRename(t *testing.T) {
 	// Even if CWD is changed outside of the fs instance,
 	// the base dir must still be observed.
 	err := os.Chdir(os.TempDir())
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	f, err := fs.Create(oldFile)
-	assert.NoError(err)
-	assert.NoError(f.Close())
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
 
 	err = fs.Rename(oldFile, newFile)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	fi, err := os.Stat(filepath.Join(dir, newFile))
-	assert.NoError(err)
+	require.NoError(t, err)
 	assert.NotNil(fi)
 
 	err = fs.Rename(filepath.FromSlash("/tmp/outside/cwd/file1"), newFile)
-	assert.ErrorContains(err, notFoundError())
+	require.ErrorContains(t, err, notFoundError())
 
 	err = fs.Rename(oldFile, filepath.FromSlash("/tmp/outside/cwd/file2"))
-	assert.ErrorContains(err, notFoundError())
+	require.ErrorContains(t, err, notFoundError())
 }
 
 func mustExist(filename string) {

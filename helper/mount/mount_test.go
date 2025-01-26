@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-billy/v6/memfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mock struct {
@@ -38,12 +39,12 @@ func setup() (helper *Mount, underlying *mock, source *mock) {
 func TestCreate(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.Create("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
 	assert.Len(t, underlying.CreateArgs, 1)
 	assert.Equal(t, filepath.Join("bar", "qux"), underlying.CreateArgs[0])
-	assert.Len(t, source.CreateArgs, 0)
+	assert.Empty(t, source.CreateArgs)
 }
 
 func TestCreateMountPoint(t *testing.T) {
@@ -56,10 +57,10 @@ func TestCreateMountPoint(t *testing.T) {
 func TestCreateInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.Create("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	assert.Len(t, underlying.CreateArgs, 0)
+	assert.Empty(t, underlying.CreateArgs)
 	assert.Len(t, source.CreateArgs, 1)
 	assert.Equal(t, filepath.Join("bar", "qux"), source.CreateArgs[0])
 }
@@ -67,12 +68,12 @@ func TestCreateInMount(t *testing.T) {
 func TestOpen(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.Open("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
 	assert.Len(t, underlying.OpenArgs, 1)
 	assert.Equal(t, filepath.Join("bar", "qux"), underlying.OpenArgs[0])
-	assert.Len(t, source.OpenArgs, 0)
+	assert.Empty(t, source.OpenArgs)
 }
 
 func TestOpenMountPoint(t *testing.T) {
@@ -85,10 +86,10 @@ func TestOpenMountPoint(t *testing.T) {
 func TestOpenInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.Open("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	assert.Len(t, underlying.OpenArgs, 0)
+	assert.Empty(t, underlying.OpenArgs)
 	assert.Len(t, source.OpenArgs, 1)
 	assert.Equal(t, source.OpenArgs[0], filepath.Join("bar", "qux"))
 }
@@ -96,13 +97,13 @@ func TestOpenInMount(t *testing.T) {
 func TestOpenFile(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.OpenFile("bar/qux", 42, 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
 	assert.Len(t, underlying.OpenFileArgs, 1)
 	assert.Equal(t, underlying.OpenFileArgs[0],
 		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
-	assert.Len(t, source.OpenFileArgs, 0)
+	assert.Empty(t, source.OpenFileArgs)
 }
 
 func TestOpenFileMountPoint(t *testing.T) {
@@ -115,10 +116,10 @@ func TestOpenFileMountPoint(t *testing.T) {
 func TestOpenFileInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.OpenFile("foo/bar/qux", 42, 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
-	assert.Len(t, underlying.OpenFileArgs, 0)
+	assert.Empty(t, underlying.OpenFileArgs)
 	assert.Len(t, source.OpenFileArgs, 1)
 	assert.Equal(t, source.OpenFileArgs[0],
 		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
@@ -127,19 +128,19 @@ func TestOpenFileInMount(t *testing.T) {
 func TestStat(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Stat("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.StatArgs, 1)
 	assert.Equal(t, underlying.StatArgs[0], filepath.Join("bar", "qux"))
-	assert.Len(t, source.StatArgs, 0)
+	assert.Empty(t, source.StatArgs)
 }
 
 func TestStatInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Stat("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.StatArgs, 0)
+	assert.Empty(t, underlying.StatArgs)
 	assert.Len(t, source.StatArgs, 1)
 	assert.Equal(t, source.StatArgs[0], filepath.Join("bar", "qux"))
 }
@@ -147,19 +148,19 @@ func TestStatInMount(t *testing.T) {
 func TestRename(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Rename("bar/qux", "qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.RenameArgs, 1)
 	assert.Equal(t, underlying.RenameArgs[0], [2]string{"bar/qux", "qux"})
-	assert.Len(t, source.RenameArgs, 0)
+	assert.Empty(t, source.RenameArgs)
 }
 
 func TestRenameInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Rename("foo/bar/qux", "foo/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.RenameArgs, 0)
+	assert.Empty(t, underlying.RenameArgs)
 	assert.Len(t, source.RenameArgs, 1)
 	assert.Equal(t, source.RenameArgs[0],
 		[2]string{filepath.Join("bar", "qux"), "qux"})
@@ -169,23 +170,24 @@ func TestRenameCross(t *testing.T) {
 	underlying := memfs.New()
 	source := memfs.New()
 
-	util.WriteFile(underlying, "file", []byte("foo"), 0777)
+	err := util.WriteFile(underlying, "file", []byte("foo"), 0777)
+	require.NoError(t, err)
 
 	fs := New(underlying, "/foo", source)
-	err := fs.Rename("file", "foo/file")
-	assert.NoError(t, err)
+	err = fs.Rename("file", "foo/file")
+	require.NoError(t, err)
 
 	_, err = underlying.Stat("file")
 	assert.Equal(t, err, os.ErrNotExist)
 
 	_, err = source.Stat("file")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = fs.Rename("foo/file", "file")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = underlying.Stat("file")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = source.Stat("file")
 	assert.Equal(t, err, os.ErrNotExist)
@@ -194,11 +196,11 @@ func TestRenameCross(t *testing.T) {
 func TestRemove(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Remove("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.RemoveArgs, 1)
 	assert.Equal(t, underlying.RemoveArgs[0], filepath.Join("bar", "qux"))
-	assert.Len(t, source.RemoveArgs, 0)
+	assert.Empty(t, source.RemoveArgs)
 }
 
 func TestRemoveMountPoint(t *testing.T) {
@@ -210,9 +212,9 @@ func TestRemoveMountPoint(t *testing.T) {
 func TestRemoveInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Remove("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.RemoveArgs, 0)
+	assert.Empty(t, underlying.RemoveArgs)
 	assert.Len(t, source.RemoveArgs, 1)
 	assert.Equal(t, source.RemoveArgs[0], filepath.Join("bar", "qux"))
 }
@@ -220,11 +222,11 @@ func TestRemoveInMount(t *testing.T) {
 func TestReadDir(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.ReadDir("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.ReadDirArgs, 1)
 	assert.Equal(t, underlying.ReadDirArgs[0], filepath.Join("bar", "qux"))
-	assert.Len(t, source.ReadDirArgs, 0)
+	assert.Empty(t, source.ReadDirArgs)
 }
 
 func TestJoin(t *testing.T) {
@@ -233,15 +235,15 @@ func TestJoin(t *testing.T) {
 
 	assert.Len(t, underlying.JoinArgs, 1)
 	assert.Equal(t, underlying.JoinArgs[0], []string{"foo", "bar"})
-	assert.Len(t, source.JoinArgs, 0)
+	assert.Empty(t, source.JoinArgs)
 }
 
 func TestReadDirInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.ReadDir("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.ReadDirArgs, 0)
+	assert.Empty(t, underlying.ReadDirArgs)
 	assert.Len(t, source.ReadDirArgs, 1)
 	assert.Equal(t, source.ReadDirArgs[0], filepath.Join("bar", "qux"))
 }
@@ -249,20 +251,20 @@ func TestReadDirInMount(t *testing.T) {
 func TestMkdirAll(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.MkdirAll("bar/qux", 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.MkdirAllArgs, 1)
 	assert.Equal(t, underlying.MkdirAllArgs[0],
 		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
-	assert.Len(t, source.MkdirAllArgs, 0)
+	assert.Empty(t, source.MkdirAllArgs)
 }
 
 func TestMkdirAllInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.MkdirAll("foo/bar/qux", 0777)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.MkdirAllArgs, 0)
+	assert.Empty(t, underlying.MkdirAllArgs)
 	assert.Len(t, source.MkdirAllArgs, 1)
 	assert.Equal(t, source.MkdirAllArgs[0],
 		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
@@ -271,19 +273,19 @@ func TestMkdirAllInMount(t *testing.T) {
 func TestLstat(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Lstat("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.LstatArgs, 1)
 	assert.Equal(t, underlying.LstatArgs[0], filepath.Join("bar", "qux"))
-	assert.Len(t, source.LstatArgs, 0)
+	assert.Empty(t, source.LstatArgs)
 }
 
 func TestLstatInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Lstat("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.LstatArgs, 0)
+	assert.Empty(t, underlying.LstatArgs)
 	assert.Len(t, source.LstatArgs, 1)
 	assert.Equal(t, source.LstatArgs[0], filepath.Join("bar", "qux"))
 }
@@ -291,12 +293,12 @@ func TestLstatInMount(t *testing.T) {
 func TestSymlink(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Symlink("../baz", "bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.SymlinkArgs, 1)
 	assert.Equal(t, underlying.SymlinkArgs[0],
 		[2]string{"../baz", filepath.Join("bar", "qux")})
-	assert.Len(t, source.SymlinkArgs, 0)
+	assert.Empty(t, source.SymlinkArgs)
 }
 
 func TestSymlinkCrossMount(t *testing.T) {
@@ -317,9 +319,9 @@ func TestSymlinkCrossMount(t *testing.T) {
 func TestSymlinkInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	err := helper.Symlink("../baz", "foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.SymlinkArgs, 0)
+	assert.Empty(t, underlying.SymlinkArgs)
 	assert.Len(t, source.SymlinkArgs, 1)
 	assert.Equal(t, source.SymlinkArgs[0],
 		[2]string{"../baz", filepath.Join("bar", "qux")})
@@ -328,19 +330,19 @@ func TestSymlinkInMount(t *testing.T) {
 func TestRadlink(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Readlink("bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, underlying.ReadlinkArgs, 1)
 	assert.Equal(t, underlying.ReadlinkArgs[0], filepath.Join("bar", "qux"))
-	assert.Len(t, source.ReadlinkArgs, 0)
+	assert.Empty(t, source.ReadlinkArgs)
 }
 
 func TestReadlinkInMount(t *testing.T) {
 	helper, underlying, source := setup()
 	_, err := helper.Readlink("foo/bar/qux")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, underlying.ReadlinkArgs, 0)
+	assert.Empty(t, underlying.ReadlinkArgs)
 	assert.Len(t, source.ReadlinkArgs, 1)
 	assert.Equal(t, source.ReadlinkArgs[0], filepath.Join("bar", "qux"))
 }

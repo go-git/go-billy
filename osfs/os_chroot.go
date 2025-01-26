@@ -59,7 +59,7 @@ func (fs *ChrootOS) Rename(from, to string) error {
 	return rename(from, to)
 }
 
-func (fs *ChrootOS) MkdirAll(path string, perm fs.FileMode) error {
+func (fs *ChrootOS) MkdirAll(path string, _ os.FileMode) error {
 	return os.MkdirAll(path, defaultDirectoryMode)
 }
 
