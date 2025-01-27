@@ -4,11 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	stdfs "io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v6"
 	. "github.com/go-git/go-billy/v6" //nolint
+	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -469,22 +475,99 @@ func TestStatNonExistent(t *testing.T) {
 }
 
 func TestRename(t *testing.T) {
-	eachBasicFS(t, func(t *testing.T, fs Basic) {
+	tests := []struct {
+		name      string
+		before    func(*testing.T, billy.Filesystem)
+		from      string
+		to        string
+		wantErr   *error
+		wantFiles []string
+	}{
+		{
+			name:    "from not found",
+			from:    "foo",
+			to:      "bar",
+			wantErr: &os.ErrNotExist,
+		},
+		{
+			name: "file rename",
+			before: func(t *testing.T, fs billy.Filesystem) {
+				root := fsRoot(fs)
+				_, err := fs.Create(fs.Join(root, "foo"))
+				require.NoError(t, err)
+			},
+			from:      "foo",
+			to:        "bar",
+			wantFiles: []string{"/bar"},
+		},
+		{
+			name: "dir rename",
+			before: func(t *testing.T, fs billy.Filesystem) {
+				root := fsRoot(fs)
+				_, err := fs.Create(fs.Join(root, "foo", "bar1"))
+				require.NoError(t, err)
+				_, err = fs.Create(fs.Join(root, "foo", "bar2"))
+				require.NoError(t, err)
+			},
+			from:      "foo",
+			to:        "bar",
+			wantFiles: []string{"/bar/bar1", "/bar/bar2"},
+		},
+	}
+
+	eachFS(t, func(t *testing.T, fs Filesystem) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", nil, 0644)
-		require.NoError(t, err)
 
-		err = fs.Rename("foo", "bar")
-		require.NoError(t, err)
+		root := fsRoot(fs)
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				if tc.before != nil {
+					tc.before(t, fs)
+				}
 
-		foo, err := fs.Stat("foo")
-		assert.Nil(t, foo)
-		assert.ErrorIs(t, err, os.ErrNotExist)
+				err := fs.Rename(fs.Join(root, tc.from), fs.Join(root, tc.to))
+				if tc.wantErr == nil {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, *tc.wantErr)
+				}
 
-		bar, err := fs.Stat("bar")
-		require.NoError(t, err)
-		assert.NotNil(t, bar)
+				err = util.Walk(fs, root, func(path string, fi stdfs.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+
+					if fi.IsDir() {
+						return nil
+					}
+
+					if root != "/" {
+						path = strings.TrimPrefix(path, root)
+					}
+					if !slices.Contains(tc.wantFiles, path) {
+						assert.Fail(t, "file not found", "name", path)
+					}
+
+					return nil
+				})
+				require.NoError(t, err)
+
+				fis, _ := fs.ReadDir(root)
+				for _, fi := range fis {
+					cpath := fs.Join(root, fi.Name())
+					err := util.RemoveAll(fs, cpath)
+					require.NoError(t, err)
+				}
+			})
+		}
 	})
+}
+
+func fsRoot(fs billy.Filesystem) string {
+	if reflect.TypeOf(fs) == reflect.TypeOf(&osfs.BoundOS{}) {
+		return fs.Root()
+	}
+	return "/"
 }
 
 func TestOpenAndWrite(t *testing.T) {

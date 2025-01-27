@@ -20,7 +20,6 @@
 package osfs
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,9 +31,6 @@ import (
 )
 
 var (
-	ErrBaseDirCannotBeRemoved = errors.New("base dir cannot be removed")
-	ErrBaseDirCannotBeRenamed = errors.New("base dir cannot be renamed")
-
 	dotPrefixes = []string{"./", ".\\"}
 )
 
@@ -84,15 +80,21 @@ func (fs *BoundOS) ReadDir(path string) ([]os.FileInfo, error) {
 
 func (fs *BoundOS) Rename(from, to string) error {
 	if from == "." || from == fs.baseDir {
-		return ErrBaseDirCannotBeRenamed
+		return billy.ErrBaseDirCannotBeRenamed
 	}
 
 	from = fs.expandDot(from)
-	to = fs.expandDot(to)
+	_, err := fs.Lstat(from)
+	if err != nil {
+		return err
+	}
+
 	f, err := fs.abs(from)
 	if err != nil {
 		return err
 	}
+
+	to = fs.expandDot(to)
 	t, err := fs.abs(to)
 	if err != nil {
 		return err
@@ -130,7 +132,7 @@ func (fs *BoundOS) Stat(filename string) (os.FileInfo, error) {
 
 func (fs *BoundOS) Remove(filename string) error {
 	if filename == "." || filename == fs.baseDir {
-		return ErrBaseDirCannotBeRemoved
+		return billy.ErrBaseDirCannotBeRemoved
 	}
 
 	fn, err := fs.abs(filename)
@@ -161,7 +163,7 @@ func (fs *BoundOS) Join(elem ...string) string {
 
 func (fs *BoundOS) RemoveAll(path string) error {
 	if path == "." || path == fs.baseDir {
-		return ErrBaseDirCannotBeRemoved
+		return billy.ErrBaseDirCannotBeRemoved
 	}
 
 	path = fs.expandDot(path)
