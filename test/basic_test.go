@@ -493,25 +493,30 @@ func TestRename(t *testing.T) {
 			name: "file rename",
 			before: func(t *testing.T, fs billy.Filesystem) {
 				root := fsRoot(fs)
-				_, err := fs.Create(fs.Join(root, "foo"))
+				f, err := fs.Create(fs.Join(root, "foo"))
 				require.NoError(t, err)
+				require.NoError(t, f.Close())
 			},
 			from:      "foo",
 			to:        "bar",
-			wantFiles: []string{"/bar"},
+			wantFiles: []string{filepath.FromSlash("/bar")},
 		},
 		{
 			name: "dir rename",
 			before: func(t *testing.T, fs billy.Filesystem) {
 				root := fsRoot(fs)
-				_, err := fs.Create(fs.Join(root, "foo", "bar1"))
+				f, err := fs.Create(fs.Join(root, "foo", "bar1"))
 				require.NoError(t, err)
-				_, err = fs.Create(fs.Join(root, "foo", "bar2"))
+				require.NoError(t, f.Close())
+				f, err = fs.Create(fs.Join(root, "foo", "bar2"))
 				require.NoError(t, err)
+				require.NoError(t, f.Close())
 			},
-			from:      "foo",
-			to:        "bar",
-			wantFiles: []string{"/bar/bar1", "/bar/bar2"},
+			from: "foo",
+			to:   "bar",
+			wantFiles: []string{
+				filepath.FromSlash("/bar/bar1"),
+				filepath.FromSlash("/bar/bar2")},
 		},
 	}
 
@@ -541,7 +546,7 @@ func TestRename(t *testing.T) {
 						return nil
 					}
 
-					if root != "/" {
+					if filepath.Dir(root) == "" {
 						path = strings.TrimPrefix(path, root)
 					}
 					if !slices.Contains(tc.wantFiles, path) {
@@ -567,7 +572,7 @@ func fsRoot(fs billy.Filesystem) string {
 	if reflect.TypeOf(fs) == reflect.TypeOf(&osfs.BoundOS{}) {
 		return fs.Root()
 	}
-	return "/"
+	return string(filepath.Separator)
 }
 
 func TestOpenAndWrite(t *testing.T) {

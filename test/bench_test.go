@@ -2,8 +2,10 @@ package test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
@@ -24,10 +26,10 @@ type test struct {
 	fn      string
 	sut     billy.Filesystem
 	openF   func(billy.Filesystem) func(string) (io.ReadSeekCloser, error)
-	createF func(*testing.B, billy.Filesystem, string) (io.WriteCloser, error)
+	createF func(billy.Filesystem, string) (io.WriteCloser, error)
 }
 
-func BenchmarkOpenRead(b *testing.B) {
+func BenchmarkCompare(b *testing.B) {
 	tests := []test{
 		{
 			// provide baseline comparison against direct use of os.
@@ -53,6 +55,13 @@ func BenchmarkOpenRead(b *testing.B) {
 		{
 			name:    "memfs",
 			fn:      fn,
+			sut:     memfs.New(memfs.WithoutMutex()),
+			openF:   billyOpen,
+			createF: billyCreate,
+		},
+		{
+			name:    "memfs_mutex",
+			fn:      fn,
 			sut:     memfs.New(),
 			openF:   billyOpen,
 			createF: billyCreate,
@@ -60,7 +69,7 @@ func BenchmarkOpenRead(b *testing.B) {
 	}
 
 	for _, tc := range tests {
-		f, err := tc.createF(b, tc.sut, tc.fn)
+		f, err := tc.createF(tc.sut, tc.fn)
 		require.NoError(b, err)
 		assert.NotNil(b, f)
 
@@ -70,6 +79,27 @@ func BenchmarkOpenRead(b *testing.B) {
 
 	for _, tc := range tests {
 		b.Run(tc.name+"_read", read(tc.fn, tc.openF(tc.sut)))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_create", create(tc.sut, tc.fn, tc.createF))
+	}
+}
+
+func create(fs billy.Filesystem, n string, nf func(billy.Filesystem, string) (io.WriteCloser, error)) func(b *testing.B) {
+	return func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			fn := fmt.Sprintf("%s_%d", n, i)
+			b.StartTimer()
+			f, err := nf(fs, fn)
+			b.StopTimer()
+
+			require.NoError(b, err)
+			assert.NotNil(b, f)
+
+			err = f.Close()
+			require.NoError(b, err)
+		}
 	}
 }
 
@@ -130,7 +160,7 @@ func prepFS(b *testing.B, f io.WriteCloser) {
 
 func stdlibOpen(_ billy.Filesystem) func(n string) (io.ReadSeekCloser, error) {
 	return func(n string) (io.ReadSeekCloser, error) {
-		return os.Open(n)
+		return os.OpenFile(n, os.O_RDONLY, 0o444)
 	}
 }
 
@@ -140,10 +170,10 @@ func billyOpen(fs billy.Filesystem) func(n string) (io.ReadSeekCloser, error) {
 	}
 }
 
-func stdlibCreate(_ *testing.B, _ billy.Filesystem, n string) (io.WriteCloser, error) {
+func stdlibCreate(_ billy.Filesystem, n string) (io.WriteCloser, error) {
 	return os.Create(n)
 }
 
-func billyCreate(b *testing.B, fs billy.Filesystem, n string) (io.WriteCloser, error) {
+func billyCreate(fs billy.Filesystem, n string) (io.WriteCloser, error) {
 	return fs.Create(n)
 }
