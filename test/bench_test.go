@@ -55,13 +55,6 @@ func BenchmarkCompare(b *testing.B) {
 		{
 			name:    "memfs",
 			fn:      fn,
-			sut:     memfs.New(memfs.WithoutMutex()),
-			openF:   billyOpen,
-			createF: billyCreate,
-		},
-		{
-			name:    "memfs_mutex",
-			fn:      fn,
 			sut:     memfs.New(),
 			openF:   billyOpen,
 			createF: billyCreate,

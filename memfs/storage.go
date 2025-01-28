@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-billy/v6"
@@ -15,16 +16,14 @@ type storage struct {
 	files    map[string]*file
 	children map[string]map[string]*file
 
-	mf mutex
-	mc mutex
+	mf sync.RWMutex
+	mc sync.RWMutex
 }
 
-func newStorage(newMutex func() mutex) *storage {
+func newStorage() *storage {
 	return &storage{
 		files:    make(map[string]*file, 0),
 		children: make(map[string]map[string]*file, 0),
-		mc:       newMutex(),
-		mf:       newMutex(),
 	}
 }
 

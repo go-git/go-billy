@@ -22,24 +22,17 @@ const separator = filepath.Separator
 // Memory a very convenient filesystem based on memory files.
 type Memory struct {
 	s *storage
-
-	m mutex
 }
 
 // New returns a new Memory filesystem.
 func New(opts ...Option) billy.Filesystem {
-	o := &options{
-		// Enable thread-safety by default.
-		newMutex: newMutex,
-	}
-
+	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	fs := &Memory{
-		s: newStorage(o.newMutex),
-		m: o.newMutex(),
+		s: newStorage(),
 	}
 	_, err := fs.s.New("/", 0755|os.ModeDir, 0)
 	if err != nil {
