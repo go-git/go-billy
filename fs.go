@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	ErrReadOnly        = errors.New("read-only filesystem")
-	ErrNotSupported    = errors.New("feature not supported")
-	ErrCrossedBoundary = errors.New("chroot boundary crossed")
+	ErrReadOnly               = errors.New("read-only filesystem")
+	ErrNotSupported           = errors.New("feature not supported")
+	ErrCrossedBoundary        = errors.New("chroot boundary crossed")
+	ErrBaseDirCannotBeRemoved = errors.New("base dir cannot be removed")
+	ErrBaseDirCannotBeRenamed = errors.New("base dir cannot be renamed")
 )
 
 // Capability holds the supported features of a billy filesystem. This does

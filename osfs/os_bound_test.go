@@ -1293,10 +1293,10 @@ func TestRename(t *testing.T) {
 	assert.NotNil(fi)
 
 	err = fs.Rename(filepath.FromSlash("/tmp/outside/cwd/file1"), newFile)
-	require.ErrorContains(t, err, notFoundError())
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	err = fs.Rename(oldFile, filepath.FromSlash("/tmp/outside/cwd/file2"))
-	require.ErrorContains(t, err, notFoundError())
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func mustExist(filename string) {

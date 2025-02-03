@@ -52,7 +52,12 @@ func (fs *ChrootOS) ReadDir(dir string) ([]os.FileInfo, error) {
 }
 
 func (fs *ChrootOS) Rename(from, to string) error {
-	if err := fs.createDir(to); err != nil {
+	_, err := fs.Lstat(from)
+	if err != nil {
+		return err
+	}
+
+	if err = fs.createDir(to); err != nil {
 		return err
 	}
 

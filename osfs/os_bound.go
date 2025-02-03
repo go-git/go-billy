@@ -20,7 +20,6 @@
 package osfs
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,8 +31,7 @@ import (
 )
 
 var (
-	ErrBaseDirCannotBeRemoved = errors.New("base dir cannot be removed")
-	ErrBaseDirCannotBeRenamed = errors.New("base dir cannot be renamed")
+	dotPrefixes = []string{"./", ".\\"}
 )
 
 // BoundOS is a fs implementation based on the OS filesystem which is bound to
@@ -66,6 +64,7 @@ func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.
 	if err != nil {
 		return nil, err
 	}
+
 	return openFile(fn, flag, perm, fs.createDir)
 }
 
@@ -81,15 +80,21 @@ func (fs *BoundOS) ReadDir(path string) ([]os.FileInfo, error) {
 
 func (fs *BoundOS) Rename(from, to string) error {
 	if from == "." || from == fs.baseDir {
-		return ErrBaseDirCannotBeRenamed
+		return billy.ErrBaseDirCannotBeRenamed
 	}
 
 	from = fs.expandDot(from)
-	to = fs.expandDot(to)
+	_, err := fs.Lstat(from)
+	if err != nil {
+		return err
+	}
+
 	f, err := fs.abs(from)
 	if err != nil {
 		return err
 	}
+
+	to = fs.expandDot(to)
 	t, err := fs.abs(to)
 	if err != nil {
 		return err
@@ -113,7 +118,6 @@ func (fs *BoundOS) MkdirAll(path string, perm fs.FileMode) error {
 }
 
 func (fs *BoundOS) Open(filename string) (billy.File, error) {
-	filename = fs.expandDot(filename)
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
@@ -128,7 +132,7 @@ func (fs *BoundOS) Stat(filename string) (os.FileInfo, error) {
 
 func (fs *BoundOS) Remove(filename string) error {
 	if filename == "." || filename == fs.baseDir {
-		return ErrBaseDirCannotBeRemoved
+		return billy.ErrBaseDirCannotBeRemoved
 	}
 
 	fn, err := fs.abs(filename)
@@ -159,7 +163,7 @@ func (fs *BoundOS) Join(elem ...string) string {
 
 func (fs *BoundOS) RemoveAll(path string) error {
 	if path == "." || path == fs.baseDir {
-		return ErrBaseDirCannotBeRemoved
+		return billy.ErrBaseDirCannotBeRemoved
 	}
 
 	path = fs.expandDot(path)
@@ -187,7 +191,7 @@ func (fs *BoundOS) expandDot(p string) string {
 	if p == "." {
 		return fs.baseDir
 	}
-	for _, prefix := range []string{"./", ".\\"} {
+	for _, prefix := range dotPrefixes {
 		if strings.HasPrefix(p, prefix) {
 			return filepath.Join(fs.baseDir, strings.TrimPrefix(p, prefix))
 		}
