@@ -1,4 +1,4 @@
-# go-billy [![GoDoc](https://godoc.org/gopkg.in/go-git/go-billy.v6?status.svg)](https://pkg.go.dev/github.com/go-git/go-billy/v6) [![Test](https://github.com/go-git/go-billy/workflows/Test/badge.svg)](https://github.com/go-git/go-billy/actions?query=workflow%3ATest)
+# go-billy [![GoDoc](https://godoc.org/gopkg.in/go-git/go-billy.v6?status.svg)](https://pkg.go.dev/github.com/go-git/go-billy/v6) [![Test](https://github.com/go-git/go-billy/workflows/Test/badge.svg)](https://github.com/go-git/go-billy/actions?query=workflow%3ATest) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/go-git/go-billy/badge)](https://scorecard.dev/viewer/?uri=github.com/go-git/go-billy)
 
 The missing interface filesystem abstraction for Go.
 Billy implements an interface based on the `os` standard library, allowing to develop applications without dependency on the underlying storage. Makes it virtually free to implement mocks and testing over filesystem operations.
