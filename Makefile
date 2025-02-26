@@ -3,7 +3,7 @@ GOCMD = go
 GOTEST = $(GOCMD) test 
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 
-GOLANGCI_VERSION ?= v1.63.4
+GOLANGCI_VERSION ?= v1.64.5
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
 GOLANGCI = $(TOOLS_BIN)/golangci-lint-$(GOLANGCI_VERSION)
