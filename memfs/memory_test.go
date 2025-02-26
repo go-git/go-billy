@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -356,4 +357,42 @@ func TestSymlink(t *testing.T) {
 	fi, err := fs.ReadDir("test")
 	require.NoError(t, err)
 	assert.Nil(t, fi)
+}
+
+func TestThreadSafety(t *testing.T) {
+	fs := New()
+
+	var wg sync.WaitGroup
+	files := 100
+
+	fnc := func(n int, s string, remove bool) {
+		fn := fmt.Sprintf("/file_%d%s", n, s)
+		f, err := fs.Create(fn)
+		require.NoError(t, err)
+		require.NotNil(t, f)
+
+		err = fs.Rename(fn, fn+"2")
+		require.NoError(t, err)
+
+		if remove {
+			err = fs.Remove(fn + "2")
+			require.NoError(t, err)
+		}
+		wg.Done()
+	}
+
+	for i := 0; i < files; i++ {
+		wg.Add(4)
+
+		go fnc(i, "a", false)
+		go fnc(i, "b", false)
+		go fnc(i, "c", true)
+		go fnc(i, "d", true)
+	}
+
+	wg.Wait()
+
+	fi, err := fs.ReadDir("/")
+	require.NoError(t, err)
+	assert.Len(t, fi, files*2)
 }
