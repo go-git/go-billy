@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
@@ -1285,8 +1286,19 @@ func TestRename(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 
+	umask := syscall.Umask(2)
 	err = fs.Rename(oldFile, newFile)
 	require.NoError(t, err)
+	syscall.Umask(umask)
+
+	di, err := os.Stat(filepath.Dir(filepath.Join(dir, newFile)))
+	require.NoError(t, err)
+	assert.NotNil(di)
+	expected := 0o775
+	actual := int(di.Mode().Perm())
+	assert.Equal(
+		expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+	)
 
 	fi, err := os.Stat(filepath.Join(dir, newFile))
 	require.NoError(t, err)

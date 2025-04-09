@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"os"
+	"syscall"
 	"testing"
 
 	. "github.com/go-git/go-billy/v6" //nolint
@@ -28,11 +29,21 @@ func eachChrootFS(t *testing.T, test func(t *testing.T, fs chrootFS)) {
 func TestCreateWithChroot(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
+		umask := syscall.Umask(2)
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Create("bar")
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 		assert.Equal(t, f.Name(), "bar")
+		syscall.Umask(umask)
+
+		di, err := fs.Stat(fs.Join("foo"))
+		require.NoError(t, err)
+		expected := 0o775
+		actual := int(di.Mode().Perm())
+		assert.Equal(
+			t, expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+		)
 
 		f, err = fs.Open("foo/bar")
 		require.NoError(t, err)
