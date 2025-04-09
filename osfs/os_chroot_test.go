@@ -47,3 +47,25 @@ func TestCapabilities(t *testing.T) {
 	caps := billy.Capabilities(fs)
 	assert.Equal(t, billy.DefaultCapabilities, caps)
 }
+
+func TestCreateWithChroot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping POSIX umask tests on Windows")
+	}
+	fs, _ := setup(t)
+	resetUmask := umask(2)
+	chroot, _ := fs.Chroot("foo")
+	f, err := chroot.Create("bar")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	assert.Equal(t, f.Name(), "bar")
+	resetUmask()
+
+	di, err := fs.Stat("foo")
+	require.NoError(t, err)
+	expected := 0o775
+	actual := int(di.Mode().Perm())
+	assert.Equal(
+		t, expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+	)
+}

@@ -1295,8 +1295,24 @@ func TestRename(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 
-	err = fs.Rename(oldFile, newFile)
-	require.NoError(t, err)
+	if runtime.GOOS != "windows" {
+		resetUmask := umask(2)
+		err = fs.Rename(oldFile, newFile)
+		require.NoError(t, err)
+		resetUmask()
+
+		di, err := os.Stat(filepath.Dir(filepath.Join(dir, newFile)))
+		require.NoError(t, err)
+		assert.NotNil(di)
+		expected := 0o775
+		actual := int(di.Mode().Perm())
+		assert.Equal(
+			expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+		)
+	} else {
+		err = fs.Rename(oldFile, newFile)
+		require.NoError(t, err)
+	}
 
 	fi, err := os.Stat(filepath.Join(dir, newFile))
 	require.NoError(t, err)
