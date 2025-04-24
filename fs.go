@@ -178,6 +178,8 @@ type File interface {
 	Unlock() error
 	// Truncate the file.
 	Truncate(size int64) error
+	// Commit the current contents of the file to stable storage.
+	Sync() error
 }
 
 // Capable interface can return the available features of a filesystem.
