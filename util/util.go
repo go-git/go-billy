@@ -18,7 +18,7 @@ import (
 // can but returns the first error it encounters. If the path does not exist,
 // RemoveAll returns nil (no error).
 func RemoveAll(fs billy.Basic, path string) error {
-	fs, path = getUnderlyingAndPath(fs, path)
+	fs, path = GetUnderlyingAndPath(fs, path)
 
 	if r, ok := fs.(removerAll); ok {
 		return r.RemoveAll(path)
@@ -228,7 +228,7 @@ type underlying interface {
 	Underlying() billy.Basic
 }
 
-func getUnderlyingAndPath(fs billy.Basic, path string) (billy.Basic, string) {
+func GetUnderlyingAndPath(fs billy.Basic, path string) (billy.Basic, string) {
 	u, ok := fs.(underlying)
 	if !ok {
 		return fs, path
