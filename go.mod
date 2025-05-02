@@ -2,11 +2,12 @@ module github.com/go-git/go-billy/v6
 
 // go-git supports the last 3 stable Go versions.
 go 1.22
+toolchain go1.24.1
 
 require (
 	github.com/cyphar/filepath-securejoin v0.4.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.32.0
 )
 
 require (
