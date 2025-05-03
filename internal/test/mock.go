@@ -140,6 +140,10 @@ func (*FileMock) Stat() (fs.FileInfo, error) {
 	return nil, nil
 }
 
+func (*FileMock) Sync() error {
+	return nil
+}
+
 func (*FileMock) Truncate(_ int64) error {
 	return nil
 }
