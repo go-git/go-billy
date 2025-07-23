@@ -1,4 +1,4 @@
-module github.com/go-git/go-billy/v6
+module github.com/this-kirke/go-billy/v6
 
 // go-git supports the last 3 stable Go versions.
 go 1.23.0
