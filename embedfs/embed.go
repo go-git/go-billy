@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/go-git/go-billy/v6"
-	"github.com/go-git/go-billy/v6/memfs"
+	"github.com/go-git/go-billy/v6/helper/chroot"
 )
 
 type Embed struct {
@@ -29,7 +29,20 @@ func New(efs *embed.FS) billy.Filesystem {
 		fs.underlying = &embed.FS{}
 	}
 
-	return fs
+	return chroot.New(fs, "/")
+}
+
+// normalizePath converts billy's absolute paths to embed.FS relative paths
+func (fs *Embed) normalizePath(path string) string {
+	// embed.FS uses "." for root directory, but billy uses "/"
+	if path == "/" {
+		return "."
+	}
+	// Remove leading slash for embed.FS
+	if strings.HasPrefix(path, "/") {
+		return path[1:]
+	}
+	return path
 }
 
 func (fs *Embed) Root() string {
@@ -37,6 +50,8 @@ func (fs *Embed) Root() string {
 }
 
 func (fs *Embed) Stat(filename string) (os.FileInfo, error) {
+	filename = fs.normalizePath(filename)
+	
 	f, err := fs.underlying.Open(filename)
 	if err != nil {
 		return nil, err
@@ -53,6 +68,7 @@ func (fs *Embed) OpenFile(filename string, flag int, _ os.FileMode) (billy.File,
 		return nil, billy.ErrReadOnly
 	}
 
+	filename = fs.normalizePath(filename)
 	f, err := fs.underlying.Open(filename)
 	if err != nil {
 		return nil, err
@@ -91,6 +107,8 @@ func (fs *Embed) Join(elem ...string) string {
 }
 
 func (fs *Embed) ReadDir(path string) ([]os.FileInfo, error) {
+	path = fs.normalizePath(path)
+	
 	e, err := fs.underlying.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -102,23 +120,18 @@ func (fs *Embed) ReadDir(path string) ([]os.FileInfo, error) {
 		entries = append(entries, fi)
 	}
 
-	sort.Sort(memfs.ByName(entries))
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
 
 	return entries, nil
 }
 
-// Chroot is not supported.
-//
-// Calls will always return billy.ErrNotSupported.
-func (fs *Embed) Chroot(_ string) (billy.Filesystem, error) {
-	return nil, billy.ErrNotSupported
-}
 
-// Lstat is not supported.
-//
-// Calls will always return billy.ErrNotSupported.
-func (fs *Embed) Lstat(_ string) (os.FileInfo, error) {
-	return nil, billy.ErrNotSupported
+
+// Lstat behaves the same as Stat for embedded filesystems since there are no symlinks.
+func (fs *Embed) Lstat(filename string) (os.FileInfo, error) {
+	return fs.Stat(filename)
 }
 
 // Readlink is not supported.
