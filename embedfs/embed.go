@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/go-git/go-billy/v6"
-	"github.com/go-git/go-billy/v6/memfs"
+	"github.com/go-git/go-billy/v6/helper/chroot"
 )
 
 type Embed struct {
@@ -29,7 +29,7 @@ func New(efs *embed.FS) billy.Filesystem {
 		fs.underlying = &embed.FS{}
 	}
 
-	return fs
+	return chroot.New(fs, "/")
 }
 
 // normalizePath converts billy's absolute paths to embed.FS relative paths
@@ -120,17 +120,14 @@ func (fs *Embed) ReadDir(path string) ([]os.FileInfo, error) {
 		entries = append(entries, fi)
 	}
 
-	sort.Sort(memfs.ByName(entries))
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
 
 	return entries, nil
 }
 
-// Chroot is not supported.
-//
-// Calls will always return billy.ErrNotSupported.
-func (fs *Embed) Chroot(_ string) (billy.Filesystem, error) {
-	return nil, billy.ErrNotSupported
-}
+
 
 // Lstat behaves the same as Stat for embedded filesystems since there are no symlinks.
 func (fs *Embed) Lstat(filename string) (os.FileInfo, error) {
