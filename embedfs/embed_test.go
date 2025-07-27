@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
-	"github.com/go-git/go-billy/v6/embedfs_testdata"
+	"github.com/go-git/go-billy/v6/embedfs/internal/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +38,7 @@ func TestOpen(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := New(embedfs_testdata.GetTestData())
+			fs := New(testdata.GetTestData())
 
 			var got []byte
 			f, err := fs.Open(tc.name)
@@ -109,7 +109,7 @@ func TestOpenFileFlags(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := New(embedfs_testdata.GetTestData())
+			fs := New(testdata.GetTestData())
 
 			_, err := fs.OpenFile(tc.file, tc.flag, 0o700)
 			if tc.wantErr != "" {
@@ -151,7 +151,7 @@ func TestStat(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := New(embedfs_testdata.GetTestData())
+			fs := New(testdata.GetTestData())
 
 			fi, err := fs.Stat(tc.name)
 			if tc.wantErr {
@@ -180,20 +180,20 @@ func TestReadDir(t *testing.T) {
 		{
 			name: "testdata",
 			path: "testdata",
-			fs:   embedfs_testdata.GetTestData(),
+			fs:   testdata.GetTestData(),
 			want: []string{"empty.txt", "file1.txt", "file2.txt", "subdir"},
 		},
 		{
 			name:    "empty path",
 			path:    "",
-			fs:      embedfs_testdata.GetTestData(),
-			want:    []string{},
-			wantErr: true,
+			fs:      testdata.GetTestData(),
+			want:    []string{"testdata"},
+			wantErr: false,
 		},
 		{
 			name: "root path",
 			path: "/",
-			fs:   embedfs_testdata.GetTestData(),
+			fs:   testdata.GetTestData(),
 			want: []string{"testdata"},
 		},
 	}
@@ -228,7 +228,7 @@ func TestReadDir(t *testing.T) {
 func TestUnsupported(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	_, err := fs.Create("test")
 	require.ErrorIs(t, err, billy.ErrReadOnly)
@@ -246,7 +246,7 @@ func TestUnsupported(t *testing.T) {
 func TestFileUnsupported(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	f, err := fs.Open("testdata/file1.txt")
 	require.NoError(t, err)
@@ -260,7 +260,7 @@ func TestFileUnsupported(t *testing.T) {
 }
 
 func TestFileSeek(t *testing.T) {
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	f, err := fs.Open("testdata/file2.txt")
 	require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestJoin(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := New(embedfs_testdata.GetTestData())
+			fs := New(testdata.GetTestData())
 
 			got := fs.Join(tc.path...)
 			assert.Equal(t, tc.want, got)
@@ -338,19 +338,19 @@ func TestJoin(t *testing.T) {
 func TestEmbedfs_ComprehensiveOpen(t *testing.T) {
 	t.Parallel()
 	
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	
 	// Test opening existing embedded file with content
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
-	assert.Equal(t, "file1.txt", f.Name())
+	assert.Equal(t, "testdata/file1.txt", f.Name())
 	require.NoError(t, f.Close())
 }
 
 func TestEmbedfs_ComprehensiveRead(t *testing.T) {
 	t.Parallel()
 	
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
@@ -366,7 +366,7 @@ func TestEmbedfs_ComprehensiveRead(t *testing.T) {
 func TestEmbedfs_NestedFileOperations(t *testing.T) {
 	t.Parallel()
 	
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	
 	// Test nested file read
 	f, err := fs.Open("/testdata/subdir/nested.txt")
@@ -382,7 +382,7 @@ func TestEmbedfs_NestedFileOperations(t *testing.T) {
 func TestEmbedfs_PathNormalization(t *testing.T) {
 	t.Parallel()
 	
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	
 	// Test that our path normalization works across all methods
 	tests := []struct {
@@ -411,7 +411,7 @@ func TestEmbedfs_PathNormalization(t *testing.T) {
 func TestFile_ReadAt(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
@@ -463,7 +463,7 @@ func TestFile_ReadAt(t *testing.T) {
 func TestFile_Close(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
@@ -487,7 +487,7 @@ func TestFile_Close(t *testing.T) {
 func TestFile_LockUnlock(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)

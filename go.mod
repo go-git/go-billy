@@ -15,4 +15,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/go-git/go-billy/v6 => github.com/this-kirke/go-billy/v6 v6.0.0

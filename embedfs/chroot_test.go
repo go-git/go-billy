@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
-	"github.com/go-git/go-billy/v6/embedfs_testdata"
+	"github.com/go-git/go-billy/v6/embedfs/internal/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ import (
 func TestChroot_Basic(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test chroot to existing directory
 	chrootFS, err := fs.Chroot("testdata")
@@ -33,7 +33,7 @@ func TestChroot_Basic(t *testing.T) {
 func TestChroot_NestedDirectory(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test chroot to nested directory
 	chrootFS, err := fs.Chroot("testdata/subdir")
@@ -53,7 +53,7 @@ func TestChroot_NestedDirectory(t *testing.T) {
 func TestChroot_StatInChroot(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestChroot_StatInChroot(t *testing.T) {
 func TestChroot_ReadDirInChroot(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestChroot_ReadDirInChroot(t *testing.T) {
 func TestChroot_PathNormalization(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test chroot with different path formats
 	tests := []struct {
@@ -163,7 +163,7 @@ func TestChroot_PathNormalization(t *testing.T) {
 func TestChroot_NonExistentPath(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test chroot to non-existent directory - billy's chroot helper allows this
 	chrootFS, err := fs.Chroot("nonexistent")
@@ -178,7 +178,7 @@ func TestChroot_NonExistentPath(t *testing.T) {
 func TestChroot_Join(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
 
@@ -199,7 +199,7 @@ func TestChroot_Join(t *testing.T) {
 func TestChroot_UnsupportedOperations(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
 
@@ -220,7 +220,7 @@ func TestChroot_UnsupportedOperations(t *testing.T) {
 func TestChroot_NestedChroot(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test creating nested chrootfs
 	firstChroot, err := fs.Chroot("testdata")
@@ -248,7 +248,7 @@ func TestChroot_NestedChroot(t *testing.T) {
 func TestChroot_FileOperations(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
 
@@ -282,7 +282,7 @@ func TestChroot_FileOperations(t *testing.T) {
 func TestChroot_Lstat(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 	chrootFS, err := fs.Chroot("testdata")
 	require.NoError(t, err)
 

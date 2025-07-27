@@ -3,7 +3,7 @@ package embedfs
 import (
 	"testing"
 
-	"github.com/go-git/go-billy/v6/embedfs_testdata"
+	"github.com/go-git/go-billy/v6/embedfs/internal/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ import (
 func TestFS_ReadDir(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test basic ReadDir functionality
 	entries, err := fs.ReadDir("/")
@@ -41,7 +41,7 @@ func TestFS_ReadDir(t *testing.T) {
 func TestFS_ReadDirNonExistent(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test reading non-existent directory
 	_, err := fs.ReadDir("/non-existent")
@@ -51,7 +51,7 @@ func TestFS_ReadDirNonExistent(t *testing.T) {
 func TestFS_StatExisting(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test stating existing file
 	fi, err := fs.Stat("/testdata/file1.txt")
@@ -70,7 +70,7 @@ func TestFS_StatExisting(t *testing.T) {
 func TestFS_StatNonExistent(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test stating non-existent file
 	_, err := fs.Stat("/non-existent")
@@ -81,7 +81,7 @@ func TestFS_StatNonExistent(t *testing.T) {
 func TestFS_EmptyFileHandling(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test empty file stat
 	fi, err := fs.Stat("/testdata/empty.txt")

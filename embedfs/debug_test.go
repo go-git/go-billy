@@ -4,7 +4,7 @@ import (
 	"embed"
 	"testing"
 
-	"github.com/go-git/go-billy/v6/embedfs_testdata"
+	"github.com/go-git/go-billy/v6/embedfs/internal/testdata"
 )
 
 var emptyEmbedFS embed.FS
@@ -20,7 +20,7 @@ func TestDebugErrors(t *testing.T) {
 	t.Logf("Empty FS, root path: %v", err2)
 	
 	// Test 3: Non-empty embed.FS with empty path
-	richFS := New(embedfs_testdata.GetTestData())
+	richFS := New(testdata.GetTestData())
 	_, err3 := richFS.ReadDir("")
 	t.Logf("Rich FS, empty path: %v", err3)
 	

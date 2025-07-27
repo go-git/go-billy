@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-git/go-billy/v6/embedfs_testdata"
+	"github.com/go-git/go-billy/v6/embedfs/internal/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +14,7 @@ import (
 func TestDir_ReadDirNested(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	// Test reading nested directories
 	entries, err := fs.ReadDir("/testdata/subdir")
@@ -27,7 +27,7 @@ func TestDir_ReadDirNested(t *testing.T) {
 func TestDir_ReadDirFileInfo(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	entries, err := fs.ReadDir("/testdata")
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestDir_ReadDirFileInfo(t *testing.T) {
 func TestDir_ReadDirFileInfoDirs(t *testing.T) {
 	t.Parallel()
 
-	fs := New(embedfs_testdata.GetTestData())
+	fs := New(testdata.GetTestData())
 
 	entries, err := fs.ReadDir("/testdata")
 	require.NoError(t, err)
