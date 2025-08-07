@@ -3,6 +3,10 @@ GOCMD = go
 GOTEST = $(GOCMD) test 
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 
+# Coverage
+COVERAGE_REPORT := coverage.out
+COVERAGE_MODE := count
+
 GOLANGCI_VERSION ?= v2.1.6
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
