@@ -24,7 +24,7 @@ jobs:
 
     - name: Install wasirun
       run: |
-        go install github.com/stealthrocket/wasi-go/cmd/wasirun@latest
+        go install github.com/stealthrocket/wasi-go/cmd/wasirun@v0.8.0
 
     - name: Test
       run: make wasitest
