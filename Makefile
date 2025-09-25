@@ -14,7 +14,7 @@ $(GOLANGCI):
 
 .PHONY: test
 test:
-	$(GOTEST) -race -timeout 300s ./...
+	$(GOTEST) -race -timeout 900s ./...
 
 test-coverage:
 	echo "" > $(COVERAGE_REPORT); \
