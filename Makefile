@@ -4,7 +4,7 @@ GOTEST = $(GOCMD) test
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 
 # Coverage
-COVERAGE_REPORT := coverage.out
+COVERAGE_REPORT := build/coverage.out
 COVERAGE_MODE := count
 
 GOLANGCI_VERSION ?= v2.1.6
