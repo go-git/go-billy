@@ -219,16 +219,6 @@ func (f *file) Close() error {
 	return nil
 }
 
-// Lock for embedfs file is a no-op.
-func (f *file) Lock() error {
-	return nil
-}
-
-// Unlock for embedfs file is a no-op.
-func (f *file) Unlock() error {
-	return nil
-}
-
 // Truncate is not supported.
 //
 // Calls will always return billy.ErrReadOnly.
