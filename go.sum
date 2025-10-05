@@ -2,6 +2,7 @@ github.com/cyphar/filepath-securejoin v0.5.0 h1:hIAhkRBMQ8nIeuVwcAoymp7MY4oherZd
 github.com/cyphar/filepath-securejoin v0.5.0/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/go-git/go-billy/v6 v6.0.0-20250711053805-c1f149aaab07/go.mod h1:Pa0/zeE0tC0GiZLFFtOYXOky9SgpNF+zkrj7aEJhBVg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
