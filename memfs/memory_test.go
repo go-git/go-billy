@@ -66,9 +66,11 @@ func TestModTime(t *testing.T) {
 	// new calls to ModTime() retain existing mod time.
 	assert.Equal(t, modtime, fi1a.ModTime())
 
-	// Writing to to file should change the mod time
-	util.WriteFile(fs, "/file1", []byte{0}, 0o666)
+	// Writing to file should change the mod time
+	err = util.WriteFile(fs, "/file1", []byte{0}, 0o666)
+	require.NoError(t, err)
 	fi1c, err := fs.Stat("/file1")
+	require.NoError(t, err)
 	assert.NotEqual(t, modtime, fi1c.ModTime())
 }
 
