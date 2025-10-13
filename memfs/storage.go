@@ -44,11 +44,13 @@ func (s *storage) New(path string, mode fs.FileMode, flag int) (*file, error) {
 
 	name := filepath.Base(path)
 	f := &file{
-		name:    name,
-		content: &content{name: name},
-		mode:    mode,
-		flag:    flag,
-		modTime: time.Now(),
+		name: name,
+		content: &content{
+			name:    name,
+			modTime: time.Now(),
+		},
+		mode: mode,
+		flag: flag,
 	}
 
 	s.mf.Lock()

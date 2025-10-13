@@ -17,7 +17,6 @@ type file struct {
 	position int64
 	flag     int
 	mode     os.FileMode
-	modTime  time.Time
 
 	isClosed bool
 }
@@ -81,7 +80,6 @@ func (f *file) WriteAt(p []byte, off int64) (int, error) {
 		return 0, errors.New("write not supported")
 	}
 
-	f.modTime = time.Now()
 	n, err := f.content.WriteAt(p, off)
 	f.position = off + int64(n)
 
@@ -113,7 +111,6 @@ func (f *file) Duplicate(filename string, mode fs.FileMode, flag int) billy.File
 		content: f.content,
 		mode:    mode,
 		flag:    flag,
-		modTime: f.modTime,
 	}
 
 	if isTruncate(flag) {
@@ -132,7 +129,7 @@ func (f *file) Stat() (os.FileInfo, error) {
 		name:    f.Name(),
 		mode:    f.mode,
 		size:    f.content.Len(),
-		modTime: f.modTime,
+		modTime: f.content.modTime,
 	}, nil
 }
 
@@ -178,8 +175,9 @@ func (*fileInfo) Sys() interface{} {
 }
 
 type content struct {
-	name  string
-	bytes []byte
+	name    string
+	bytes   []byte
+	modTime time.Time
 
 	m sync.RWMutex
 }
@@ -205,6 +203,7 @@ func (c *content) WriteAt(p []byte, off int64) (int, error) {
 	if len(c.bytes) < prev {
 		c.bytes = c.bytes[:prev]
 	}
+	c.modTime = time.Now()
 	c.m.Unlock()
 
 	return len(p), nil
