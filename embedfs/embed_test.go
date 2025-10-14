@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func TestOpen(t *testing.T) {
 	t.Parallel()
 
@@ -186,8 +185,8 @@ func TestReadDir(t *testing.T) {
 		{
 			name:    "empty path",
 			path:    "",
-			fs:      testdata.GetTestData(),
-			want:    []string{"testdata"},
+			fs:      &emptyEmbedFS,
+			want:    []string{},
 			wantErr: false,
 		},
 		{
@@ -271,14 +270,14 @@ func TestFileSeek(t *testing.T) {
 		seekWhence int
 		want       string
 	}{
-		{seekOff: 8, seekWhence: io.SeekStart, want: "test file"},   // pos now at 17
-		{seekOff: 8, seekWhence: io.SeekStart, want: "t"},          // pos now at 9  
-		{seekOff: 9, seekWhence: io.SeekStart, want: "est"},        // pos now at 12
-		{seekOff: 1, seekWhence: io.SeekStart, want: "nother test file"}, // pos now at 17
+		{seekOff: 8, seekWhence: io.SeekStart, want: "test file"},         // pos now at 17
+		{seekOff: 8, seekWhence: io.SeekStart, want: "t"},                 // pos now at 9
+		{seekOff: 9, seekWhence: io.SeekStart, want: "est"},               // pos now at 12
+		{seekOff: 1, seekWhence: io.SeekStart, want: "nother test file"},  // pos now at 17
 		{seekOff: 0, seekWhence: io.SeekStart, want: "Another test file"}, // pos now at 17
-		{seekOff: 0, seekWhence: io.SeekStart, want: "A"},          // pos now at 1
-		{seekOff: 0, seekWhence: io.SeekCurrent, want: "n"},        // pos now at 2
-		{seekOff: -4, seekWhence: io.SeekEnd, want: "file"},        // pos now at 17
+		{seekOff: 0, seekWhence: io.SeekStart, want: "A"},                 // pos now at 1
+		{seekOff: 0, seekWhence: io.SeekCurrent, want: "n"},               // pos now at 2
+		{seekOff: -4, seekWhence: io.SeekEnd, want: "file"},               // pos now at 17
 	}
 
 	for i, tc := range tests {
@@ -337,9 +336,9 @@ func TestJoin(t *testing.T) {
 
 func TestEmbedfs_ComprehensiveOpen(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := New(testdata.GetTestData())
-	
+
 	// Test opening existing embedded file with content
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
@@ -349,13 +348,13 @@ func TestEmbedfs_ComprehensiveOpen(t *testing.T) {
 
 func TestEmbedfs_ComprehensiveRead(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := New(testdata.GetTestData())
-	
+
 	f, err := fs.Open("/testdata/file1.txt")
 	require.NoError(t, err)
 	defer f.Close()
-	
+
 	// Read the actual content
 	buf := make([]byte, 100)
 	n, err := f.Read(buf)
@@ -365,14 +364,14 @@ func TestEmbedfs_ComprehensiveRead(t *testing.T) {
 
 func TestEmbedfs_NestedFileOperations(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := New(testdata.GetTestData())
-	
+
 	// Test nested file read
 	f, err := fs.Open("/testdata/subdir/nested.txt")
 	require.NoError(t, err)
 	defer f.Close()
-	
+
 	buf := make([]byte, 100)
 	n, err := f.Read(buf)
 	require.NoError(t, err)
@@ -381,9 +380,9 @@ func TestEmbedfs_NestedFileOperations(t *testing.T) {
 
 func TestEmbedfs_PathNormalization(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := New(testdata.GetTestData())
-	
+
 	// Test that our path normalization works across all methods
 	tests := []struct {
 		name string
@@ -394,7 +393,7 @@ func TestEmbedfs_PathNormalization(t *testing.T) {
 		{"nested", "/testdata/subdir"},
 		{"deep file", "/testdata/subdir/nested.txt"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// All these should work with our path normalization
@@ -428,21 +427,21 @@ func TestFile_ReadAt(t *testing.T) {
 		{"middle", 6, 4, "from"},
 		{"end", 15, 4, "dfs!"},
 		{"full content", 0, 19, "Hello from embedfs!"},
-		{"beyond end", 100, 10, ""},  // Should return EOF
+		{"beyond end", 100, 10, ""}, // Should return EOF
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := make([]byte, tt.length)
 			n, err := f.ReadAt(buf, tt.offset)
-			
-			if tt.offset >= 19 {  // Beyond file size
+
+			if tt.offset >= 19 { // Beyond file size
 				require.Error(t, err)
 				assert.Equal(t, 0, n)
 			} else {
 				if tt.offset+int64(tt.length) > 19 {
 					// Partial read at end of file
-					require.Error(t, err) // Should be EOF
+					require.ErrorIs(t, err, io.EOF)
 					assert.Greater(t, n, 0)
 					assert.Equal(t, tt.want, string(buf[:n]))
 				} else {
@@ -472,16 +471,12 @@ func TestFile_Close(t *testing.T) {
 	err = f.Close()
 	require.NoError(t, err)
 
-	// Test multiple closes (should be safe)
+	// Multiple closes must not fail.
 	err = f.Close()
 	require.NoError(t, err)
 
 	err = f.Close()
 	require.NoError(t, err)
-
-	// Note: embedfs doesn't necessarily fail operations after close
-	// since embed.FS files remain readable. This tests that Close() works
-	// without error, but doesn't enforce post-close failure behavior.
 }
 
 func TestFile_LockUnlock(t *testing.T) {
@@ -493,14 +488,14 @@ func TestFile_LockUnlock(t *testing.T) {
 	require.NoError(t, err)
 	defer f.Close()
 
-	// Lock/Unlock should be no-ops that don't error
+	// Lock/Unlock are no-ops and must not error.
 	err = f.Lock()
 	require.NoError(t, err)
 
 	err = f.Unlock()
 	require.NoError(t, err)
 
-	// Multiple lock/unlock sequences should work
+	// Invalid lock/unlock sequences are not checked.
 	err = f.Lock()
 	require.NoError(t, err)
 	err = f.Lock()
