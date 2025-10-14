@@ -236,11 +236,6 @@ func (f *file) Truncate(_ int64) error {
 	return billy.ErrReadOnly
 }
 
-// Sync for embedfs file is a no-op.
-func (f *file) Sync() error {
-	return nil
-}
-
 // Write is not supported.
 //
 // Calls will always return billy.ErrReadOnly.

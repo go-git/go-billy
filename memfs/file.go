@@ -146,11 +146,6 @@ func (f *file) Unlock() error {
 	return nil
 }
 
-// Sync is a no-op in memfs.
-func (f *file) Sync() error {
-	return nil
-}
-
 type fileInfo struct {
 	name    string
 	size    int
