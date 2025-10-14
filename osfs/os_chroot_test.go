@@ -45,5 +45,5 @@ func TestCapabilities(t *testing.T) {
 	assert.True(t, ok)
 
 	caps := billy.Capabilities(fs)
-	assert.Equal(t, billy.AllCapabilities, caps)
+	assert.Equal(t, billy.DefaultCapabilities, caps)
 }

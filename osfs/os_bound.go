@@ -54,6 +54,10 @@ func newBoundOS(d string, deduplicatePath bool) billy.Filesystem {
 	return &BoundOS{baseDir: d, deduplicatePath: deduplicatePath}
 }
 
+func (fs *BoundOS) Capabilities() billy.Capability {
+	return billy.DefaultCapabilities & billy.SyncCapability
+}
+
 func (fs *BoundOS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }

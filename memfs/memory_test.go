@@ -31,7 +31,7 @@ func TestCapabilities(t *testing.T) {
 	assert.True(t, ok)
 
 	caps := billy.Capabilities(fs)
-	assert.Equal(t, billy.DefaultCapabilities&^billy.LockCapability&^billy.SyncCapability, caps)
+	assert.Equal(t, billy.DefaultCapabilities&^billy.LockCapability, caps)
 }
 
 func TestModTime(t *testing.T) {

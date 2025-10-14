@@ -42,7 +42,7 @@ const (
 	// major version is released.
 	DefaultCapabilities Capability = WriteCapability | ReadCapability |
 		ReadAndWriteCapability | SeekCapability | TruncateCapability |
-		LockCapability | SyncCapability
+		LockCapability
 
 	// AllCapabilities lists all capable features.
 	AllCapabilities Capability = WriteCapability | ReadCapability |
@@ -184,7 +184,7 @@ type File interface {
 
 // Syncer interface can be implemented by filesystems that support syncing.
 type Syncer interface {
-	// Commit the current contents of the file to stable storage.
+	// Sync commits the current contents of the file to stable storage.
 	Sync() error
 }
 
