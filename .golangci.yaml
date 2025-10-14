@@ -1,5 +1,6 @@
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -22,10 +23,8 @@ linters:
     - gochecknoinits
     - gochecksumtype
     - goheader
-    - goimports
     - gomodguard
     - goprintffuncname
-    - gosimple
     - gosmopolitan
     - govet
     - grouper
@@ -44,14 +43,33 @@ linters:
     - sloglint
     - spancheck
     - sqlclosecheck
+    - staticcheck
     - tagalign
     - tagliatelle
-    - tenv
     - testableexamples
-    - typecheck
     - unconvert
     - unused
     - usestdlibvars
     - wastedassign
     - whitespace
     - zerologlint
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

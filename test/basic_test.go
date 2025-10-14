@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-billy/v6"
 	. "github.com/go-git/go-billy/v6" //nolint
 	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
@@ -71,7 +70,7 @@ func TestCreateOverwrite(t *testing.T) {
 			f, err := fs.Create("foo")
 			require.NoError(t, err)
 
-			l, err := f.Write([]byte(fmt.Sprintf("foo%d", i)))
+			l, err := fmt.Fprintf(f, "foo%d", i)
 			require.NoError(t, err)
 			assert.Equal(t, 4, l)
 
@@ -477,7 +476,7 @@ func TestStatNonExistent(t *testing.T) {
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name      string
-		before    func(*testing.T, billy.Filesystem)
+		before    func(*testing.T, Filesystem)
 		from      string
 		to        string
 		wantErr   *error
@@ -491,7 +490,7 @@ func TestRename(t *testing.T) {
 		},
 		{
 			name: "file rename",
-			before: func(t *testing.T, fs billy.Filesystem) {
+			before: func(t *testing.T, fs Filesystem) {
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo"))
 				require.NoError(t, err)
@@ -503,7 +502,7 @@ func TestRename(t *testing.T) {
 		},
 		{
 			name: "dir rename",
-			before: func(t *testing.T, fs billy.Filesystem) {
+			before: func(t *testing.T, fs Filesystem) {
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo", "bar1"))
 				require.NoError(t, err)
@@ -568,7 +567,7 @@ func TestRename(t *testing.T) {
 	})
 }
 
-func fsRoot(fs billy.Filesystem) string {
+func fsRoot(fs Filesystem) string {
 	if reflect.TypeOf(fs) == reflect.TypeOf(&osfs.BoundOS{}) {
 		return fs.Root()
 	}

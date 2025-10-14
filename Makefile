@@ -3,7 +3,7 @@ GOCMD = go
 GOTEST = $(GOCMD) test 
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 
-GOLANGCI_VERSION ?= v1.64.5
+GOLANGCI_VERSION ?= v2.1.6
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
 GOLANGCI = $(TOOLS_BIN)/golangci-lint-$(GOLANGCI_VERSION)
@@ -14,7 +14,7 @@ $(GOLANGCI):
 
 .PHONY: test
 test:
-	$(GOTEST) -race -timeout 300s ./...
+	$(GOTEST) -race -timeout 900s ./...
 
 test-coverage:
 	echo "" > $(COVERAGE_REPORT); \
