@@ -93,9 +93,9 @@ func BenchmarkWalkdir(b *testing.B) {
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			i := 0
-			err := fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
+			err := fs.WalkDir(root.FS(), ".", func(_ string, _ fs.DirEntry, err error) error {
 				i++
-				return nil
+				return err
 			})
 			if err != nil {
 				b.Fatal("cannot walk dir", "error", err)
