@@ -24,6 +24,10 @@ func (f *file) Unlock() error {
 	return unix.Flock(int(f.Fd()), unix.LOCK_UN)
 }
 
+func (f *file) Sync() error {
+	return f.File.Sync()
+}
+
 func rename(from, to string) error {
 	return os.Rename(from, to)
 }

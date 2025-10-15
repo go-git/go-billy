@@ -27,6 +27,10 @@ func (f *file) Unlock() error {
 	return nil
 }
 
+func (f *file) Sync() error {
+	return f.File.Sync()
+}
+
 func rename(from, to string) error {
 	// If from and to are in different directories, copy the file
 	// since Plan 9 does not support cross-directory rename.

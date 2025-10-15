@@ -10,6 +10,14 @@ import (
 	"github.com/go-git/go-billy/v6"
 )
 
+type CallLogger struct {
+	Calls []string
+}
+
+func (l *CallLogger) Log(call string, args string) {
+	l.Calls = append(l.Calls, call+" "+args)
+}
+
 type BasicMock struct {
 	CreateArgs   []string
 	OpenArgs     []string
@@ -18,6 +26,7 @@ type BasicMock struct {
 	RenameArgs   [][2]string
 	RemoveArgs   []string
 	JoinArgs     [][]string
+	CallLogger   CallLogger
 }
 
 func (fs *BasicMock) Create(filename string) (billy.File, error) {
@@ -32,7 +41,7 @@ func (fs *BasicMock) Open(filename string) (billy.File, error) {
 
 func (fs *BasicMock) OpenFile(filename string, flag int, mode fs.FileMode) (billy.File, error) {
 	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]interface{}{filename, flag, mode})
-	return &FileMock{name: filename}, nil
+	return &FileMock{name: filename, callLogger: &fs.CallLogger}, nil
 }
 
 func (fs *BasicMock) Stat(filename string) (os.FileInfo, error) {
@@ -106,6 +115,7 @@ func (fs *SymlinkMock) Readlink(link string) (string, error) {
 type FileMock struct {
 	name string
 	bytes.Buffer
+	callLogger *CallLogger
 }
 
 func (f *FileMock) Name() string {
@@ -138,6 +148,11 @@ func (*FileMock) Unlock() error {
 
 func (*FileMock) Stat() (fs.FileInfo, error) {
 	return nil, nil
+}
+
+func (f *FileMock) Sync() error {
+	f.callLogger.Log("Sync", f.name)
+	return nil
 }
 
 func (*FileMock) Truncate(_ int64) error {

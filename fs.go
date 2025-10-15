@@ -34,6 +34,8 @@ const (
 	TruncateCapability
 	// LockCapability is the ability to lock a file.
 	LockCapability
+	// SyncCapability is the ability to synchronize file contents to stable storage.
+	SyncCapability
 
 	// DefaultCapabilities lists all capable features supported by filesystems
 	// without Capability interface. This list should not be changed until a
@@ -45,7 +47,7 @@ const (
 	// AllCapabilities lists all capable features.
 	AllCapabilities Capability = WriteCapability | ReadCapability |
 		ReadAndWriteCapability | SeekCapability | TruncateCapability |
-		LockCapability
+		LockCapability | SyncCapability
 )
 
 // Filesystem abstract the operations in a storage-agnostic interface.
@@ -178,6 +180,12 @@ type File interface {
 	Unlock() error
 	// Truncate the file.
 	Truncate(size int64) error
+}
+
+// Syncer interface can be implemented by filesystems that support syncing.
+type Syncer interface {
+	// Sync commits the current contents of the file to stable storage.
+	Sync() error
 }
 
 // Capable interface can return the available features of a filesystem.

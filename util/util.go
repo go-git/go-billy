@@ -116,6 +116,9 @@ func WriteFile(fs billy.Basic, filename string, data []byte, perm fs.FileMode) (
 	if err == nil && n < len(data) {
 		err = io.ErrShortWrite
 	}
+	if sf, ok := f.(billy.Syncer); ok {
+		return sf.Sync()
+	}
 
 	return nil
 }

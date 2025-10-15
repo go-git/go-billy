@@ -32,6 +32,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBoundOSCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
+
+	caps := billy.Capabilities(fs)
+	assert.Equal(t, billy.DefaultCapabilities&billy.SyncCapability, caps)
+}
+
 func TestOpen(t *testing.T) {
 	tests := []struct {
 		name     string
