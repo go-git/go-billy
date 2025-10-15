@@ -80,7 +80,7 @@ type DirMock struct {
 	MkdirAllArgs [][2]interface{}
 }
 
-func (fs *DirMock) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *DirMock) ReadDir(path string) ([]fs.DirEntry, error) {
 	fs.ReadDirArgs = append(fs.ReadDirArgs, path)
 	return nil, nil
 }

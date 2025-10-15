@@ -40,7 +40,7 @@ func (h *Polyfill) TempFile(dir, prefix string) (billy.File, error) {
 	return h.Basic.(billy.TempFile).TempFile(dir, prefix)
 }
 
-func (h *Polyfill) ReadDir(path string) ([]os.FileInfo, error) {
+func (h *Polyfill) ReadDir(path string) ([]fs.DirEntry, error) {
 	if !h.c.dir {
 		return nil, billy.ErrNotSupported
 	}

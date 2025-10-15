@@ -220,7 +220,9 @@ func TestDir_ReadDirFileInfo(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, info, 1)
 
-		assert.Equal(t, info[0].Size(), int64(3))
+		fi, err := info[0].Info()
+		require.NoError(t, err)
+		assert.Equal(t, fi.Size(), int64(3))
 		assert.False(t, info[0].IsDir())
 		assert.Equal(t, info[0].Name(), "foo")
 	})
@@ -243,10 +245,13 @@ func TestDir_ReadDirFileInfoDirs(t *testing.T) {
 		info, err = fs.ReadDir("qux/baz")
 		require.NoError(t, err)
 		assert.Len(t, info, 1)
-		assert.Equal(t, info[0].Size(), int64(3))
+
+		fi, err := info[0].Info()
+		require.NoError(t, err)
+		assert.Equal(t, fi.Size(), int64(3))
 		assert.False(t, info[0].IsDir())
 		assert.Equal(t, info[0].Name(), "foo")
-		assert.NotEqual(t, info[0].Mode(), 0)
+		assert.NotEqual(t, fi.Mode(), 0)
 	})
 }
 

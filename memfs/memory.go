@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	gofs "io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -132,13 +133,13 @@ func (fs *Memory) Lstat(filename string) (os.FileInfo, error) {
 	return f.Stat()
 }
 
-type ByName []os.FileInfo
+type ByName []gofs.DirEntry
 
 func (a ByName) Len() int           { return len(a) }
 func (a ByName) Less(i, j int) bool { return a[i].Name() < a[j].Name() }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *Memory) ReadDir(path string) ([]fs.DirEntry, error) {
 	if f, has := fs.s.Get(path); has {
 		if target, isLink := fs.resolveLink(path, f); isLink {
 			if target != path {
@@ -149,10 +150,10 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
 	}
 
-	var entries []os.FileInfo
+	var entries []gofs.DirEntry
 	for _, f := range fs.s.Children(path) {
 		fi, _ := f.Stat()
-		entries = append(entries, fi)
+		entries = append(entries, gofs.FileInfoToDirEntry(fi))
 	}
 
 	sort.Sort(ByName(entries))

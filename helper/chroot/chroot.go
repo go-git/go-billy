@@ -134,7 +134,7 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 	return newFile(fs, f, fs.Join(dir, filepath.Base(f.Name()))), nil
 }
 
-func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *ChrootHelper) ReadDir(path string) ([]fs.DirEntry, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err

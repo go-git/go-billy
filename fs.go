@@ -109,7 +109,7 @@ type TempFile interface {
 type Dir interface {
 	// ReadDir reads the directory named by dirname and returns a list of
 	// directory entries sorted by filename.
-	ReadDir(path string) ([]fs.FileInfo, error)
+	ReadDir(path string) ([]fs.DirEntry, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
 	// perm are used for all directories that MkdirAll creates. If path is/

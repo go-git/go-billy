@@ -72,14 +72,14 @@ func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.
 	return openFile(fn, flag, perm, fs.createDir)
 }
 
-func (fs *BoundOS) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *BoundOS) ReadDir(path string) ([]fs.DirEntry, error) {
 	path = fs.expandDot(path)
 	dir, err := fs.abs(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return readDir(dir)
+	return os.ReadDir(dir)
 }
 
 func (fs *BoundOS) Rename(from, to string) error {

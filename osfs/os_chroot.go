@@ -47,8 +47,8 @@ func (fs *ChrootOS) createDir(fullpath string) error {
 	return nil
 }
 
-func (fs *ChrootOS) ReadDir(dir string) ([]os.FileInfo, error) {
-	return readDir(dir)
+func (fs *ChrootOS) ReadDir(dir string) ([]fs.DirEntry, error) {
+	return os.ReadDir(dir)
 }
 
 func (fs *ChrootOS) Rename(from, to string) error {

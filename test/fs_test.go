@@ -53,7 +53,9 @@ func TestFS_SymlinkReadDir(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, info, 1)
 
-		assert.Equal(t, info[0].Size(), int64(3))
+		fi, err := info[0].Info()
+		require.NoError(t, err)
+		assert.Equal(t, fi.Size(), int64(3))
 		assert.Equal(t, info[0].IsDir(), false)
 		assert.Equal(t, info[0].Name(), "file")
 	})
