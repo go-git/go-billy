@@ -109,7 +109,7 @@ type TempFile interface {
 type Dir interface {
 	// ReadDir reads the directory named by dirname and returns a list of
 	// directory entries sorted by filename.
-	ReadDir(path string) ([]fs.FileInfo, error)
+	ReadDir(path string) ([]fs.DirEntry, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
 	// perm are used for all directories that MkdirAll creates. If path is/
@@ -173,13 +173,18 @@ type File interface {
 	io.WriterAt
 	io.ReaderAt
 	io.Seeker
+	// Truncate the file.
+	Truncate(size int64) error
+}
+
+// Locker abstracts the lock and unlock of a File within the filesystem. Not
+// all filesystem implementations support it.
+type Locker interface {
 	// Lock locks the file like e.g. flock. It protects against access from
 	// other processes.
 	Lock() error
 	// Unlock unlocks the file.
 	Unlock() error
-	// Truncate the file.
-	Truncate(size int64) error
 }
 
 // Syncer interface can be implemented by filesystems that support syncing.

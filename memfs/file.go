@@ -133,16 +133,6 @@ func (f *file) Stat() (os.FileInfo, error) {
 	}, nil
 }
 
-// Lock is a no-op in memfs.
-func (f *file) Lock() error {
-	return nil
-}
-
-// Unlock is a no-op in memfs.
-func (f *file) Unlock() error {
-	return nil
-}
-
 type fileInfo struct {
 	name    string
 	size    int

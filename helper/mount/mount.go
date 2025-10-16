@@ -110,7 +110,7 @@ func (h *Mount) Remove(path string) error {
 	return fs.Remove(fullpath)
 }
 
-func (h *Mount) ReadDir(path string) ([]os.FileInfo, error) {
+func (h *Mount) ReadDir(path string) ([]fs.DirEntry, error) {
 	fs, fullpath, err := h.getDirAndPath(path)
 	if err != nil {
 		return nil, err

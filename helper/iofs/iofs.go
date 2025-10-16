@@ -52,15 +52,7 @@ func (a *adapterFs) Open(name string) (fs.File, error) {
 
 // ReadDir reads the named directory, implementing fs.ReadDirFS (returning a listing or error).
 func (a *adapterFs) ReadDir(name string) ([]fs.DirEntry, error) {
-	items, err := a.fs.ReadDir(name)
-	if err != nil {
-		return nil, err
-	}
-	entries := make([]fs.DirEntry, len(items))
-	for i, item := range items {
-		entries[i] = fs.FileInfoToDirEntry(item)
-	}
-	return entries, nil
+	return a.fs.ReadDir(name)
 }
 
 // Stat returns information on the named file, implementing fs.StatFS (returning FileInfo or error).

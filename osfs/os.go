@@ -79,22 +79,6 @@ const (
 	BoundOSFS
 )
 
-func readDir(dir string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	infos := make([]fs.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		fi, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		infos = append(infos, fi)
-	}
-	return infos, nil
-}
-
 func tempFile(dir, prefix string) (billy.File, error) {
 	f, err := os.CreateTemp(dir, prefix)
 	if err != nil {
