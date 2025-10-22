@@ -19,11 +19,9 @@ const (
 )
 
 // Default Filesystem representing the root of the os filesystem.
-var Default = newBoundOS(string(os.PathSeparator), true)
+var Default = newBoundOS(string(os.PathSeparator))
 
 // New returns a new OS filesystem.
-// By default paths are deduplicated, but still enforced
-// under baseDir. For more info refer to WithDeduplicatePath.
 func New(baseDir string, opts ...Option) billy.Filesystem {
 	o := &options{
 		deduplicatePath: true,
@@ -32,7 +30,7 @@ func New(baseDir string, opts ...Option) billy.Filesystem {
 		opt(o)
 	}
 
-	return newBoundOS(baseDir, o.deduplicatePath)
+	return newBoundOS(baseDir)
 }
 
 // WithBoundOS returns the option of using a Bound filesystem OS.
@@ -43,13 +41,9 @@ func WithBoundOS() Option {
 }
 
 // WithDeduplicatePath toggles the deduplication of the base dir in the path.
-// This occurs when absolute links are being used.
-// Assuming base dir /base/dir and an absolute symlink /base/dir/target:
 //
-// With DeduplicatePath (default): /base/dir/target
-// Without DeduplicatePath: /base/dir/base/dir/target
-//
-// This option is only used by the BoundOS OS type.
+// BoundOS now relies on os.Root for path containment, so this option is kept
+// for API compatibility and has no effect.
 func WithDeduplicatePath(enabled bool) Option {
 	return func(o *options) {
 		o.deduplicatePath = enabled
