@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
@@ -21,7 +22,9 @@ func BenchmarkOpen(b *testing.B) {
 	root, err := os.OpenRoot(baseDir)
 	require.NoError(b, err)
 
-	err = os.WriteFile(fileName, []byte("test"), 0o600)
+	osfn := filepath.Join(baseDir, fileName)
+
+	err = os.WriteFile(osfn, []byte("test"), 0o600)
 	require.NoError(b, err)
 
 	m := memfs.New()
@@ -45,10 +48,11 @@ func BenchmarkOpen(b *testing.B) {
 func BenchmarkReaddir(b *testing.B) {
 	b.StopTimer()
 	baseDir := b.TempDir()
+	osfn := filepath.Join(baseDir, fileName)
 
 	m := memfs.New()
 	for i := 0; i < 1000; i++ {
-		err := os.WriteFile(fmt.Sprint(fileName, i), []byte("test"), 0o600)
+		err := os.WriteFile(fmt.Sprint(osfn, i), []byte("test"), 0o600)
 		require.NoError(b, err)
 
 		err = util.WriteFile(m, fmt.Sprint(fileName, i), []byte("test"), 0o600)
@@ -74,10 +78,11 @@ func BenchmarkWalkdir(b *testing.B) {
 	baseDir := b.TempDir()
 	root, err := os.OpenRoot(baseDir)
 	require.NoError(b, err)
+	osfn := filepath.Join(baseDir, fileName)
 
 	m := memfs.New()
 	for i := 0; i < 1000; i++ {
-		err = os.WriteFile(fmt.Sprint(fileName, i), []byte("test"), 0o600)
+		err = os.WriteFile(fmt.Sprint(osfn, i), []byte("test"), 0o600)
 		require.NoError(b, err)
 
 		err = util.WriteFile(m, fmt.Sprint(fileName, i), []byte("test"), 0o600)

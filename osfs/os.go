@@ -6,6 +6,7 @@ package osfs
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"sync"
@@ -108,4 +109,9 @@ func openFile(fn string, flag int, perm fs.FileMode, createDir func(string) erro
 type file struct {
 	*os.File
 	m sync.Mutex
+}
+
+func (f *file) WriteTo(w io.Writer) error {
+	_, err := f.File.WriteTo(w)
+	return err
 }
