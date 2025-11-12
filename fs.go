@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"time"
 )
 
 var (
@@ -132,24 +131,12 @@ type Symlink interface {
 	Readlink(link string) (string, error)
 }
 
-// Change abstract the FileInfo change related operations in a storage-agnostic
+// Chmod abstract the FileInfo change related operations in a storage-agnostic
 // interface as an extension to the Basic interface
-type Change interface {
+type Chmod interface {
 	// Chmod changes the mode of the named file to mode. If the file is a
 	// symbolic link, it changes the mode of the link's target.
 	Chmod(name string, mode fs.FileMode) error
-	// Lchown changes the numeric uid and gid of the named file. If the file is
-	// a symbolic link, it changes the uid and gid of the link itself.
-	Lchown(name string, uid, gid int) error
-	// Chown changes the numeric uid and gid of the named file. If the file is a
-	// symbolic link, it changes the uid and gid of the link's target.
-	Chown(name string, uid, gid int) error
-	// Chtimes changes the access and modification times of the named file,
-	// similar to the Unix utime() or utimes() functions.
-	//
-	// The underlying filesystem may truncate or round the values to a less
-	// precise time unit.
-	Chtimes(name string, atime time.Time, mtime time.Time) error
 }
 
 // Chroot abstract the chroot related operations in a storage-agnostic interface
