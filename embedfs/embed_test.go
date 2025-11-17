@@ -345,3 +345,13 @@ func TestJoin(t *testing.T) {
 		})
 	}
 }
+
+func TestCapabilities(t *testing.T) {
+	fs := New(&testdataDir)
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
+
+	want := billy.ReadCapability | billy.SeekCapability
+	got := billy.Capabilities(fs)
+	assert.Equal(t, want, got)
+}
