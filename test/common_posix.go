@@ -1,5 +1,4 @@
 //go:build !windows && !wasip1 && !js && !wasp
-// +build !windows,!wasip1,!js,!wasp
 
 package test
 

@@ -1,5 +1,4 @@
 //go:build !wasm
-// +build !wasm
 
 /*
    Copyright 2022 The Flux authors.
