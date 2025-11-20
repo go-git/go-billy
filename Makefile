@@ -7,6 +7,7 @@ WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 COVERAGE_REPORT := coverage.out
 COVERAGE_MODE := count
 
+# renovate: datasource=github-tags depName=golangci/golangci-lint
 GOLANGCI_VERSION ?= v2.6.0
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
