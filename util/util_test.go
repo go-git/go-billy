@@ -97,7 +97,7 @@ func TestWriteFile_Sync(t *testing.T) {
 	fs := &test.BasicMock{}
 	filename := "TestWriteFile.txt"
 	data := []byte("hello world")
-	err := util.WriteFile(fs, filename, data, 0644)
+	err := util.WriteFile(fs, filename, data, 0o644)
 	require.NoError(t, err)
 
 	assert.Len(t, fs.CallLogger.Calls, 1)

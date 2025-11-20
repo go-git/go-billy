@@ -91,7 +91,7 @@ func TestNegativeOffsets(t *testing.T) {
 
 func TestExclusive(t *testing.T) {
 	fs := New()
-	f, err := fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	f, err := fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o666)
 	require.NoError(t, err)
 
 	fmt.Fprint(f, "mememememe")
@@ -99,7 +99,7 @@ func TestExclusive(t *testing.T) {
 	err = f.Close()
 	require.NoError(t, err)
 
-	_, err = fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	_, err = fs.OpenFile("exclusive", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o666)
 	assert.ErrorContains(t, err, os.ErrExist.Error())
 }
 
@@ -137,10 +137,10 @@ func TestNotFound(t *testing.T) {
 
 func TestTruncateAppend(t *testing.T) {
 	fs := New()
-	err := util.WriteFile(fs, "truncate_append", []byte("file-content"), 0666)
+	err := util.WriteFile(fs, "truncate_append", []byte("file-content"), 0o666)
 	require.NoError(t, err)
 
-	f, err := fs.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0666)
+	f, err := fs.OpenFile("truncate_append", os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0o666)
 	require.NoError(t, err)
 
 	n, err := f.Write([]byte("replace"))

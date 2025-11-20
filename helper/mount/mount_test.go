@@ -96,33 +96,33 @@ func TestOpenInMount(t *testing.T) {
 
 func TestOpenFile(t *testing.T) {
 	helper, underlying, source := setup()
-	f, err := helper.OpenFile("bar/qux", 42, 0777)
+	f, err := helper.OpenFile("bar/qux", 42, 0o777)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("bar", "qux"), f.Name())
 
 	assert.Len(t, underlying.OpenFileArgs, 1)
 	assert.Equal(t, underlying.OpenFileArgs[0],
-		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
+		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
 	assert.Empty(t, source.OpenFileArgs)
 }
 
 func TestOpenFileMountPoint(t *testing.T) {
 	helper, _, _ := setup()
-	f, err := helper.OpenFile("foo", 42, 0777)
+	f, err := helper.OpenFile("foo", 42, 0o777)
 	assert.Nil(t, f)
 	assert.ErrorIs(t, err, os.ErrInvalid)
 }
 
 func TestOpenFileInMount(t *testing.T) {
 	helper, underlying, source := setup()
-	f, err := helper.OpenFile("foo/bar/qux", 42, 0777)
+	f, err := helper.OpenFile("foo/bar/qux", 42, 0o777)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join("foo", "bar", "qux"), f.Name())
 
 	assert.Empty(t, underlying.OpenFileArgs)
 	assert.Len(t, source.OpenFileArgs, 1)
 	assert.Equal(t, source.OpenFileArgs[0],
-		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0777)})
+		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
 }
 
 func TestStat(t *testing.T) {
@@ -170,7 +170,7 @@ func TestRenameCross(t *testing.T) {
 	underlying := memfs.New()
 	source := memfs.New()
 
-	err := util.WriteFile(underlying, "file", []byte("foo"), 0777)
+	err := util.WriteFile(underlying, "file", []byte("foo"), 0o777)
 	require.NoError(t, err)
 
 	fs := New(underlying, "/foo", source)
@@ -250,24 +250,24 @@ func TestReadDirInMount(t *testing.T) {
 
 func TestMkdirAll(t *testing.T) {
 	helper, underlying, source := setup()
-	err := helper.MkdirAll("bar/qux", 0777)
+	err := helper.MkdirAll("bar/qux", 0o777)
 	require.NoError(t, err)
 
 	assert.Len(t, underlying.MkdirAllArgs, 1)
 	assert.Equal(t, underlying.MkdirAllArgs[0],
-		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
+		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0o777)})
 	assert.Empty(t, source.MkdirAllArgs)
 }
 
 func TestMkdirAllInMount(t *testing.T) {
 	helper, underlying, source := setup()
-	err := helper.MkdirAll("foo/bar/qux", 0777)
+	err := helper.MkdirAll("foo/bar/qux", 0o777)
 	require.NoError(t, err)
 
 	assert.Empty(t, underlying.MkdirAllArgs)
 	assert.Len(t, source.MkdirAllArgs, 1)
 	assert.Equal(t, source.MkdirAllArgs[0],
-		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0777)})
+		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0o777)})
 }
 
 func TestLstat(t *testing.T) {

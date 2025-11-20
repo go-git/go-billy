@@ -32,7 +32,7 @@ func TestSymlink(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "file", nil, 0644)
+		err := util.WriteFile(fs, "file", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "link")
@@ -54,7 +54,7 @@ func TestSymlinkCrossDirs(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "foo/file", nil, 0644)
+		err := util.WriteFile(fs, "foo/file", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("../foo/file", "bar/link")
@@ -72,7 +72,7 @@ func TestSymlinkNested(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "file", []byte("hello world!"), 0644)
+		err := util.WriteFile(fs, "file", []byte("hello world!"), 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "linkA")
@@ -108,7 +108,7 @@ func TestSymlinkWithExistingLink(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "link", nil, 0644)
+		err := util.WriteFile(fs, "link", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "link")
@@ -122,7 +122,7 @@ func TestOpenWithSymlinkToRelativePath(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "dir/link")
@@ -147,7 +147,7 @@ func TestOpenWithSymlinkToAbsolutePath(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("/dir/file", "dir/link")
@@ -169,7 +169,7 @@ func TestReadlink(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "file", nil, 0644)
+		err := util.WriteFile(fs, "file", nil, 0o644)
 		require.NoError(t, err)
 
 		_, err = fs.Readlink("file")
@@ -183,7 +183,7 @@ func TestReadlinkWithRelativePath(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "dir/file", nil, 0644)
+		err := util.WriteFile(fs, "dir/file", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "dir/link")
@@ -204,7 +204,7 @@ func TestReadlinkWithAbsolutePath(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "dir/file", nil, 0644)
+		err := util.WriteFile(fs, "dir/file", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("/dir/file", "dir/link")
@@ -322,7 +322,7 @@ func TestRemoveWithSymlink(t *testing.T) {
 	}
 
 	eachSymlinkFS(t, func(t *testing.T, fs symlinkFS) {
-		err := util.WriteFile(fs, "file", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "file", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		err = fs.Symlink("file", "link")

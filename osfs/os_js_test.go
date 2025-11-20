@@ -41,7 +41,5 @@ func TestDefault(t *testing.T) {
 	}
 }
 
-var (
-	// API call assertions
-	_ = New("/")
-)
+// API call assertions
+var _ = New("/")

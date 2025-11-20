@@ -23,7 +23,7 @@ func setup(t *testing.T) (billy.Filesystem, string) {
 		// the containing directory (see http://man.cat-v.org/plan_9/5/open).
 		// Since TestOpenFileWithModes and TestStat creates files directly
 		// in the temporary directory, we need to make it more permissive.
-		err := os.Chmod(path, 0777)
+		err := os.Chmod(path, 0o777)
 		require.NoError(t, err)
 	}
 	return newChrootOS(path), path

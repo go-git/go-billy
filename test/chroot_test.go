@@ -60,7 +60,7 @@ func TestOpenWithChroot(t *testing.T) {
 func TestOpenOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0644)
+		err := util.WriteFile(fs, "bar", nil, 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
@@ -73,7 +73,7 @@ func TestOpenOutOffBoundary(t *testing.T) {
 func TestStatOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0644)
+		err := util.WriteFile(fs, "bar", nil, 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
@@ -88,7 +88,7 @@ func TestStatWithChroot(t *testing.T) {
 		t.Helper()
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, nil, 0644)
+			err := util.WriteFile(fs, name, nil, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -120,10 +120,10 @@ func TestStatWithChroot(t *testing.T) {
 func TestRenameOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo/foo", nil, 0644)
+		err := util.WriteFile(fs, "foo/foo", nil, 0o644)
 		require.NoError(t, err)
 
-		err = util.WriteFile(fs, "bar", nil, 0644)
+		err = util.WriteFile(fs, "bar", nil, 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
@@ -138,7 +138,7 @@ func TestRenameOutOffBoundary(t *testing.T) {
 func TestRemoveOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0644)
+		err := util.WriteFile(fs, "bar", nil, 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")

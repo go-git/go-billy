@@ -9,9 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	helper = New(&test.BasicMock{})
-)
+var helper = New(&test.BasicMock{})
 
 func TestTempFile(t *testing.T) {
 	_, err := helper.TempFile("", "")

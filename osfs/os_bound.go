@@ -29,9 +29,7 @@ import (
 	"github.com/go-git/go-billy/v6"
 )
 
-var (
-	dotPrefixes = []string{"./", ".\\"}
-)
+var dotPrefixes = []string{"./", ".\\"}
 
 // BoundOS is a fs implementation based on the OS filesystem which is bound to
 // a base dir.
