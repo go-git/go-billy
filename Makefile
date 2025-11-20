@@ -50,3 +50,6 @@ ifneq ($(shell git status --porcelain --untracked-files=no),)
 	@git --no-pager diff
 	@exit 1
 endif
+
+lint-autofix: $(GOLANGCI) # Auto fix supported lint issues.
+	$(GOLANGCI) run --fix
