@@ -7,7 +7,8 @@ WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 COVERAGE_REPORT := coverage.out
 COVERAGE_MODE := count
 
-GOLANGCI_VERSION ?= v2.1.6
+# renovate: datasource=github-tags depName=golangci/golangci-lint
+GOLANGCI_VERSION ?= v2.6.0
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
 GOLANGCI = $(TOOLS_BIN)/golangci-lint-$(GOLANGCI_VERSION)
@@ -50,3 +51,6 @@ ifneq ($(shell git status --porcelain --untracked-files=no),)
 	@git --no-pager diff
 	@exit 1
 endif
+
+lint-autofix: $(GOLANGCI) # Auto fix supported lint issues.
+	$(GOLANGCI) run --fix

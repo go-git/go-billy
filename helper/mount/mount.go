@@ -1,13 +1,13 @@
 package mount
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"fmt"
 
 	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/helper/polyfill"
@@ -185,19 +185,37 @@ func (h *Mount) getBasicAndPath(path string) (billy.Basic, string) {
 func (h *Mount) getDirAndPath(path string) (billy.Dir, string, error) {
 	path = cleanPath(path)
 	if !h.isMountpoint(path) {
-		return h.underlying.(billy.Dir), path, nil
+		d, ok := h.underlying.(billy.Dir)
+		if !ok {
+			return nil, "", errors.New("underlying fs does not implement billy.Dir")
+		}
+		return d, path, nil
 	}
 
-	return h.source.(billy.Dir), h.mustRelToMountpoint(path), nil
+	d, ok := h.source.(billy.Dir)
+	if !ok {
+		return nil, "", errors.New("source fs does not implement billy.Dir")
+	}
+	return d, h.mustRelToMountpoint(path), nil
 }
 
 func (h *Mount) getSymlinkAndPath(path string) (billy.Symlink, string, error) {
 	path = cleanPath(path)
 	if !h.isMountpoint(path) {
-		return h.underlying.(billy.Symlink), path, nil
+		sl, ok := h.underlying.(billy.Symlink)
+		if !ok {
+			return nil, "", errors.New("underlying fs does not implement billy.Symlink")
+		}
+
+		return sl, path, nil
 	}
 
-	return h.source.(billy.Symlink), h.mustRelToMountpoint(path), nil
+	sl, ok := h.source.(billy.Symlink)
+	if !ok {
+		return nil, "", errors.New("source fs does not implement billy.Symlink")
+	}
+
+	return sl, h.mustRelToMountpoint(path), nil
 }
 
 func (h *Mount) mustRelToMountpoint(path string) string {

@@ -138,7 +138,7 @@ func TestOpenNotExists(t *testing.T) {
 func TestOpenFile(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		defaultMode := os.FileMode(0666)
+		defaultMode := os.FileMode(0o666)
 
 		f, err := fs.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, defaultMode)
 		require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestOpenFile(t *testing.T) {
 func TestOpenFileNoTruncate(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		defaultMode := os.FileMode(0666)
+		defaultMode := os.FileMode(0o666)
 
 		// Create when it does not exist
 		f, err := fs.OpenFile("foo1", os.O_CREATE|os.O_WRONLY, defaultMode)
@@ -198,7 +198,7 @@ func TestOpenFileNoTruncate(t *testing.T) {
 func TestOpenFileAppend(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		defaultMode := os.FileMode(0666)
+		defaultMode := os.FileMode(0o666)
 
 		f, err := fs.OpenFile("foo1", os.O_CREATE|os.O_WRONLY|os.O_APPEND, defaultMode)
 		require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestOpenFileAppend(t *testing.T) {
 func TestOpenFileReadWrite(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		defaultMode := os.FileMode(0666)
+		defaultMode := os.FileMode(0o666)
 
 		f, err := fs.OpenFile("foo1", os.O_CREATE|os.O_TRUNC|os.O_RDWR, defaultMode)
 		require.NoError(t, err)
@@ -310,7 +310,7 @@ func TestFileWriteClose(t *testing.T) {
 func TestFileRead(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -326,7 +326,7 @@ func TestFileRead(t *testing.T) {
 func TestFileClosed(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -341,7 +341,7 @@ func TestFileClosed(t *testing.T) {
 func TestFileNonRead(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.OpenFile("foo", os.O_WRONLY, 0)
@@ -377,7 +377,7 @@ func TestFileSeekEnd(t *testing.T) {
 
 func testFileSeek(t *testing.T, fs Basic, offset int64, whence int) {
 	t.Helper()
-	err := util.WriteFile(fs, "foo", []byte("0123456789abcdefghijklmnopqrstuvwxyz"), 0644)
+	err := util.WriteFile(fs, "foo", []byte("0123456789abcdefghijklmnopqrstuvwxyz"), 0o644)
 	require.NoError(t, err)
 
 	f, err := fs.Open("foo")
@@ -402,7 +402,7 @@ func testFileSeek(t *testing.T, fs Basic, offset int64, whence int) {
 func TestSeekToEndAndWrite(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		defaultMode := os.FileMode(0666)
+		defaultMode := os.FileMode(0o666)
 
 		f, err := fs.OpenFile("foo1", os.O_CREATE|os.O_TRUNC|os.O_RDWR, defaultMode)
 		require.NoError(t, err)
@@ -425,7 +425,7 @@ func TestSeekToEndAndWrite(t *testing.T) {
 func TestFileSeekClosed(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -491,6 +491,7 @@ func TestRename(t *testing.T) {
 		{
 			name: "file rename",
 			before: func(t *testing.T, fs Filesystem) {
+				t.Helper()
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo"))
 				require.NoError(t, err)
@@ -503,6 +504,7 @@ func TestRename(t *testing.T) {
 		{
 			name: "dir rename",
 			before: func(t *testing.T, fs Filesystem) {
+				t.Helper()
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo", "bar1"))
 				require.NoError(t, err)
@@ -515,7 +517,8 @@ func TestRename(t *testing.T) {
 			to:   "bar",
 			wantFiles: []string{
 				filepath.FromSlash("/bar/bar1"),
-				filepath.FromSlash("/bar/bar2")},
+				filepath.FromSlash("/bar/bar2"),
+			},
 		},
 	}
 
@@ -577,7 +580,7 @@ func fsRoot(fs Filesystem) string {
 func TestOpenAndWrite(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", nil, 0644)
+		err := util.WriteFile(fs, "foo", nil, 0o644)
 		require.NoError(t, err)
 
 		foo, err := fs.Open("foo")
@@ -595,7 +598,7 @@ func TestOpenAndWrite(t *testing.T) {
 func TestOpenAndStat(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("foo"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
 		foo, err := fs.Open("foo")
@@ -636,7 +639,7 @@ func TestRemoveNonExisting(t *testing.T) {
 func TestRemoveNotEmptyDir(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", nil, 0644)
+		err := util.WriteFile(fs, "foo", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Remove("no-exists")
@@ -674,7 +677,7 @@ func TestReadAtOnReadWrite(t *testing.T) {
 func TestReadAtOnReadOnly(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("abcdefg"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("abcdefg"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -695,7 +698,7 @@ func TestReadAtOnReadOnly(t *testing.T) {
 func TestReadAtEOF(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("TEST"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("TEST"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -715,7 +718,7 @@ func TestReadAtEOF(t *testing.T) {
 func TestReadAtOffset(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("TEST"), 0644)
+		err := util.WriteFile(fs, "foo", []byte("TEST"), 0o644)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")
@@ -769,7 +772,7 @@ func TestReadWriteLargeFile(t *testing.T) {
 func TestWriteFile(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo", []byte("bar"), 0777)
+		err := util.WriteFile(fs, "foo", []byte("bar"), 0o777)
 		require.NoError(t, err)
 
 		f, err := fs.Open("foo")

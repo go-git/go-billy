@@ -21,10 +21,12 @@ type adapterFs struct {
 }
 
 // Type assertion that adapterFS implements the following interfaces:
-var _ fs.FS = (*adapterFs)(nil)
-var _ fs.ReadDirFS = (*adapterFs)(nil)
-var _ fs.StatFS = (*adapterFs)(nil)
-var _ fs.ReadFileFS = (*adapterFs)(nil)
+var (
+	_ fs.FS         = (*adapterFs)(nil)
+	_ fs.ReadDirFS  = (*adapterFs)(nil)
+	_ fs.StatFS     = (*adapterFs)(nil)
+	_ fs.ReadFileFS = (*adapterFs)(nil)
+)
 
 // TODO: implement fs.GlobFS, which will be a fair bit more code.
 

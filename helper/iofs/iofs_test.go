@@ -11,6 +11,7 @@ import (
 
 	billyfs "github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/memfs"
+	"github.com/stretchr/testify/require"
 )
 
 type errorList interface {
@@ -30,7 +31,7 @@ func TestWithFSTest(t *testing.T) {
 	}
 	createdFiles := make([]string, 0, len(files))
 	for filename, contents := range files {
-		makeFile(memfs, t, filename, contents)
+		makeFile(t, memfs, filename, contents)
 		createdFiles = append(createdFiles, filename)
 	}
 
@@ -47,10 +48,11 @@ func TestWithFSTest(t *testing.T) {
 func TestDeletes(t *testing.T) {
 	t.Parallel()
 	memfs := memfs.New()
-	iofs := New(memfs).(fs.ReadFileFS)
+	iofs, ok := New(memfs).(fs.ReadFileFS)
+	require.True(t, ok)
 
-	makeFile(memfs, t, "foo.txt", "hello, world")
-	makeFile(memfs, t, "deleted", "nothing to see")
+	makeFile(t, memfs, "foo.txt", "hello, world")
+	makeFile(t, memfs, "deleted", "nothing to see")
 
 	if _, err := iofs.ReadFile("nonexistent"); err == nil {
 		t.Errorf("expected error for nonexistent file")
@@ -73,7 +75,7 @@ func TestDeletes(t *testing.T) {
 	}
 }
 
-func makeFile(fs billyfs.Basic, t *testing.T, filename string, contents string) {
+func makeFile(t *testing.T, fs billyfs.Basic, filename string, contents string) {
 	t.Helper()
 	file, err := fs.Create(filename)
 	if err != nil {

@@ -186,7 +186,7 @@ func (s *storage) move(from, to string) error {
 		s.mc.Unlock()
 	}()
 
-	return s.createParent(to, 0644, file)
+	return s.createParent(to, 0o644, file)
 }
 
 func (s *storage) Remove(path string) error {

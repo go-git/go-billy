@@ -34,7 +34,7 @@ func New(opts ...Option) billy.Filesystem {
 	fs := &Memory{
 		s: newStorage(),
 	}
-	_, err := fs.s.New("/", 0755|os.ModeDir, 0)
+	_, err := fs.s.New("/", 0o755|os.ModeDir, 0)
 	if err != nil {
 		log.Printf("failed to create root dir: %v", err)
 	}
@@ -42,7 +42,7 @@ func New(opts ...Option) billy.Filesystem {
 }
 
 func (fs *Memory) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 }
 
 func (fs *Memory) Open(filename string) (billy.File, error) {
@@ -119,7 +119,9 @@ func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
 	// the name of the file should always the name of the stated file, so we
 	// overwrite the Stat returned from the storage with it, since the
 	// filename may belong to a link.
-	fi.(*fileInfo).name = filepath.Base(filename)
+	if ffi, ok := fi.(*fileInfo); ok {
+		ffi.name = filepath.Base(filename)
+	}
 	return fi, nil
 }
 
@@ -193,7 +195,7 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	return util.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
+	return util.WriteFile(fs, link, []byte(target), 0o777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {

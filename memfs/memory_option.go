@@ -2,5 +2,4 @@ package memfs
 
 type Option func(*options)
 
-type options struct {
-}
+type options struct{}

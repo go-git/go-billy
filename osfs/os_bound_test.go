@@ -1,5 +1,4 @@
 //go:build !wasm
-// +build !wasm
 
 /*
    Copyright 2022 The Flux authors.
@@ -394,7 +393,7 @@ func TestReadLink(t *testing.T) {
 				return newBoundOS(cwd, true)
 			},
 			filename:        "symlink-file",
-			expected:        filepath.Join("cwd-target/file"),
+			expected:        filepath.FromSlash("cwd-target/file"),
 			makeExpectedAbs: true,
 		},
 		{
@@ -882,6 +881,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "parent with children",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.MkdirAll(filepath.Join(dir, "parent", "children"), 0o700)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -895,6 +895,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "same dir file",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -904,6 +905,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "same dir symlink",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				target := filepath.Join(dir, "target-file")
 				err := os.WriteFile(target, []byte("anything"), 0o600)
 				require.NoError(t, err)
@@ -916,6 +918,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "rel path to file above cwd",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -925,6 +928,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "abs file",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -935,6 +939,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "abs symlink",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
 				require.NoError(t, err)
 				return newBoundOS(dir, true)

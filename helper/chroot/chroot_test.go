@@ -84,19 +84,19 @@ func TestOpenFile(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
-	f, err := fs.OpenFile("bar/qux", 42, 0777)
+	f, err := fs.OpenFile("bar/qux", 42, 0o777)
 	require.NoError(t, err)
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.OpenFileArgs, 1)
-	assert.Equal(t, m.OpenFileArgs[0], [3]interface{}{"/foo/bar/qux", 42, os.FileMode(0777)})
+	assert.Equal(t, m.OpenFileArgs[0], [3]interface{}{"/foo/bar/qux", 42, os.FileMode(0o777)})
 }
 
 func TestOpenFileErrCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
 	fs := New(m, "/foo")
-	_, err := fs.OpenFile("../foo", 42, 0777)
+	_, err := fs.OpenFile("../foo", 42, 0o777)
 	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
@@ -218,18 +218,18 @@ func TestMkDirAll(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
-	err := fs.MkdirAll("bar", 0777)
+	err := fs.MkdirAll("bar", 0o777)
 	require.NoError(t, err)
 
 	assert.Len(t, m.MkdirAllArgs, 1)
-	assert.Equal(t, m.MkdirAllArgs[0], [2]interface{}{"/foo/bar", os.FileMode(0777)})
+	assert.Equal(t, m.MkdirAllArgs[0], [2]interface{}{"/foo/bar", os.FileMode(0o777)})
 }
 
 func TestMkdirAllErrCrossedBoundary(t *testing.T) {
 	m := &test.DirMock{}
 
 	fs := New(m, "/foo")
-	err := fs.MkdirAll("../foo", 0777)
+	err := fs.MkdirAll("../foo", 0o777)
 	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
@@ -353,6 +353,7 @@ func TestCapabilities(t *testing.T) {
 }
 
 func testCapabilities(t *testing.T, basic billy.Basic) {
+	t.Helper()
 	baseCapabilities := billy.Capabilities(basic)
 
 	fs := New(basic, "/foo")

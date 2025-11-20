@@ -18,6 +18,7 @@ type dirFS interface {
 }
 
 func eachDirFS(t *testing.T, test func(t *testing.T, fs dirFS)) {
+	t.Helper()
 	for _, fs := range allFS(t.TempDir) {
 		t.Run(fmt.Sprintf("%T", fs), func(t *testing.T) {
 			test(t, fs)
@@ -27,7 +28,8 @@ func eachDirFS(t *testing.T, test func(t *testing.T, fs dirFS)) {
 
 func TestDir_MkdirAll(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("empty", os.FileMode(0755))
+		t.Helper()
+		err := fs.MkdirAll("empty", os.FileMode(0o755))
 		require.NoError(t, err)
 
 		fi, err := fs.Stat("empty")
@@ -38,7 +40,8 @@ func TestDir_MkdirAll(t *testing.T) {
 
 func TestDir_MkdirAllNested(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("foo/bar/baz", os.FileMode(0755))
+		t.Helper()
+		err := fs.MkdirAll("foo/bar/baz", os.FileMode(0o755))
 		require.NoError(t, err)
 
 		fi, err := fs.Stat("foo/bar/baz")
@@ -57,14 +60,15 @@ func TestDir_MkdirAllNested(t *testing.T) {
 
 func TestDir_MkdirAllIdempotent(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("empty", 0755)
+		t.Helper()
+		err := fs.MkdirAll("empty", 0o755)
 		require.NoError(t, err)
 		fi, err := fs.Stat("empty")
 		require.NoError(t, err)
 		assert.True(t, fi.IsDir())
 
 		// idempotent
-		err = fs.MkdirAll("empty", 0755)
+		err = fs.MkdirAll("empty", 0o755)
 		require.NoError(t, err)
 		fi, err = fs.Stat("empty")
 		require.NoError(t, err)
@@ -74,7 +78,8 @@ func TestDir_MkdirAllIdempotent(t *testing.T) {
 
 func TestDir_MkdirAllAndCreate(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("dir", os.FileMode(0755))
+		t.Helper()
+		err := fs.MkdirAll("dir", os.FileMode(0o755))
 		require.NoError(t, err)
 
 		f, err := fs.Create("dir/bar/foo")
@@ -89,11 +94,12 @@ func TestDir_MkdirAllAndCreate(t *testing.T) {
 
 func TestDir_MkdirAllWithExistingFile(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
 		f, err := fs.Create("dir/foo")
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 
-		err = fs.MkdirAll("dir/foo", os.FileMode(0755))
+		err = fs.MkdirAll("dir/foo", os.FileMode(0o755))
 		assert.Error(t, err)
 
 		fi, err := fs.Stat("dir/foo")
@@ -104,7 +110,8 @@ func TestDir_MkdirAllWithExistingFile(t *testing.T) {
 
 func TestDir_StatDir(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("foo/bar", 0755)
+		t.Helper()
+		err := fs.MkdirAll("foo/bar", 0o755)
 		require.NoError(t, err)
 
 		fi, err := fs.Stat("foo/bar")
@@ -118,9 +125,10 @@ func TestDir_StatDir(t *testing.T) {
 
 func TestDir_StatDeep(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, nil, 0644)
+			err := util.WriteFile(fs, name, nil, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -144,9 +152,10 @@ func TestDir_StatDeep(t *testing.T) {
 
 func TestDir_ReadDir(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, nil, 0644)
+			err := util.WriteFile(fs, name, nil, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -162,6 +171,7 @@ func TestDir_ReadDir(t *testing.T) {
 
 func TestDir_ReadDirNested(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
 		maxNestedDirs := 100
 		path := "/"
 		for i := 0; i <= maxNestedDirs; i++ {
@@ -170,7 +180,7 @@ func TestDir_ReadDirNested(t *testing.T) {
 
 		files := []string{fs.Join(path, "f1"), fs.Join(path, "f2")}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, nil, 0644)
+			err := util.WriteFile(fs, name, nil, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -191,12 +201,13 @@ func TestDir_ReadDirNested(t *testing.T) {
 
 func TestDir_ReadDirWithMkDirAll(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("qux", 0755)
+		t.Helper()
+		err := fs.MkdirAll("qux", 0o755)
 		require.NoError(t, err)
 
 		files := []string{"qux/baz", "qux/qux"}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, nil, 0644)
+			err := util.WriteFile(fs, name, nil, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -213,7 +224,8 @@ func TestDir_ReadDirWithMkDirAll(t *testing.T) {
 
 func TestDir_ReadDirFileInfo(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := util.WriteFile(fs, "foo", []byte{'F', 'O', 'O'}, 0644)
+		t.Helper()
+		err := util.WriteFile(fs, "foo", []byte{'F', 'O', 'O'}, 0o644)
 		require.NoError(t, err)
 
 		info, err := fs.ReadDir("/")
@@ -230,9 +242,10 @@ func TestDir_ReadDirFileInfo(t *testing.T) {
 
 func TestDir_ReadDirFileInfoDirs(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
 		files := []string{"qux/baz/foo"}
 		for _, name := range files {
-			err := util.WriteFile(fs, name, []byte{'F', 'O', 'O'}, 0644)
+			err := util.WriteFile(fs, name, []byte{'F', 'O', 'O'}, 0o644)
 			require.NoError(t, err)
 		}
 
@@ -257,7 +270,8 @@ func TestDir_ReadDirFileInfoDirs(t *testing.T) {
 
 func TestDir_RenameToDir(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := util.WriteFile(fs, "foo", nil, 0644)
+		t.Helper()
+		err := util.WriteFile(fs, "foo", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Rename("foo", "bar/qux")
@@ -279,10 +293,11 @@ func TestDir_RenameToDir(t *testing.T) {
 
 func TestDir_RenameDir(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
-		err := fs.MkdirAll("foo", 0755)
+		t.Helper()
+		err := fs.MkdirAll("foo", 0o755)
 		require.NoError(t, err)
 
-		err = util.WriteFile(fs, "foo/bar", nil, 0644)
+		err = util.WriteFile(fs, "foo/bar", nil, 0o644)
 		require.NoError(t, err)
 
 		err = fs.Rename("foo", "bar")
