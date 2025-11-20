@@ -377,6 +377,7 @@ func TestCapabilities(t *testing.T) {
 }
 
 func testCapabilities(t *testing.T, a, b billy.Basic) {
+	t.Helper()
 	aCapabilities := billy.Capabilities(a)
 	bCapabilities := billy.Capabilities(b)
 

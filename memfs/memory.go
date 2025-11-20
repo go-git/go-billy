@@ -119,7 +119,9 @@ func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
 	// the name of the file should always the name of the stated file, so we
 	// overwrite the Stat returned from the storage with it, since the
 	// filename may belong to a link.
-	fi.(*fileInfo).name = filepath.Base(filename)
+	if ffi, ok := fi.(*fileInfo); ok {
+		ffi.name = filepath.Base(filename)
+	}
 	return fi, nil
 }
 

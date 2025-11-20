@@ -13,6 +13,7 @@ import (
 )
 
 func eachFS(t *testing.T, test func(t *testing.T, fs Filesystem)) {
+	t.Helper()
 	for _, fs := range allFS(t.TempDir) {
 		t.Run(fmt.Sprintf("%T", fs), func(t *testing.T) {
 			test(t, fs)
@@ -25,6 +26,7 @@ func TestFS_SymlinkToDir(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		err := fs.MkdirAll("dir", 0o755)
 		require.NoError(t, err)
 
@@ -43,6 +45,7 @@ func TestFS_SymlinkReadDir(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		err := util.WriteFile(fs, "dir/file", []byte("foo"), 0o644)
 		require.NoError(t, err)
 
@@ -63,6 +66,7 @@ func TestFS_SymlinkReadDir(t *testing.T) {
 
 func TestFS_CreateWithExistantDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		err := fs.MkdirAll("foo", 0o644)
 		require.NoError(t, err)
 
@@ -74,6 +78,7 @@ func TestFS_CreateWithExistantDir(t *testing.T) {
 
 func TestFS_ReadDirWithChroot(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		files := []string{"foo", "bar", "qux/baz", "qux/qux"}
 		for _, name := range files {
 			err := util.WriteFile(fs, name, nil, 0o644)
@@ -93,6 +98,7 @@ func TestFS_SymlinkWithChrootBasic(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		qux, _ := fs.Chroot("/qux")
 
 		err := util.WriteFile(qux, "file", nil, 0o644)
@@ -116,6 +122,7 @@ func TestFS_SymlinkWithChrootCrossBounders(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		qux, _ := fs.Chroot("/qux")
 		err := util.WriteFile(fs, "file", []byte("foo"), customMode)
 		require.NoError(t, err)
@@ -134,6 +141,7 @@ func TestFS_ReadDirWithLink(t *testing.T) {
 		t.Skip("skipping on Plan 9; symlinks are not supported")
 	}
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		err := util.WriteFile(fs, "foo/bar", []byte("foo"), customMode)
 		require.NoError(t, err)
 
@@ -148,12 +156,14 @@ func TestFS_ReadDirWithLink(t *testing.T) {
 
 func TestFS_RemoveAllNonExistent(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		require.NoError(t, util.RemoveAll(fs, "non-existent"))
 	})
 }
 
 func TestFS_RemoveAllEmptyDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		require.NoError(t, fs.MkdirAll("empty", os.FileMode(0o755)))
 		require.NoError(t, util.RemoveAll(fs, "empty"))
 		_, err := fs.Stat("empty")
@@ -175,6 +185,7 @@ func TestFS_RemoveAll(t *testing.T) {
 	}
 
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		for _, fname := range fnames {
 			err := util.WriteFile(fs, fname, nil, 0o644)
 			require.NoError(t, err)
@@ -202,6 +213,7 @@ func TestFS_RemoveAllRelative(t *testing.T) {
 	}
 
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		for _, fname := range fnames {
 			err := util.WriteFile(fs, fname, nil, 0o644)
 			require.NoError(t, err)
@@ -218,6 +230,7 @@ func TestFS_RemoveAllRelative(t *testing.T) {
 
 func TestFS_ReadDir(t *testing.T) {
 	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
 		err := fs.MkdirAll("qux", 0o755)
 		require.NoError(t, err)
 

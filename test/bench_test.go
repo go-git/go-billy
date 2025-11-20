@@ -141,6 +141,7 @@ func read(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.
 }
 
 func prepFS(b *testing.B, f io.WriteCloser) {
+	b.Helper()
 	defer f.Close()
 
 	content := make([]byte, contentSize)

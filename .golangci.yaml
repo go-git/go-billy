@@ -27,6 +27,7 @@ linters:
     - goprintffuncname
     - gosmopolitan
     - govet
+    - forcetypeassert
     - grouper
     - importas
     - ineffassign
@@ -47,6 +48,8 @@ linters:
     - tagalign
     - tagliatelle
     - testableexamples
+    - thelper
+    - tparallel
     - unconvert
     - unused
     - usestdlibvars
@@ -60,6 +63,13 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+
+  settings:
+    revive:
+      rules:
+      - name: var-naming
+        disabled: true
+
 formatters:
   enable:
     - gci

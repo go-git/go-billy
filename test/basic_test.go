@@ -491,6 +491,7 @@ func TestRename(t *testing.T) {
 		{
 			name: "file rename",
 			before: func(t *testing.T, fs Filesystem) {
+				t.Helper()
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo"))
 				require.NoError(t, err)
@@ -503,6 +504,7 @@ func TestRename(t *testing.T) {
 		{
 			name: "dir rename",
 			before: func(t *testing.T, fs Filesystem) {
+				t.Helper()
 				root := fsRoot(fs)
 				f, err := fs.Create(fs.Join(root, "foo", "bar1"))
 				require.NoError(t, err)
