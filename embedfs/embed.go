@@ -92,6 +92,10 @@ func (fs *Embed) ReadDir(path string) ([]fs.DirEntry, error) {
 	return fs.underlying.ReadDir(path)
 }
 
+func (fs *Embed) Capabilities() billy.Capability {
+	return billy.ReadCapability | billy.SeekCapability
+}
+
 // Chroot is not supported.
 //
 // Calls will always return billy.ErrNotSupported.
