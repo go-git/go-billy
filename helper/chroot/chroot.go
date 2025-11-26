@@ -228,6 +228,19 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	return string(os.PathSeparator) + target, nil
 }
 
+func (fs *ChrootHelper) Chmod(path string, mode fs.FileMode) error {
+	fullpath, err := fs.underlyingPath(path)
+	if err != nil {
+		return err
+	}
+
+	c, ok := fs.underlying.(billy.Chmod)
+	if !ok {
+		return errors.New("underlying fs does not implement billy.Chmod")
+	}
+	return c.Chmod(fullpath, mode)
+}
+
 func (fs *ChrootHelper) Chroot(path string) (billy.Filesystem, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
