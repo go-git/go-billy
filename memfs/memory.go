@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -17,24 +18,36 @@ import (
 	"github.com/go-git/go-billy/v6/util"
 )
 
-const separator = filepath.Separator
+const (
+	separator       = filepath.Separator
+	defaultUmask    = 0o022
+	defaultDirMode  = 0o777
+	defaultFileMode = 0o666
+)
 
 // Memory a very convenient filesystem based on memory files.
 type Memory struct {
-	s *storage
+	s     *storage
+	umask uint32
 }
 
 // New returns a new Memory filesystem.
 func New(opts ...Option) billy.Filesystem {
 	o := &options{}
+	// Aligns default umask with general Windows behaviour.
+	if runtime.GOOS != "windows" {
+		o.umask = defaultUmask
+	}
+
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	fs := &Memory{
-		s: newStorage(),
+		s:     newStorage(),
+		umask: o.umask,
 	}
-	_, err := fs.s.New("/", 0o755|os.ModeDir, 0)
+	_, err := fs.s.New("/", fs.applyUmask(defaultDirMode)|os.ModeDir, 0)
 	if err != nil {
 		log.Printf("failed to create root dir: %v", err)
 	}
@@ -42,7 +55,7 @@ func New(opts ...Option) billy.Filesystem {
 }
 
 func (fs *Memory) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultFileMode)
 }
 
 func (fs *Memory) Open(filename string) (billy.File, error) {
@@ -57,7 +70,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm gofs.FileMode) (billy
 		}
 
 		var err error
-		f, err = fs.s.New(filename, perm, flag)
+		f, err = fs.s.New(filename, fs.applyUmask(perm), flag)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +176,7 @@ func (fs *Memory) ReadDir(path string) ([]gofs.DirEntry, error) {
 }
 
 func (fs *Memory) MkdirAll(path string, perm gofs.FileMode) error {
-	_, err := fs.s.New(path, perm|os.ModeDir, 0)
+	_, err := fs.s.New(path, fs.applyUmask(perm)|os.ModeDir, 0)
 	return err
 }
 
@@ -226,6 +239,13 @@ func (fs *Memory) Capabilities() billy.Capability {
 		billy.ReadAndWriteCapability |
 		billy.SeekCapability |
 		billy.TruncateCapability
+}
+
+// applyUmask applies the filesystem's umask to a mode by clearing the bits
+// specified in the umask. For example, with umask 0o022, the mode 0o666
+// becomes 0o644 (rw-r--r--).
+func (fs *Memory) applyUmask(mode gofs.FileMode) gofs.FileMode {
+	return mode &^ gofs.FileMode(fs.umask)
 }
 
 func (c *content) Truncate() {

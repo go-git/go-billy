@@ -15,7 +15,7 @@ type Polyfill struct {
 	c capabilities
 }
 
-type capabilities struct{ tempfile, dir, symlink, chroot bool }
+type capabilities struct{ tempfile, dir, symlink, chroot, chmod bool }
 
 // New creates a new filesystem wrapping up 'fs' the intercepts all the calls
 // made and errors if fs doesn't implement any of the billy interfaces.
@@ -30,6 +30,8 @@ func New(fs billy.Basic) billy.Filesystem {
 	_, h.c.dir = h.Basic.(billy.Dir)
 	_, h.c.symlink = h.Basic.(billy.Symlink)
 	_, h.c.chroot = h.Basic.(billy.Chroot)
+	_, h.c.chmod = h.Basic.(billy.Chmod)
+
 	return h
 }
 
@@ -87,6 +89,14 @@ func (h *Polyfill) Chroot(path string) (billy.Filesystem, error) {
 	}
 
 	return h.Basic.(billy.Chroot).Chroot(path)
+}
+
+func (h *Polyfill) Chmod(path string, mode fs.FileMode) error {
+	if !h.c.chmod {
+		return billy.ErrNotSupported
+	}
+
+	return h.Basic.(billy.Chmod).Chmod(path, mode)
 }
 
 func (h *Polyfill) Root() string {

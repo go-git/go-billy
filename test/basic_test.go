@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -22,8 +23,8 @@ import (
 func eachBasicFS(t *testing.T, test func(t *testing.T, fs Basic)) {
 	t.Helper()
 
-	for _, fs := range allFS(t.TempDir) {
-		t.Run(fmt.Sprintf("%T", fs), func(t *testing.T) {
+	for i, fs := range allFS(t.TempDir) {
+		t.Run(fmt.Sprintf("%d-%T", i, fs), func(t *testing.T) {
 			test(t, fs)
 		})
 	}
@@ -251,9 +252,14 @@ func TestOpenFileWithModes(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
 
+		want := customMode
+		if runtime.GOOS == "windows" {
+			want = 0o666
+		}
+
 		fi, err := fs.Stat("foo")
 		require.NoError(t, err)
-		assert.Equal(t, customMode, fi.Mode())
+		assert.Equal(t, want, fi.Mode())
 	})
 }
 
@@ -454,11 +460,16 @@ func TestStat(t *testing.T) {
 		err := util.WriteFile(fs, "foo/bar", []byte("foo"), customMode)
 		require.NoError(t, err)
 
+		want := customMode
+		if runtime.GOOS == "windows" {
+			want = 0o666
+		}
+
 		fi, err := fs.Stat("foo/bar")
 		require.NoError(t, err)
 		assert.Equal(t, "bar", fi.Name())
 		assert.Equal(t, int64(3), fi.Size())
-		assert.Equal(t, customMode, fi.Mode())
+		assert.Equal(t, want, fi.Mode())
 		assert.False(t, fi.ModTime().IsZero())
 		assert.False(t, fi.IsDir())
 	})
