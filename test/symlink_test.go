@@ -270,16 +270,16 @@ func TestStatLink(t *testing.T) {
 		require.NoError(t, err)
 
 		if runtime.GOOS == "windows" {
-			want = 0o777
+			want |= 0o022
 		}
 
 		fi, err := fs.Stat("foo/qux")
 		require.NoError(t, err)
-		assert.Equal(t, fi.Name(), "qux")
-		assert.Equal(t, fi.Size(), int64(3))
-		assert.Equal(t, fi.Mode(), want)
-		assert.Equal(t, fi.ModTime().IsZero(), false)
-		assert.Equal(t, fi.IsDir(), false)
+		assert.Equal(t, "qux", fi.Name())
+		assert.Equal(t, int64(3), fi.Size())
+		assert.Equal(t, want, fi.Mode())
+		assert.Equal(t, false, fi.ModTime().IsZero())
+		assert.Equal(t, false, fi.IsDir())
 	})
 }
 

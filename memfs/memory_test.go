@@ -444,7 +444,7 @@ func TestUmask(t *testing.T) {
 			require.NoError(t, err)
 			f.Close()
 
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == "windows" && tt.umask == nil {
 				tt.expectedFileMode |= 0o022
 				tt.expectedDirMode |= 0o022
 			}
