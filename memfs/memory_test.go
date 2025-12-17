@@ -403,3 +403,126 @@ func TestThreadSafety(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, fi, files*2)
 }
+
+func TestUmask(t *testing.T) {
+	tests := []struct {
+		name             string
+		umask            *uint32
+		expectedFileMode os.FileMode
+		expectedDirMode  os.FileMode
+	}{
+		{
+			name:             "default umask (0o022)",
+			umask:            nil,
+			expectedFileMode: 0o644,
+			expectedDirMode:  0o755,
+		},
+		{
+			name:             "custom umask (0o077)",
+			umask:            func() *uint32 { u := uint32(0o077); return &u }(),
+			expectedFileMode: 0o600,
+			expectedDirMode:  0o700,
+		},
+		{
+			name:             "zero umask (0o000)",
+			umask:            func() *uint32 { u := uint32(0o000); return &u }(),
+			expectedFileMode: 0o666,
+			expectedDirMode:  0o777,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var fs billy.Filesystem
+			if tt.umask != nil {
+				fs = New(WithUmask(*tt.umask))
+			} else {
+				fs = New()
+			}
+
+			f, err := fs.Create("file.txt")
+			require.NoError(t, err)
+			f.Close()
+
+			if runtime.GOOS == "windows" && tt.umask == nil {
+				tt.expectedFileMode |= 0o022
+				tt.expectedDirMode |= 0o022
+			}
+
+			fi, err := fs.Stat("file.txt")
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedFileMode, fi.Mode().Perm())
+
+			err = fs.MkdirAll("testdir", 0o777)
+			require.NoError(t, err)
+
+			fi, err = fs.Stat("testdir")
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedDirMode, fi.Mode().Perm())
+		})
+	}
+}
+
+func TestUmaskOpenFile(t *testing.T) {
+	fs := New(WithUmask(0o077))
+
+	f, err := fs.OpenFile("test.txt", os.O_CREATE|os.O_RDWR, 0o666)
+	require.NoError(t, err)
+	assert.NoError(t, f.Close())
+
+	fi, err := fs.Stat("test.txt")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
+
+	// Re-do test without the use of os.O_CREATE.
+	err = util.WriteFile(fs, "test2.txt", []byte("content"), 0o666)
+	require.NoError(t, err)
+
+	fi2, err := fs.Stat("test2.txt")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), fi2.Mode().Perm())
+
+	f2, err := fs.OpenFile("test2.txt", os.O_RDWR, 0o777)
+	require.NoError(t, err)
+	assert.NoError(t, f2.Close())
+
+	fi2, err = fs.Stat("test2.txt")
+	require.NoError(t, err)
+	// Mode must not be changed by OpenFile without os.O_CREATE.
+	assert.Equal(t, os.FileMode(0o600), fi2.Mode().Perm())
+}
+
+func TestUmaskChmod(t *testing.T) {
+	fs := New()
+
+	f, err := fs.Create("/test.txt")
+	require.NoError(t, err)
+	assert.NoError(t, f.Close())
+
+	want := 0o644
+	if runtime.GOOS == "windows" {
+		want |= 0o022
+	}
+
+	fi, err := fs.Stat("/test.txt")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(want), fi.Mode().Perm())
+
+	ch, ok := fs.(billy.Chmod)
+	require.True(t, ok, "fs does not implement billy.Chmod")
+
+	err = ch.Chmod("/test.txt", 0o421)
+	require.NoError(t, err)
+
+	fi, err = fs.Stat("/test.txt")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o421), fi.Mode().Perm())
+}
+
+func TestUmaskRootDirectory(t *testing.T) {
+	fs := New(WithUmask(0o077))
+
+	fi, err := fs.Stat("/")
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), fi.Mode().Perm())
+}
