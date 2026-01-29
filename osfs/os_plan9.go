@@ -1,5 +1,4 @@
 //go:build plan9
-// +build plan9
 
 package osfs
 
@@ -10,21 +9,8 @@ import (
 	"syscall"
 )
 
-func (f *file) Lock() error {
-	// Plan 9 uses a mode bit instead of explicit lock/unlock syscalls.
-	//
-	// Per http://man.cat-v.org/plan_9/5/stat: “Exclusive use files may be open
-	// for I/O by only one fid at a time across all clients of the server. If a
-	// second open is attempted, it draws an error.”
-	//
-	// There is no obvious way to implement this function using the exclusive use bit.
-	// See https://golang.org/src/cmd/go/internal/lockedfile/lockedfile_plan9.go
-	// for how file locking is done by the go tool on Plan 9.
-	return nil
-}
-
-func (f *file) Unlock() error {
-	return nil
+func (f *file) Sync() error {
+	return f.File.Sync()
 }
 
 func rename(from, to string) error {

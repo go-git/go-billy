@@ -14,6 +14,11 @@ import (
 	"github.com/go-git/go-billy/v6"
 )
 
+const (
+	tempDirectoryMode = 0o700
+	tempFileMode      = 0o600
+)
+
 // RemoveAll removes path and any children it contains. It removes everything it
 // can but returns the first error it encounters. If the path does not exist,
 // RemoveAll returns nil (no error).
@@ -116,6 +121,9 @@ func WriteFile(fs billy.Basic, filename string, data []byte, perm fs.FileMode) (
 	if err == nil && n < len(data) {
 		err = io.ErrShortWrite
 	}
+	if sf, ok := f.(billy.Syncer); ok {
+		return sf.Sync()
+	}
 
 	return nil
 }
@@ -124,8 +132,10 @@ func WriteFile(fs billy.Basic, filename string, data []byte, perm fs.FileMode) (
 // We generate random temporary file names so that there's a good
 // chance the file doesn't exist yet - keeps the number of tries in
 // TempFile to a minimum.
-var rand uint32
-var randmu sync.Mutex
+var (
+	rand   uint32
+	randmu sync.Mutex
+)
 
 func reseed() uint32 {
 	return uint32(time.Now().UnixNano() + int64(os.Getpid()))
@@ -159,7 +169,7 @@ func TempFile(fs billy.Basic, dir, prefix string) (f billy.File, err error) {
 	nconflict := 0
 	for i := 0; i < 10000; i++ {
 		name := filepath.Join(dir, prefix+nextSuffix())
-		f, err = fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+		f, err = fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, tempFileMode)
 		if errors.Is(err, os.ErrExist) {
 			if nconflict++; nconflict > 10 {
 				randmu.Lock()
@@ -193,7 +203,7 @@ func TempDir(fs billy.Dir, dir, prefix string) (name string, err error) {
 	nconflict := 0
 	for i := 0; i < 10000; i++ {
 		try := filepath.Join(dir, prefix+nextSuffix())
-		err = fs.MkdirAll(try, 0700)
+		err = fs.MkdirAll(try, tempDirectoryMode)
 		if errors.Is(err, os.ErrExist) {
 			if nconflict++; nconflict > 10 {
 				randmu.Lock()

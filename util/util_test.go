@@ -6,8 +6,10 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/go-git/go-billy/v6/internal/test"
 	"github.com/go-git/go-billy/v6/memfs"
 	"github.com/go-git/go-billy/v6/util"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,4 +91,15 @@ func TestTempDir_WithNonRoot(t *testing.T) {
 	if err == nil {
 		t.Errorf(`TempDir(fs, "", "") = %s, should not be relative to os.TempDir on not root filesystem`, f)
 	}
+}
+
+func TestWriteFile_Sync(t *testing.T) {
+	fs := &test.BasicMock{}
+	filename := "TestWriteFile.txt"
+	data := []byte("hello world")
+	err := util.WriteFile(fs, filename, data, 0o644)
+	require.NoError(t, err)
+
+	assert.Len(t, fs.CallLogger.Calls, 1)
+	assert.Equal(t, "Sync TestWriteFile.txt", fs.CallLogger.Calls[0])
 }

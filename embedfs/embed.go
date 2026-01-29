@@ -8,12 +8,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/go-git/go-billy/v6"
-	"github.com/go-git/go-billy/v6/memfs"
 )
 
 type Embed struct {
@@ -90,21 +88,12 @@ func (fs *Embed) Join(elem ...string) string {
 	return ""
 }
 
-func (fs *Embed) ReadDir(path string) ([]os.FileInfo, error) {
-	e, err := fs.underlying.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
+func (fs *Embed) ReadDir(path string) ([]fs.DirEntry, error) {
+	return fs.underlying.ReadDir(path)
+}
 
-	entries := make([]os.FileInfo, 0, len(e))
-	for _, f := range e {
-		fi, _ := f.Info()
-		entries = append(entries, fi)
-	}
-
-	sort.Sort(memfs.ByName(entries))
-
-	return entries, nil
+func (fs *Embed) Capabilities() billy.Capability {
+	return billy.ReadCapability | billy.SeekCapability
 }
 
 // Chroot is not supported.
@@ -216,16 +205,6 @@ func (f *file) Stat() (os.FileInfo, error) {
 
 // Close for embedfs file is a no-op.
 func (f *file) Close() error {
-	return nil
-}
-
-// Lock for embedfs file is a no-op.
-func (f *file) Lock() error {
-	return nil
-}
-
-// Unlock for embedfs file is a no-op.
-func (f *file) Unlock() error {
 	return nil
 }
 

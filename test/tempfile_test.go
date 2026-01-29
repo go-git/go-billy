@@ -17,6 +17,7 @@ type tempFS interface {
 }
 
 func eachTempFS(t *testing.T, test func(t *testing.T, fs tempFS)) {
+	t.Helper()
 	for _, fs := range allFS(t.TempDir) {
 		t.Run(fmt.Sprintf("%T", fs), func(t *testing.T) {
 			test(t, fs)
@@ -26,6 +27,7 @@ func eachTempFS(t *testing.T, test func(t *testing.T, fs tempFS)) {
 
 func TestTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		f, err := fs.TempFile("", "bar")
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
@@ -36,6 +38,7 @@ func TestTempFile(t *testing.T) {
 
 func TestTempFileWithPath(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		f, err := fs.TempFile("foo", "bar")
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
@@ -46,6 +49,7 @@ func TestTempFileWithPath(t *testing.T) {
 
 func TestTempFileFullWithPath(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		f, err := fs.TempFile("/foo", "bar")
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
@@ -56,6 +60,7 @@ func TestTempFileFullWithPath(t *testing.T) {
 
 func TestRemoveTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		f, err := fs.TempFile("test-dir", "test-prefix")
 		require.NoError(t, err)
 
@@ -67,6 +72,7 @@ func TestRemoveTempFile(t *testing.T) {
 
 func TestRenameTempFile(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		f, err := fs.TempFile("test-dir", "test-prefix")
 		require.NoError(t, err)
 
@@ -78,6 +84,7 @@ func TestRenameTempFile(t *testing.T) {
 
 func TestTempFileMany(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		for i := 0; i < 1024; i++ {
 			var files []billy.File
 
@@ -97,6 +104,7 @@ func TestTempFileMany(t *testing.T) {
 
 func TestTempFileManyWithUtil(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
+		t.Helper()
 		for i := 0; i < 1024; i++ {
 			var files []billy.File
 

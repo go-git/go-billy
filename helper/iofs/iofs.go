@@ -21,10 +21,12 @@ type adapterFs struct {
 }
 
 // Type assertion that adapterFS implements the following interfaces:
-var _ fs.FS = (*adapterFs)(nil)
-var _ fs.ReadDirFS = (*adapterFs)(nil)
-var _ fs.StatFS = (*adapterFs)(nil)
-var _ fs.ReadFileFS = (*adapterFs)(nil)
+var (
+	_ fs.FS         = (*adapterFs)(nil)
+	_ fs.ReadDirFS  = (*adapterFs)(nil)
+	_ fs.StatFS     = (*adapterFs)(nil)
+	_ fs.ReadFileFS = (*adapterFs)(nil)
+)
 
 // TODO: implement fs.GlobFS, which will be a fair bit more code.
 
@@ -52,15 +54,7 @@ func (a *adapterFs) Open(name string) (fs.File, error) {
 
 // ReadDir reads the named directory, implementing fs.ReadDirFS (returning a listing or error).
 func (a *adapterFs) ReadDir(name string) ([]fs.DirEntry, error) {
-	items, err := a.fs.ReadDir(name)
-	if err != nil {
-		return nil, err
-	}
-	entries := make([]fs.DirEntry, len(items))
-	for i, item := range items {
-		entries[i] = fs.FileInfoToDirEntry(item)
-	}
-	return entries, nil
+	return a.fs.ReadDir(name)
 }
 
 // Stat returns information on the named file, implementing fs.StatFS (returning FileInfo or error).

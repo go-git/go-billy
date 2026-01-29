@@ -1,5 +1,4 @@
 //go:build js
-// +build js
 
 package osfs
 
@@ -42,7 +41,5 @@ func TestDefault(t *testing.T) {
 	}
 }
 
-var (
-	// API call assertions
-	_ = New("/")
-)
+// API call assertions
+var _ = New("/")

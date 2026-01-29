@@ -1,5 +1,4 @@
 //go:build !js
-// +build !js
 
 /*
    Copyright 2022 The Flux authors.
@@ -30,9 +29,7 @@ import (
 	"github.com/go-git/go-billy/v6"
 )
 
-var (
-	dotPrefixes = []string{"./", ".\\"}
-)
+var dotPrefixes = []string{"./", ".\\"}
 
 // BoundOS is a fs implementation based on the OS filesystem which is bound to
 // a base dir.
@@ -54,6 +51,10 @@ func newBoundOS(d string, deduplicatePath bool) billy.Filesystem {
 	return &BoundOS{baseDir: d, deduplicatePath: deduplicatePath}
 }
 
+func (fs *BoundOS) Capabilities() billy.Capability {
+	return billy.DefaultCapabilities & billy.SyncCapability
+}
+
 func (fs *BoundOS) Create(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
@@ -68,14 +69,14 @@ func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.
 	return openFile(fn, flag, perm, fs.createDir)
 }
 
-func (fs *BoundOS) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *BoundOS) ReadDir(path string) ([]fs.DirEntry, error) {
 	path = fs.expandDot(path)
 	dir, err := fs.abs(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return readDir(dir)
+	return os.ReadDir(dir)
 }
 
 func (fs *BoundOS) Rename(from, to string) error {
@@ -220,6 +221,14 @@ func (fs *BoundOS) Readlink(link string) (string, error) {
 		return "", err
 	}
 	return os.Readlink(link)
+}
+
+func (fs *BoundOS) Chmod(path string, mode fs.FileMode) error {
+	abspath, err := fs.abs(path)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(abspath, mode)
 }
 
 // Chroot returns a new BoundOS filesystem, with the base dir set to the

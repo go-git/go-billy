@@ -1,5 +1,4 @@
 //go:build !js
-// +build !js
 
 package osfs
 
@@ -47,8 +46,8 @@ func (fs *ChrootOS) createDir(fullpath string) error {
 	return nil
 }
 
-func (fs *ChrootOS) ReadDir(dir string) ([]os.FileInfo, error) {
-	return readDir(dir)
+func (fs *ChrootOS) ReadDir(dir string) ([]fs.DirEntry, error) {
+	return os.ReadDir(dir)
 }
 
 func (fs *ChrootOS) Rename(from, to string) error {
@@ -78,6 +77,10 @@ func (fs *ChrootOS) Stat(filename string) (os.FileInfo, error) {
 
 func (fs *ChrootOS) Remove(filename string) error {
 	return os.Remove(filename)
+}
+
+func (fs *ChrootOS) Chmod(path string, mode fs.FileMode) error {
+	return os.Chmod(path, mode)
 }
 
 func (fs *ChrootOS) TempFile(dir, prefix string) (billy.File, error) {

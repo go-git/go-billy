@@ -1,5 +1,4 @@
 //go:build !wasm
-// +build !wasm
 
 package osfs
 
@@ -24,7 +23,7 @@ func setup(t *testing.T) (billy.Filesystem, string) {
 		// the containing directory (see http://man.cat-v.org/plan_9/5/open).
 		// Since TestOpenFileWithModes and TestStat creates files directly
 		// in the temporary directory, we need to make it more permissive.
-		err := os.Chmod(path, 0777)
+		err := os.Chmod(path, 0o777)
 		require.NoError(t, err)
 	}
 	return newChrootOS(path), path
@@ -45,5 +44,27 @@ func TestCapabilities(t *testing.T) {
 	assert.True(t, ok)
 
 	caps := billy.Capabilities(fs)
-	assert.Equal(t, billy.AllCapabilities, caps)
+	assert.Equal(t, billy.DefaultCapabilities, caps)
+}
+
+func TestCreateWithChroot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping POSIX umask tests on Windows")
+	}
+	fs, _ := setup(t)
+	resetUmask := umask(2)
+	chroot, _ := fs.Chroot("foo")
+	f, err := chroot.Create("bar")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	assert.Equal(t, f.Name(), "bar")
+	resetUmask()
+
+	di, err := fs.Stat("foo")
+	require.NoError(t, err)
+	expected := 0o775
+	actual := int(di.Mode().Perm())
+	assert.Equal(
+		t, expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+	)
 }

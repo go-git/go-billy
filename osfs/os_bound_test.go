@@ -1,5 +1,4 @@
 //go:build !wasm
-// +build !wasm
 
 /*
    Copyright 2022 The Flux authors.
@@ -31,6 +30,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestBoundOSCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
+
+	caps := billy.Capabilities(fs)
+	assert.Equal(t, billy.DefaultCapabilities&billy.SyncCapability, caps)
+}
 
 func TestOpen(t *testing.T) {
 	tests := []struct {
@@ -384,7 +393,7 @@ func TestReadLink(t *testing.T) {
 				return newBoundOS(cwd, true)
 			},
 			filename:        "symlink-file",
-			expected:        filepath.Join("cwd-target/file"),
+			expected:        filepath.FromSlash("cwd-target/file"),
 			makeExpectedAbs: true,
 		},
 		{
@@ -872,6 +881,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "parent with children",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.MkdirAll(filepath.Join(dir, "parent", "children"), 0o700)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -885,6 +895,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "same dir file",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -894,6 +905,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "same dir symlink",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				target := filepath.Join(dir, "target-file")
 				err := os.WriteFile(target, []byte("anything"), 0o600)
 				require.NoError(t, err)
@@ -906,6 +918,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "rel path to file above cwd",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -915,6 +928,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "abs file",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "abs-test-file"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -925,6 +939,7 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name: "abs symlink",
 			before: func(t *testing.T, dir string) billy.Filesystem {
+				t.Helper()
 				err := os.Symlink("/etc/passwd", filepath.Join(dir, "symlink"))
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
@@ -1285,8 +1300,24 @@ func TestRename(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 
-	err = fs.Rename(oldFile, newFile)
-	require.NoError(t, err)
+	if runtime.GOOS != "windows" {
+		resetUmask := umask(2)
+		err = fs.Rename(oldFile, newFile)
+		require.NoError(t, err)
+		resetUmask()
+
+		di, err := os.Stat(filepath.Dir(filepath.Join(dir, newFile)))
+		require.NoError(t, err)
+		assert.NotNil(di)
+		expected := 0o775
+		actual := int(di.Mode().Perm())
+		assert.Equal(
+			expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
+		)
+	} else {
+		err = fs.Rename(oldFile, newFile)
+		require.NoError(t, err)
+	}
 
 	fi, err := os.Stat(filepath.Join(dir, newFile))
 	require.NoError(t, err)

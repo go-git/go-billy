@@ -1,11 +1,11 @@
 //go:build !js
-// +build !js
 
 // Package osfs provides a billy filesystem for the OS.
 package osfs
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"sync"
@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultDirectoryMode = 0o755
+	defaultDirectoryMode = 0o777
 	defaultCreateMode    = 0o666
 )
 
@@ -79,22 +79,6 @@ const (
 	BoundOSFS
 )
 
-func readDir(dir string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	infos := make([]fs.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		fi, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		infos = append(infos, fi)
-	}
-	return infos, nil
-}
-
 func tempFile(dir, prefix string) (billy.File, error) {
 	f, err := os.CreateTemp(dir, prefix)
 	if err != nil {
@@ -124,4 +108,9 @@ func openFile(fn string, flag int, perm fs.FileMode, createDir func(string) erro
 type file struct {
 	*os.File
 	m sync.Mutex
+}
+
+func (f *file) WriteTo(w io.Writer) error {
+	_, err := f.File.WriteTo(w)
+	return err
 }

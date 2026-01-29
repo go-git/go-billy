@@ -1,5 +1,4 @@
 //go:build windows
-// +build windows
 
 package osfs
 
@@ -46,6 +45,10 @@ func (f *file) Unlock() error {
 		return err
 	}
 	return nil
+}
+
+func (f *file) Sync() error {
+	return f.File.Sync()
 }
 
 func rename(from, to string) error {

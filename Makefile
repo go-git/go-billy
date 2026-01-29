@@ -3,7 +3,12 @@ GOCMD = go
 GOTEST = $(GOCMD) test 
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
 
-GOLANGCI_VERSION ?= v1.64.5
+# Coverage
+COVERAGE_REPORT := coverage.out
+COVERAGE_MODE := count
+
+# renovate: datasource=github-tags depName=golangci/golangci-lint
+GOLANGCI_VERSION ?= v2.7.2
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
 GOLANGCI = $(TOOLS_BIN)/golangci-lint-$(GOLANGCI_VERSION)
@@ -14,7 +19,7 @@ $(GOLANGCI):
 
 .PHONY: test
 test:
-	$(GOTEST) -race -timeout 300s ./...
+	$(GOTEST) -race -timeout 900s ./...
 
 test-coverage:
 	echo "" > $(COVERAGE_REPORT); \
@@ -46,3 +51,6 @@ ifneq ($(shell git status --porcelain --untracked-files=no),)
 	@git --no-pager diff
 	@exit 1
 endif
+
+lint-autofix: $(GOLANGCI) # Auto fix supported lint issues.
+	$(GOLANGCI) run --fix

@@ -1,5 +1,4 @@
 //go:build js
-// +build js
 
 package osfs
 
@@ -21,5 +20,4 @@ func New(baseDir string, _ ...Option) billy.Filesystem {
 	return chroot.New(Default, Default.Join("/", baseDir))
 }
 
-type options struct {
-}
+type options struct{}

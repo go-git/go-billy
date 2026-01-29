@@ -4,10 +4,11 @@ package memfs // import "github.com/go-git/go-billy/v6/memfs"
 import (
 	"errors"
 	"fmt"
-	"io/fs"
+	gofs "io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syscall"
@@ -17,24 +18,36 @@ import (
 	"github.com/go-git/go-billy/v6/util"
 )
 
-const separator = filepath.Separator
+const (
+	separator       = filepath.Separator
+	defaultUmask    = 0o022
+	defaultDirMode  = 0o777
+	defaultFileMode = 0o666
+)
 
 // Memory a very convenient filesystem based on memory files.
 type Memory struct {
-	s *storage
+	s     *storage
+	umask uint32
 }
 
 // New returns a new Memory filesystem.
 func New(opts ...Option) billy.Filesystem {
 	o := &options{}
+	// Aligns default umask with general Windows behaviour.
+	if runtime.GOOS != "windows" {
+		o.umask = defaultUmask
+	}
+
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	fs := &Memory{
-		s: newStorage(),
+		s:     newStorage(),
+		umask: o.umask,
 	}
-	_, err := fs.s.New("/", 0755|os.ModeDir, 0)
+	_, err := fs.s.New("/", fs.applyUmask(defaultDirMode)|os.ModeDir, 0)
 	if err != nil {
 		log.Printf("failed to create root dir: %v", err)
 	}
@@ -42,14 +55,14 @@ func New(opts ...Option) billy.Filesystem {
 }
 
 func (fs *Memory) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultFileMode)
 }
 
 func (fs *Memory) Open(filename string) (billy.File, error) {
 	return fs.OpenFile(filename, os.O_RDONLY, 0)
 }
 
-func (fs *Memory) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
+func (fs *Memory) OpenFile(filename string, flag int, perm gofs.FileMode) (billy.File, error) {
 	f, has := fs.s.Get(filename)
 	if !has {
 		if !isCreate(flag) {
@@ -57,7 +70,7 @@ func (fs *Memory) OpenFile(filename string, flag int, perm fs.FileMode) (billy.F
 		}
 
 		var err error
-		f, err = fs.s.New(filename, perm, flag)
+		f, err = fs.s.New(filename, fs.applyUmask(perm), flag)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +132,9 @@ func (fs *Memory) Stat(filename string) (os.FileInfo, error) {
 	// the name of the file should always the name of the stated file, so we
 	// overwrite the Stat returned from the storage with it, since the
 	// filename may belong to a link.
-	fi.(*fileInfo).name = filepath.Base(filename)
+	if ffi, ok := fi.(*fileInfo); ok {
+		ffi.name = filepath.Base(filename)
+	}
 	return fi, nil
 }
 
@@ -132,13 +147,13 @@ func (fs *Memory) Lstat(filename string) (os.FileInfo, error) {
 	return f.Stat()
 }
 
-type ByName []os.FileInfo
+type ByName []gofs.DirEntry
 
 func (a ByName) Len() int           { return len(a) }
 func (a ByName) Less(i, j int) bool { return a[i].Name() < a[j].Name() }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
-func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *Memory) ReadDir(path string) ([]gofs.DirEntry, error) {
 	if f, has := fs.s.Get(path); has {
 		if target, isLink := fs.resolveLink(path, f); isLink {
 			if target != path {
@@ -149,10 +164,10 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
 	}
 
-	var entries []os.FileInfo
+	var entries []gofs.DirEntry
 	for _, f := range fs.s.Children(path) {
 		fi, _ := f.Stat()
-		entries = append(entries, fi)
+		entries = append(entries, gofs.FileInfoToDirEntry(fi))
 	}
 
 	sort.Sort(ByName(entries))
@@ -160,8 +175,8 @@ func (fs *Memory) ReadDir(path string) ([]os.FileInfo, error) {
 	return entries, nil
 }
 
-func (fs *Memory) MkdirAll(path string, perm fs.FileMode) error {
-	_, err := fs.s.New(path, perm|os.ModeDir, 0)
+func (fs *Memory) MkdirAll(path string, perm gofs.FileMode) error {
+	_, err := fs.s.New(path, fs.applyUmask(perm)|os.ModeDir, 0)
 	return err
 }
 
@@ -175,6 +190,10 @@ func (fs *Memory) Rename(from, to string) error {
 
 func (fs *Memory) Remove(filename string) error {
 	return fs.s.Remove(filename)
+}
+
+func (fs *Memory) Chmod(path string, mode gofs.FileMode) error {
+	return fs.s.Chmod(path, mode)
 }
 
 // Falls back to Go's filepath.Join, which works differently depending on the
@@ -193,7 +212,7 @@ func (fs *Memory) Symlink(target, link string) error {
 		return err
 	}
 
-	return util.WriteFile(fs, link, []byte(target), 0777|os.ModeSymlink)
+	return util.WriteFile(fs, link, []byte(target), 0o777|os.ModeSymlink)
 }
 
 func (fs *Memory) Readlink(link string) (string, error) {
@@ -220,6 +239,13 @@ func (fs *Memory) Capabilities() billy.Capability {
 		billy.ReadAndWriteCapability |
 		billy.SeekCapability |
 		billy.TruncateCapability
+}
+
+// applyUmask applies the filesystem's umask to a mode by clearing the bits
+// specified in the umask. For example, with umask 0o022, the mode 0o666
+// becomes 0o644 (rw-r--r--).
+func (fs *Memory) applyUmask(mode gofs.FileMode) gofs.FileMode {
+	return mode &^ gofs.FileMode(fs.umask)
 }
 
 func (c *content) Truncate() {
@@ -258,6 +284,6 @@ func isWriteOnly(flag int) bool {
 	return flag&os.O_WRONLY != 0
 }
 
-func isSymlink(m fs.FileMode) bool {
+func isSymlink(m gofs.FileMode) bool {
 	return m&os.ModeSymlink != 0
 }

@@ -1,6 +1,7 @@
 package chroot
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -126,7 +127,12 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 		return nil, err
 	}
 
-	f, err := fs.underlying.(billy.TempFile).TempFile(fullpath, prefix)
+	tf, ok := fs.underlying.(billy.TempFile)
+	if !ok {
+		return nil, errors.New("underlying fs does not implement billy.TempFile")
+	}
+
+	f, err := tf.TempFile(fullpath, prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -134,13 +140,17 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 	return newFile(fs, f, fs.Join(dir, filepath.Base(f.Name()))), nil
 }
 
-func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
+func (fs *ChrootHelper) ReadDir(path string) ([]fs.DirEntry, error) {
 	fullpath, err := fs.underlyingPath(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return fs.underlying.(billy.Dir).ReadDir(fullpath)
+	d, ok := fs.underlying.(billy.Dir)
+	if !ok {
+		return nil, errors.New("underlying fs does not implement billy.Dir")
+	}
+	return d.ReadDir(fullpath)
 }
 
 func (fs *ChrootHelper) MkdirAll(filename string, perm fs.FileMode) error {
@@ -149,7 +159,11 @@ func (fs *ChrootHelper) MkdirAll(filename string, perm fs.FileMode) error {
 		return err
 	}
 
-	return fs.underlying.(billy.Dir).MkdirAll(fullpath, perm)
+	d, ok := fs.underlying.(billy.Dir)
+	if !ok {
+		return errors.New("underlying fs does not implement billy.Dir")
+	}
+	return d.MkdirAll(fullpath, perm)
 }
 
 func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
@@ -158,7 +172,11 @@ func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
 		return nil, err
 	}
 
-	return fs.underlying.(billy.Symlink).Lstat(fullpath)
+	sl, ok := fs.underlying.(billy.Symlink)
+	if !ok {
+		return nil, errors.New("underlying fs does not implement billy.Symlink")
+	}
+	return sl.Lstat(fullpath)
 }
 
 func (fs *ChrootHelper) Symlink(target, link string) error {
@@ -175,7 +193,11 @@ func (fs *ChrootHelper) Symlink(target, link string) error {
 		return err
 	}
 
-	return fs.underlying.(billy.Symlink).Symlink(target, link)
+	sl, ok := fs.underlying.(billy.Symlink)
+	if !ok {
+		return errors.New("underlying fs does not implement billy.Symlink")
+	}
+	return sl.Symlink(target, link)
 }
 
 func (fs *ChrootHelper) Readlink(link string) (string, error) {
@@ -184,7 +206,12 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 		return "", err
 	}
 
-	target, err := fs.underlying.(billy.Symlink).Readlink(fullpath)
+	sl, ok := fs.underlying.(billy.Symlink)
+	if !ok {
+		return "", errors.New("underlying fs does not implement billy.Symlink")
+	}
+
+	target, err := sl.Readlink(fullpath)
 	if err != nil {
 		return "", err
 	}
@@ -199,6 +226,19 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	}
 
 	return string(os.PathSeparator) + target, nil
+}
+
+func (fs *ChrootHelper) Chmod(path string, mode fs.FileMode) error {
+	fullpath, err := fs.underlyingPath(path)
+	if err != nil {
+		return err
+	}
+
+	c, ok := fs.underlying.(billy.Chmod)
+	if !ok {
+		return errors.New("underlying fs does not implement billy.Chmod")
+	}
+	return c.Chmod(fullpath, mode)
 }
 
 func (fs *ChrootHelper) Chroot(path string) (billy.Filesystem, error) {

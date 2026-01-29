@@ -34,6 +34,8 @@ const (
 	TruncateCapability
 	// LockCapability is the ability to lock a file.
 	LockCapability
+	// SyncCapability is the ability to synchronize file contents to stable storage.
+	SyncCapability
 
 	// DefaultCapabilities lists all capable features supported by filesystems
 	// without Capability interface. This list should not be changed until a
@@ -45,7 +47,7 @@ const (
 	// AllCapabilities lists all capable features.
 	AllCapabilities Capability = WriteCapability | ReadCapability |
 		ReadAndWriteCapability | SeekCapability | TruncateCapability |
-		LockCapability
+		LockCapability | SyncCapability
 )
 
 // Filesystem abstract the operations in a storage-agnostic interface.
@@ -107,7 +109,7 @@ type TempFile interface {
 type Dir interface {
 	// ReadDir reads the directory named by dirname and returns a list of
 	// directory entries sorted by filename.
-	ReadDir(path string) ([]fs.FileInfo, error)
+	ReadDir(path string) ([]fs.DirEntry, error)
 	// MkdirAll creates a directory named path, along with any necessary
 	// parents, and returns nil, or else returns an error. The permission bits
 	// perm are used for all directories that MkdirAll creates. If path is/
@@ -130,12 +132,18 @@ type Symlink interface {
 	Readlink(link string) (string, error)
 }
 
-// Change abstract the FileInfo change related operations in a storage-agnostic
-// interface as an extension to the Basic interface
-type Change interface {
+// Chmod abstracts the logic around changing file modes.
+type Chmod interface {
 	// Chmod changes the mode of the named file to mode. If the file is a
 	// symbolic link, it changes the mode of the link's target.
 	Chmod(name string, mode fs.FileMode) error
+}
+
+// Change abstract the FileInfo change related operations in a storage-agnostic
+// interface as an extension to the Basic interface
+type Change interface {
+	Chmod
+
 	// Lchown changes the numeric uid and gid of the named file. If the file is
 	// a symbolic link, it changes the uid and gid of the link itself.
 	Lchown(name string, uid, gid int) error
@@ -171,13 +179,24 @@ type File interface {
 	io.WriterAt
 	io.ReaderAt
 	io.Seeker
+	// Truncate the file.
+	Truncate(size int64) error
+}
+
+// Locker abstracts the lock and unlock of a File within the filesystem. Not
+// all filesystem implementations support it.
+type Locker interface {
 	// Lock locks the file like e.g. flock. It protects against access from
 	// other processes.
 	Lock() error
 	// Unlock unlocks the file.
 	Unlock() error
-	// Truncate the file.
-	Truncate(size int64) error
+}
+
+// Syncer interface can be implemented by filesystems that support syncing.
+type Syncer interface {
+	// Sync commits the current contents of the file to stable storage.
+	Sync() error
 }
 
 // Capable interface can return the available features of a filesystem.

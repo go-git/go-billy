@@ -44,6 +44,8 @@ func TestOpen(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			fs := New(&testdataDir)
 
 			var got []byte
@@ -115,6 +117,7 @@ func TestOpenFileFlags(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fs := New(&testdataDir)
 
 			_, err := fs.OpenFile(tc.file, tc.flag, 0o700)
@@ -157,6 +160,7 @@ func TestStat(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fs := New(&testdataDir)
 
 			fi, err := fs.Stat(tc.name)
@@ -213,6 +217,7 @@ func TestReadDir(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fs := New(tc.fs)
 
 			fis, err := fs.ReadDir(tc.path)
@@ -296,6 +301,7 @@ func TestFileSeek(t *testing.T) {
 
 	for i, tc := range tests {
 		t.Run(fmt.Sprintf("#%d", i), func(t *testing.T) {
+			//nolint:tparallel
 			_, err = f.Seek(tc.seekOff, tc.seekWhence)
 			require.NoError(t, err)
 
@@ -309,6 +315,8 @@ func TestFileSeek(t *testing.T) {
 }
 
 func TestJoin(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		path []string
@@ -338,10 +346,21 @@ func TestJoin(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			fs := New(&empty)
 
 			got := fs.Join(tc.path...)
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestCapabilities(t *testing.T) {
+	fs := New(&testdataDir)
+	_, ok := fs.(billy.Capable)
+	assert.True(t, ok)
+
+	want := billy.ReadCapability | billy.SeekCapability
+	got := billy.Capabilities(fs)
+	assert.Equal(t, want, got)
 }
