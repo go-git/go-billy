@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,4 +68,49 @@ func TestCreateWithChroot(t *testing.T) {
 	assert.Equal(
 		t, expected, actual, "Permission mismatch - expected: 0o%o, actual: 0o%o", expected, actual,
 	)
+}
+
+// Verify that the Rename() is successful even if the destination is a
+// read-only file.
+func TestRenameToReadonly(t *testing.T) {
+	fs, _ := setup(t)
+	chroot, _ := fs.Chroot("rename")
+
+	// Prepare two files: rename source and destination
+	err := util.WriteFile(chroot, "src.txt", []byte("hello"), 0o644)
+	if err != nil {
+		t.Fatalf("failed to write src.txt: %s", err)
+	}
+	err = util.WriteFile(chroot, "dst.txt", []byte("world"), 0o444)
+	if err != nil {
+		t.Fatalf("failed to write dst.txt: %s", err)
+	}
+
+	err = chroot.Rename("src.txt", "dst.txt")
+	if err != nil {
+		t.Fatalf("failed to rename to overwrite read-only file: %s", err)
+	}
+
+	// src.txt must not exist
+	_, err = chroot.Stat("src.txt")
+	if err == nil {
+		t.Error("src.txt must not exist, but does it")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("unexpected error on src.txt: %s", err)
+	}
+
+	// Check dst.txt's permission and contents.
+	fi, err := chroot.Stat("dst.txt")
+	if err != nil {
+		t.Errorf("unexpected error on dst.txt: %s", err)
+	}
+	if perm := fi.Mode().Perm(); perm != 0o444 {
+		t.Errorf("unexpected permission of dst.txt: %04o", perm)
+	}
+	b, err := util.ReadFile(chroot, "dst.txt")
+	if err != nil {
+		t.Errorf("failed to read dst.txt: %s", err)
+	} else if string(b) != "hello" {
+		t.Errorf("unexpected contents of dst.txt: want=%q got=%q", "hello", string(b))
+	}
 }
