@@ -247,9 +247,10 @@ func TestTempFile(t *testing.T) {
 	g.Expect(f.Close()).ToNot(gomega.HaveOccurred())
 
 	f, err = fs.TempFile("/above/cwd", "prefix")
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring(fmt.Sprint(dir, filepath.FromSlash("/above/cwd/prefix"))))
-	g.Expect(f).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(f).ToNot(gomega.BeNil())
+	g.Expect(f.Name()).To(gomega.HavePrefix(filepath.Join(dir, "/above/cwd", "prefix")))
+	g.Expect(f.Close()).ToNot(gomega.HaveOccurred())
 
 	tempDir := os.TempDir()
 	// For windows, volume name must be removed.
@@ -258,9 +259,10 @@ func TestTempFile(t *testing.T) {
 	}
 
 	f, err = fs.TempFile(tempDir, "prefix")
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring(filepath.Join(dir, tempDir, "prefix")))
-	g.Expect(f).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(f).ToNot(gomega.BeNil())
+	g.Expect(f.Name()).To(gomega.HavePrefix(filepath.Join(dir, tempDir, "prefix")))
+	g.Expect(f.Close()).ToNot(gomega.HaveOccurred())
 }
 
 func TestChroot(t *testing.T) {
@@ -1105,10 +1107,10 @@ func TestReadDir(t *testing.T) {
 	g.Expect(dirs).To(gomega.BeNil())
 }
 
-func TestInsideBaseDirEval(t*testing.T) {
+func TestInsideBaseDirEval(t *testing.T) {
 	g := gomega.NewWithT(t)
 	fs := BoundOS{baseDir: "/"}
-	b, err :=  fs.insideBaseDirEval("a")
+	b, err := fs.insideBaseDirEval("a")
 	g.Expect(b).To(gomega.BeTrue())
 	g.Expect(err).To(gomega.BeNil())
 }
