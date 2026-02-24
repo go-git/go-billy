@@ -46,6 +46,14 @@ func TestChroot(t *testing.T) {
 	assert.ErrorIs(t, err, billy.ErrNotSupported)
 }
 
+func TestChmod(t *testing.T) {
+	ch, ok := helper.(billy.Chmod)
+	assert.True(t, ok)
+
+	err := ch.Chmod("", 0o444)
+	assert.ErrorIs(t, err, billy.ErrNotSupported)
+}
+
 func TestRoot(t *testing.T) {
 	assert.Equal(t, string(filepath.Separator), helper.Root())
 }
