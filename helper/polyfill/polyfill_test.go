@@ -58,6 +58,14 @@ func (s *PolyfillSuite) TestChroot(c *C) {
 	c.Assert(err, Equals, billy.ErrNotSupported)
 }
 
+func (s *PolyfillSuite) TestChmod(c *C) {
+	ch, ok := s.Helper.(billy.Chmod)
+	c.Assert(ok, Equals, true)
+
+	err := ch.Chmod("", 0o444)
+	c.Assert(err, Equals, billy.ErrNotSupported)
+}
+
 func (s *PolyfillSuite) TestRoot(c *C) {
 	c.Assert(s.Helper.Root(), Equals, string(filepath.Separator))
 }
