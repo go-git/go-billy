@@ -279,18 +279,22 @@ func TestTempFile(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	f, err = fs.TempFile("/above/cwd", "prefix")
-	require.ErrorContains(t, err, fmt.Sprint(dir, filepath.FromSlash("/above/cwd/prefix")))
-	assert.Nil(f)
+	require.NoError(t, err)
+	assert.NotNil(f)
+	assert.Contains(f.Name(), filepath.Join(dir, "/above/cwd", "prefix"))
+	require.NoError(t, f.Close())
 
-	tempDir := os.TempDir()
+	dir = os.TempDir()
 	// For windows, volume name must be removed.
-	if v := filepath.VolumeName(tempDir); v != "" {
-		tempDir = strings.TrimPrefix(tempDir, v)
+	if v := filepath.VolumeName(dir); v != "" {
+		dir = strings.TrimPrefix(dir, v)
 	}
 
-	f, err = fs.TempFile(tempDir, "prefix")
-	require.ErrorContains(t, err, filepath.Join(dir, tempDir, "prefix"))
-	assert.Nil(f)
+	f, err = fs.TempFile(dir, "prefix")
+	require.NoError(t, err)
+	assert.NotNil(f)
+	assert.Contains(f.Name(), filepath.Join(dir, "prefix"))
+	require.NoError(t, f.Close())
 }
 
 func TestChroot(t *testing.T) {
