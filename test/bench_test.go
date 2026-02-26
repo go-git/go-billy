@@ -2,8 +2,10 @@ package test
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,11 +19,11 @@ import (
 
 const (
 	fn          = "test"
-	contentSize = 1024 * 10
-	bufSize     = 1024
+	contentSize = 1024 * 1024 // 1 MB – large enough for stable throughput numbers
+	bufSize     = 32 * 1024   // 32 KB – realistic block size for sequential I/O
 )
 
-type test struct {
+type btest struct {
 	name    string
 	fn      string
 	sut     billy.Filesystem
@@ -30,7 +32,9 @@ type test struct {
 }
 
 func BenchmarkCompare(b *testing.B) {
-	tests := []test{
+	b.ReportAllocs()
+
+	tests := []btest{
 		{
 			// provide baseline comparison against direct use of os.
 			name:    "stdlib",
@@ -67,43 +71,117 @@ func BenchmarkCompare(b *testing.B) {
 		assert.NotNil(b, f)
 
 		prepFS(b, f)
-		b.Run(tc.name+"_open", open(tc.fn, tc.openF(tc.sut)))
+		b.Run(tc.name+"_open", benchOpen(tc.fn, tc.openF(tc.sut)))
 	}
 
 	for _, tc := range tests {
-		b.Run(tc.name+"_read", read(tc.fn, tc.openF(tc.sut)))
+		b.Run(tc.name+"_read", benchRead(tc.fn, tc.openF(tc.sut)))
 	}
 
 	for _, tc := range tests {
-		b.Run(tc.name+"_create", create(tc.sut, tc.fn, tc.createF))
+		b.Run(tc.name+"_write", benchWrite(tc.sut, tc.fn, tc.createF))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_create", benchCreate(tc.sut, tc.fn, tc.createF))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_stat", benchStat(tc.fn, tc.sut))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_rename", benchRename(tc.sut))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_remove", benchRemove(tc.sut))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_mkdirall", benchMkdirAll(tc.sut))
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name+"_tempfile", benchTempFile(tc.sut))
 	}
 }
 
-func create(fs billy.Filesystem, n string, nf func(billy.Filesystem, string) (io.WriteCloser, error)) func(b *testing.B) {
+func benchCreate(filesystem billy.Filesystem, n string, nf func(billy.Filesystem, string) (io.WriteCloser, error)) func(b *testing.B) {
 	return func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			fn := fmt.Sprintf("%s_%d", n, i)
-			b.StartTimer()
-			f, err := nf(fs, fn)
-			b.StopTimer()
+		b.ReportAllocs()
+		i := 0
+		for b.Loop() {
+			name := fmt.Sprintf("%s_create_%d", n, i)
+			i++
+
+			f, err := nf(filesystem, name)
 
 			require.NoError(b, err)
 			assert.NotNil(b, f)
 
+			b.StopTimer()
 			err = f.Close()
 			require.NoError(b, err)
+
+			// Remove to avoid unbounded growth that would skew later iterations.
+			if filesystem != nil {
+				_ = filesystem.Remove(name)
+			} else {
+				_ = os.Remove(name)
+			}
+			b.StartTimer()
 		}
 	}
 }
 
-func open(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.B) {
+func benchWrite(filesystem billy.Filesystem, n string, nf func(billy.Filesystem, string) (io.WriteCloser, error)) func(b *testing.B) {
+	content := make([]byte, contentSize)
+	_, err := rand.Read(content)
+	if err != nil {
+		panic(err)
+	}
+
 	return func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		b.ReportAllocs()
+		b.SetBytes(contentSize)
+
+		i := 0
+		for b.Loop() {
+			name := fmt.Sprintf("%s_write_%d", n, i)
+			i++
+
+			f, err := nf(filesystem, name)
+			require.NoError(b, err)
+
+			buf := content
+			for len(buf) > 0 {
+				nw, err := f.Write(buf[:min(bufSize, len(buf))])
+				require.NoError(b, err)
+				buf = buf[nw:]
+			}
+
+			b.StopTimer()
+			require.NoError(b, f.Close())
+			if filesystem != nil {
+				_ = filesystem.Remove(name)
+			} else {
+				_ = os.Remove(name)
+			}
+			b.StartTimer()
+		}
+	}
+}
+
+func benchOpen(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.B) {
+	return func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
 			f, err := of(n)
-			require.NoError(b, err)
-			assert.NotNil(b, f)
 
 			b.StopTimer()
+			require.NoError(b, err)
+			assert.NotNil(b, f)
 			err = f.Close()
 			require.NoError(b, err)
 			b.StartTimer()
@@ -111,32 +189,155 @@ func open(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.
 	}
 }
 
-func read(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.B) {
+func benchRead(n string, of func(string) (io.ReadSeekCloser, error)) func(b *testing.B) {
 	return func(b *testing.B) {
+		b.ReportAllocs()
 		b.StopTimer()
 
-		buf := make([]byte, 1024)
+		buf := make([]byte, bufSize)
 		f, err := of(n)
 		require.NoError(b, err)
 		assert.NotNil(b, f)
 
 		b.StartTimer()
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_, err = f.Seek(0, io.SeekStart)
 			require.NoError(b, err)
 
 			for {
 				n, err := f.Read(buf)
-				if n == 0 {
+				if n > 0 {
+					b.SetBytes(int64(n))
+				}
+				if errors.Is(err, io.EOF) {
 					break
 				}
-				b.SetBytes(int64(n))
 				require.NoError(b, err)
 			}
 		}
 
+		b.StopTimer()
 		err = f.Close()
 		require.NoError(b, err)
+	}
+}
+
+func benchStat(n string, filesystem billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		if filesystem == nil {
+			b.Skip("stat benchmark not supported for stdlib baseline")
+		}
+		b.ReportAllocs()
+		for b.Loop() {
+			fi, err := filesystem.Stat(n)
+
+			b.StopTimer()
+			require.NoError(b, err)
+			assert.NotNil(b, fi)
+			b.StartTimer()
+		}
+	}
+}
+
+func benchRename(filesystem billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		if filesystem == nil {
+			b.Skip("rename benchmark not supported for stdlib baseline")
+		}
+		b.ReportAllocs()
+
+		i := 0
+		src := fmt.Sprintf("rename_src_%d", i)
+		i++
+
+		// Seed the first source file.
+		b.StopTimer()
+		f, err := filesystem.Create(src)
+		require.NoError(b, err)
+		require.NoError(b, f.Close())
+		b.StartTimer()
+
+		for b.Loop() {
+			dst := fmt.Sprintf("rename_dst_%d", i)
+			i++
+
+			err := filesystem.Rename(src, dst)
+
+			b.StopTimer()
+			require.NoError(b, err)
+			src = dst
+			b.StartTimer()
+		}
+
+		b.StopTimer()
+		_ = filesystem.Remove(src)
+	}
+}
+
+func benchRemove(filesystem billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		if filesystem == nil {
+			b.Skip("remove benchmark not supported for stdlib baseline")
+		}
+		b.ReportAllocs()
+
+		i := 0
+		for b.Loop() {
+			name := fmt.Sprintf("remove_%d", i)
+			i++
+
+			b.StopTimer()
+			f, err := filesystem.Create(name)
+			require.NoError(b, err)
+			require.NoError(b, f.Close())
+			b.StartTimer()
+
+			err = filesystem.Remove(name)
+
+			b.StopTimer()
+			require.NoError(b, err)
+			b.StartTimer()
+		}
+	}
+}
+
+func benchMkdirAll(filesystem billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		if filesystem == nil {
+			b.Skip("mkdirall benchmark not supported for stdlib baseline")
+		}
+		b.ReportAllocs()
+
+		i := 0
+		for b.Loop() {
+			dir := fmt.Sprintf("benchdir/sub/leaf_%d", i)
+			i++
+
+			err := filesystem.MkdirAll(dir, fs.ModePerm)
+
+			b.StopTimer()
+			require.NoError(b, err)
+			b.StartTimer()
+		}
+	}
+}
+
+func benchTempFile(filesystem billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		if filesystem == nil {
+			b.Skip("tempfile benchmark not supported for stdlib baseline")
+		}
+		b.ReportAllocs()
+
+		for b.Loop() {
+			f, err := filesystem.TempFile("", "bench")
+
+			b.StopTimer()
+			require.NoError(b, err)
+			assert.NotNil(b, f)
+			_ = filesystem.Remove(f.Name())
+			b.StartTimer()
+		}
 	}
 }
 

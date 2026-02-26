@@ -1,0 +1,135 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull Request number'
+        required: true
+        type: number
+
+permissions: {}
+
+jobs:
+  benchmark:
+    name: Compare Benchmarks
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Get PR base ref
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          base_ref=$(gh pr view ${{ inputs.pr_number }} --repo ${{ github.repository }} --json baseRefName --jq .baseRefName)
+          echo "base_ref=$base_ref" >> $GITHUB_OUTPUT
+
+      - name: Checkout PR branch
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/head
+          path: new
+
+      - name: Checkout base branch
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ steps.pr-info.outputs.base_ref }}
+          path: old
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: stable
+          cache-dependency-path: new/go.sum
+
+      - name: Install benchstat
+        # renovate: datasource=go depName=golang.org/x/perf/cmd/benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260211190930-8161c38c6cdc
+
+      - name: Run base branch benchmarks
+        id: base-bench
+        working-directory: old
+        run: go test -run='^$' -bench=. -benchmem -count=1 ./test/... > ../base.txt 2>&1
+        continue-on-error: true
+
+      - name: Run PR branch benchmarks
+        id: pr-bench
+        working-directory: new
+        run: go test -run='^$' -bench=. -benchmem -count=1 ./test/... > ../pr.txt 2>&1
+        continue-on-error: true
+
+      - name: Compare and report
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
+          BASE_OUTCOME: ${{ steps.base-bench.outcome }}
+          PR_OUTCOME: ${{ steps.pr-bench.outcome }}
+        run: |
+          if [ "$BASE_OUTCOME" != "success" ] || [ "$PR_OUTCOME" != "success" ]; then
+            {
+              echo "## ⚠️ Benchmark Run Failed"
+              echo ""
+              echo "One or more benchmark runs did not complete successfully."
+              echo "Please check the workflow logs for details."
+              echo ""
+              echo "| Step | Outcome |"
+              echo "| --- | --- |"
+              echo "| Base branch benchmarks | \`${BASE_OUTCOME}\` |"
+              echo "| PR branch benchmarks   | \`${PR_OUTCOME}\` |"
+            } > comment.md
+          else
+            benchstat base.txt pr.txt > stat.txt 2>&1
+
+            # Extract lines with regressions greater than 5% on any metric.
+            # Also capture infinite regressions (+∞ / +Inf) that appear when the
+            # baseline measurement was zero.
+            awk '
+              /\+∞/ || /\+Inf/ { print; next }
+              match($0, /\+[0-9]+\.?[0-9]*%/) {
+                pct = substr($0, RSTART + 1, RLENGTH - 2)
+                if (pct + 0 > 5) print
+              }
+            ' stat.txt > regressions.txt
+
+            if [ -s regressions.txt ]; then
+              {
+                echo "## ⚠️ Benchmark Regressions Detected (>5%)"
+                echo ""
+                echo "The following benchmarks have degraded by more than 5% in time, memory, or allocations:"
+                echo ""
+                echo "\`\`\`"
+                cat regressions.txt
+                echo "\`\`\`"
+                echo ""
+                echo "<details>"
+                echo "<summary>Full benchmark comparison (<code>benchstat</code>)</summary>"
+                echo ""
+                echo "\`\`\`"
+                cat stat.txt
+                echo "\`\`\`"
+                echo "</details>"
+              } > comment.md
+            else
+              {
+                echo "## ✅ No Benchmark Regressions"
+                echo ""
+                echo "No benchmark regressions greater than 5% were detected."
+                echo ""
+                echo "<details>"
+                echo "<summary>Full benchmark comparison (<code>benchstat</code>)</summary>"
+                echo ""
+                echo "\`\`\`"
+                cat stat.txt
+                echo "\`\`\`"
+                echo "</details>"
+              } > comment.md
+            fi
+          fi
+
+          gh pr comment "$PR_NUMBER" --edit-last --create-if-none --body-file comment.md --repo "$REPO"
