@@ -123,13 +123,6 @@ func benchCreate(filesystem billy.Filesystem, n string, nf func(billy.Filesystem
 			b.StopTimer()
 			err = f.Close()
 			require.NoError(b, err)
-
-			// Remove to avoid unbounded growth that would skew later iterations.
-			if filesystem != nil {
-				_ = filesystem.Remove(name)
-			} else {
-				_ = os.Remove(name)
-			}
 			b.StartTimer()
 		}
 	}
@@ -163,11 +156,6 @@ func benchWrite(filesystem billy.Filesystem, n string, nf func(billy.Filesystem,
 
 			b.StopTimer()
 			require.NoError(b, f.Close())
-			if filesystem != nil {
-				_ = filesystem.Remove(name)
-			} else {
-				_ = os.Remove(name)
-			}
 			b.StartTimer()
 		}
 	}

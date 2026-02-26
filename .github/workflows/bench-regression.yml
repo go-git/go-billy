@@ -10,15 +10,19 @@ on:
 
 permissions: {}
 
-jobs:
-  benchmark:
-    name: Compare Benchmarks
-    runs-on: ubuntu-latest
+env:
+  BENCH_COUNT: 6
+  BENCH_FILTER: 'BenchmarkCompare/(mem|os)fs'
+  BENCH_PATH: ./test/...
 
+jobs:
+  setup:
+    name: Get PR Info
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-
+    outputs:
+      base_ref: ${{ steps.pr-info.outputs.base_ref }}
     steps:
       - name: Get PR base ref
         id: pr-info
@@ -28,48 +32,102 @@ jobs:
           base_ref=$(gh pr view ${{ inputs.pr_number }} --repo ${{ github.repository }} --json baseRefName --jq .baseRefName)
           echo "base_ref=$base_ref" >> $GITHUB_OUTPUT
 
-      - name: Checkout PR branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: refs/pull/${{ inputs.pr_number }}/head
-          path: new
-
+  bench-base:
+    name: Benchmark base branch
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions: {}
+    outputs:
+      outcome: ${{ steps.bench.outcome }}
+    steps:
       - name: Checkout base branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ steps.pr-info.outputs.base_ref }}
-          path: old
+          ref: ${{ needs.setup.outputs.base_ref }}
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: stable
-          cache-dependency-path: new/go.sum
+          cache-dependency-path: go.sum
+
+      - name: Run benchmarks
+        id: bench
+        run: go test -run='^$' -bench="$BENCH_FILTER" -benchmem -count=$BENCH_COUNT $BENCH_PATH > base.txt 2>&1
+        continue-on-error: true
+
+      - name: Upload results
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: base-bench
+          path: base.txt
+
+  bench-pr:
+    name: Benchmark PR branch
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions: {}
+    outputs:
+      outcome: ${{ steps.bench.outcome }}
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/head
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+
+      - name: Run benchmarks
+        id: bench
+        run: go test -run='^$' -bench="$BENCH_FILTER" -benchmem -count=$BENCH_COUNT $BENCH_PATH > pr.txt 2>&1
+        continue-on-error: true
+
+      - name: Upload results
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: pr-bench
+          path: pr.txt
+
+  compare:
+    name: Compare and report
+    runs-on: ubuntu-latest
+    needs: [bench-base, bench-pr]
+    if: always()
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: stable
 
       - name: Install benchstat
         # renovate: datasource=go depName=golang.org/x/perf/cmd/benchstat
         run: go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260211190930-8161c38c6cdc
 
-      - name: Run base branch benchmarks
-        id: base-bench
-        working-directory: old
-        run: go test -run='^$' -bench=. -benchmem -count=1 ./test/... > ../base.txt 2>&1
-        continue-on-error: true
+      - name: Download base results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: base-bench
 
-      - name: Run PR branch benchmarks
-        id: pr-bench
-        working-directory: new
-        run: go test -run='^$' -bench=. -benchmem -count=1 ./test/... > ../pr.txt 2>&1
-        continue-on-error: true
+      - name: Download PR results
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: pr-bench
 
       - name: Compare and report
-        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
           REPO: ${{ github.repository }}
-          BASE_OUTCOME: ${{ steps.base-bench.outcome }}
-          PR_OUTCOME: ${{ steps.pr-bench.outcome }}
+          BASE_OUTCOME: ${{ needs.bench-base.outputs.outcome }}
+          PR_OUTCOME: ${{ needs.bench-pr.outputs.outcome }}
         run: |
           if [ "$BASE_OUTCOME" != "success" ] || [ "$PR_OUTCOME" != "success" ]; then
             {
