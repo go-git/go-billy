@@ -41,5 +41,13 @@ func TestDefault(t *testing.T) {
 	}
 }
 
+func TestWithBoundOSReturnsBoundOS(t *testing.T) {
+	got := New(t.TempDir(), WithBoundOS())
+	assert.IsType(t, &BoundOS{}, got)
+}
+
 // API call assertions
 var _ = New("/")
+var _ = New("/", WithBoundOS())
+var _ = New("/", WithChrootOS())
+var _ = New("/", WithDeduplicatePath(false))
