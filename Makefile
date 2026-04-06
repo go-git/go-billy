@@ -8,7 +8,7 @@ COVERAGE_REPORT := coverage.out
 COVERAGE_MODE := count
 
 # renovate: datasource=github-tags depName=golangci/golangci-lint
-GOLANGCI_VERSION ?= v2.10.1
+GOLANGCI_VERSION ?= v2.11.1
 TOOLS_BIN := $(shell mkdir -p build/tools && realpath build/tools)
 
 GOLANGCI = $(TOOLS_BIN)/golangci-lint-$(GOLANGCI_VERSION)
