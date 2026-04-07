@@ -25,9 +25,9 @@ func TestWithFSTest(t *testing.T) {
 	iofs := New(memfs)
 
 	files := map[string]string{
-		"foo.txt":                       "hello, world",
-		"bar.txt":                       "goodbye, world",
-		filepath.Join("dir", "baz.txt"): "こんにちわ, world",
+		"foo.txt":     "hello, world",
+		"bar.txt":     "goodbye, world",
+		"dir/baz.txt": "こんにちわ, world",
 	}
 	createdFiles := make([]string, 0, len(files))
 	for filename, contents := range files {
@@ -35,13 +35,45 @@ func TestWithFSTest(t *testing.T) {
 		createdFiles = append(createdFiles, filename)
 	}
 
-	if runtime.GOOS == "windows" {
-		t.Skip("fstest.TestFS is not yet windows path aware")
-	}
-
 	err := fstest.TestFS(iofs, createdFiles...)
 	if err != nil {
 		checkFsTestError(t, err, files)
+	}
+}
+
+// TestOpenForwardSlashPath verifies that Open works with forward-slash paths
+// on all platforms. This is a regression test ensuring filepath.Clean is not
+// used when cleaning paths in Open() (it should use path.Clean) so valid
+// fs.FS paths like "dir/file.txt" are not rejected on Windows.
+func TestOpenForwardSlashPath(t *testing.T) {
+	t.Parallel()
+	mem := memfs.New()
+	adapter := New(mem)
+
+	makeFile(t, mem, "dir/subdir/file.txt", "content")
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{"simple-nested", "dir/subdir/file.txt", false},
+		{"directory", "dir/subdir", false},
+		{"dot-path", ".", false},
+		{"absolute-path-rejected", "/dir/subdir/file.txt", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			f, err := adapter.Open(tt.path)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+		})
 	}
 }
 
