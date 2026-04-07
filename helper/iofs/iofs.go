@@ -5,7 +5,6 @@ package iofs
 import (
 	"io"
 	"io/fs"
-	"path/filepath"
 
 	billyfs "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -45,7 +44,7 @@ var _ fs.ReadFileFS = (*adapterFs)(nil)
 
 // Open opens the named file on the underlying FS, implementing fs.FS (returning a file or error).
 func (a *adapterFs) Open(name string) (fs.File, error) {
-	if name[0] == '/' || name != filepath.Clean(name) {
+	if !fs.ValidPath(name) {
 		// fstest.TestFS explicitly checks that these should return error.
 		// MemFS performs the clean internally, so we need to block that here for testing purposes.
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
