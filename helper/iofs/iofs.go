@@ -5,6 +5,7 @@ package iofs
 import (
 	"io"
 	"io/fs"
+	"strings"
 
 	billyfs "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -42,9 +43,16 @@ var _ fs.ReadFileFS = (*adapterFs)(nil)
 
 // TODO: implement fs.GlobFS, which will be a fair bit more code.
 
+// validPath checks that name is a valid io/fs path. In addition to the
+// standard fs.ValidPath checks, it rejects backslashes which on Windows
+// would be interpreted as path separators by the underlying billy filesystem.
+func validPath(name string) bool {
+	return fs.ValidPath(name) && !strings.Contains(name, `\`)
+}
+
 // Open opens the named file on the underlying FS, implementing fs.FS (returning a file or error).
 func (a *adapterFs) Open(name string) (fs.File, error) {
-	if !fs.ValidPath(name) {
+	if !validPath(name) {
 		// fstest.TestFS explicitly checks that these should return error.
 		// MemFS performs the clean internally, so we need to block that here for testing purposes.
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
@@ -66,6 +74,9 @@ func (a *adapterFs) Open(name string) (fs.File, error) {
 
 // ReadDir reads the named directory, implementing fs.ReadDirFS (returning a listing or error).
 func (a *adapterFs) ReadDir(name string) ([]fs.DirEntry, error) {
+	if !validPath(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
+	}
 	items, err := a.fs.ReadDir(name)
 	if err != nil {
 		return nil, err
@@ -79,11 +90,17 @@ func (a *adapterFs) ReadDir(name string) ([]fs.DirEntry, error) {
 
 // Stat returns information on the named file, implementing fs.StatFS (returning FileInfo or error).
 func (a *adapterFs) Stat(name string) (fs.FileInfo, error) {
+	if !validPath(name) {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrInvalid}
+	}
 	return a.fs.Stat(name)
 }
 
 // ReadFile reads the named file and returns its contents, implementing fs.ReadFileFS (returning contents or error).
 func (a *adapterFs) ReadFile(name string) ([]byte, error) {
+	if !validPath(name) {
+		return nil, &fs.PathError{Op: "readfile", Path: name, Err: fs.ErrInvalid}
+	}
 	stat, err := a.fs.Stat(name)
 	if err != nil {
 		return nil, err
