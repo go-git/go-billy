@@ -3,6 +3,7 @@
 package osfs
 
 import (
+	"io/fs"
 	"os"
 	"runtime"
 	"unsafe"
@@ -52,7 +53,35 @@ func (f *file) Sync() error {
 }
 
 func rename(from, to string) error {
-	return os.Rename(from, to)
+	// On Windows, os.Rename() fails when a read-only file is specified as the
+	// destination. (On Linux, for example, it succeeds even if the file is
+	// read-only if you have write permission in the parent directory.)
+	// Therefore, for read-only files, we must first change the permissions to
+	// allow writing, then rename them with os.Rename(), and then restore their
+	// original permissions.
+	var (
+		modeChanged  bool
+		originalMode fs.FileMode
+	)
+	if fi, err := os.Stat(to); err == nil {
+		originalMode = fi.Mode()
+		if originalMode&0o200 == 0 {
+			err := os.Chmod(to, originalMode|0o200)
+			if err != nil {
+				return err
+			}
+			modeChanged = true
+		}
+	}
+	err := os.Rename(from, to)
+	if err != nil {
+		return err
+	}
+	// If we changed permissions, change them back
+	if modeChanged {
+		return os.Chmod(to, originalMode)
+	}
+	return nil
 }
 
 func umask(_ int) func() {
