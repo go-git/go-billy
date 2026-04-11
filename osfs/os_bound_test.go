@@ -37,7 +37,7 @@ func TestBoundOSCapabilities(t *testing.T) {
 	assert.True(t, ok)
 
 	caps := c.Capabilities()
-	assert.Equal(t, billy.DefaultCapabilities&billy.SyncCapability, caps)
+	assert.Equal(t, billy.DefaultCapabilities|billy.SyncCapability, caps)
 }
 
 func TestFromRoot(t *testing.T) {
@@ -381,18 +381,16 @@ func TestTempFile(t *testing.T) {
 	require.ErrorIs(t, err, ErrPathEscapesParent)
 	assert.Nil(f)
 
-	dir = os.TempDir()
 	f, err = fs.TempFile("../../../above/cwd", "prefix")
 	require.ErrorIs(t, err, ErrPathEscapesParent)
 	assert.Nil(f)
-
-	dir = filepath.Join(dir, "/tmp")
+	outsideDir := filepath.Join(os.TempDir(), "/tmp")
 	// For windows, volume name must be removed.
-	if v := filepath.VolumeName(dir); v != "" {
-		dir = strings.TrimPrefix(dir, v)
+	if v := filepath.VolumeName(outsideDir); v != "" {
+		outsideDir = strings.TrimPrefix(outsideDir, v)
 	}
 
-	f, err = fs.TempFile(dir, "prefix")
+	f, err = fs.TempFile(outsideDir, "prefix")
 	require.ErrorIs(t, err, ErrPathEscapesParent)
 	assert.Nil(f)
 }
