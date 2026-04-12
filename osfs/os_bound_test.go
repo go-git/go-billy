@@ -98,6 +98,39 @@ func TestFromRoot(t *testing.T) {
 	}
 }
 
+// TestOpenAbsSymlinkInsideRoot verifies that Open can follow a symlink whose
+// target is an absolute path pointing inside the root. os.Root rejects such
+// symlinks because the absolute target appears to escape the root. BoundOS
+// detects this, resolves the link to a relative path, and retries.
+func TestOpenAbsSymlinkInsideRoot(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	absTarget := filepath.Join(dir, "target")
+	require.NoError(t, os.WriteFile(absTarget, []byte("content"), 0o600))
+	require.NoError(t, os.Symlink(absTarget, filepath.Join(dir, "link")))
+
+	// Prove os.Root alone rejects the absolute symlink target.
+	root, err := os.OpenRoot(dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { root.Close() })
+
+	_, err = root.Open("link")
+	require.Error(t, err, "os.Root.Open must reject an absolute symlink target inside the root")
+	require.ErrorContains(t, err, ErrPathEscapesParent.Error())
+
+	// BoundOS resolves the absolute target to a relative path and succeeds.
+	bfs := newBoundOS(dir)
+	f, err := bfs.Open("link")
+	require.NoError(t, err)
+
+	got := make([]byte, 7)
+	_, err = f.Read(got)
+	require.NoError(t, err)
+	assert.Equal(t, "content", string(got))
+	require.NoError(t, f.Close())
+}
+
 func TestOpen(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -451,7 +484,6 @@ func TestReadLink(t *testing.T) {
 			filename: "symlink",
 			makeAbs:  true,
 			expected: filepath.FromSlash("/etc/passwd"),
-			wantErr:  ErrPathEscapesParent,
 		},
 		{
 			name: "symlink: dir pointing outside cwd",
@@ -1219,6 +1251,31 @@ func TestMkdirAll(t *testing.T) {
 
 	fi, _ = os.Stat(filepath.Join(root, "outside", "new-dir"))
 	require.Nil(t, fi, "dir must not be created")
+}
+
+func TestRenameAbsSource(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	fs := newBoundOS(dir)
+
+	f, err := fs.TempFile("", "tmp-")
+	require.NoError(t, err)
+	_, err = f.Write([]byte("data"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	// File.Name() returns an absolute path from os.Root.
+	require.True(t, filepath.IsAbs(f.Name()),
+		"expected absolute path from File.Name(), got %q", f.Name())
+
+	dst := filepath.Join("objects", "a8", "finalfile")
+	err = fs.Rename(f.Name(), dst)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(filepath.Join(dir, dst))
+	require.NoError(t, err)
+	assert.Equal(t, "data", string(got))
 }
 
 func TestRename(t *testing.T) {

@@ -37,11 +37,9 @@ import (
 var ErrPathEscapesParent = errors.New("path escapes from parent")
 
 // FromRoot creates a new instance of BoundOS from an [os.Root].
-// The base dir is set to root.Name(). Unlike [New] with [WithBoundOS],
-// the provided root is used directly for all operations rather than
-// opening a fresh [os.Root] per operation; the caller is responsible
-// for the root's lifecycle. If root is nil, all filesystem operations
-// will fail with an error.
+// The base dir is set to root.Name(). The provided root is used directly
+// for all operations and the caller is responsible for its lifecycle.
+// If root is nil, all filesystem operations will fail with an error.
 func FromRoot(root *os.Root) billy.Filesystem {
 	if root == nil {
 		return &BoundOS{rootError: errors.New("root is nil")}
@@ -52,10 +50,10 @@ func FromRoot(root *os.Root) billy.Filesystem {
 // BoundOS is a fs implementation based on the OS filesystem which relies on
 // Go's os.Root. Prefer this fs implementation over ChrootOS.
 //
-// When created via [New] with [WithBoundOS], a new [os.Root] is opened and
-// closed for each filesystem operation. When created via [FromRoot], the
-// provided [os.Root] is used directly for all operations and the caller is
-// responsible for its lifecycle.
+// An [os.Root] is opened once and reused for all operations. When created
+// via [FromRoot], the caller is responsible for its lifecycle. When created
+// via [New] with [WithBoundOS], the root is opened eagerly and released by
+// the garbage collector's finalizer (same as [os.File]).
 //
 // Behaviours of note:
 //  1. Read and write operations can only be directed to files which descends
@@ -66,12 +64,16 @@ func FromRoot(root *os.Root) billy.Filesystem {
 //     in [ErrPathEscapesParent].
 type BoundOS struct {
 	baseDir   string
-	root      *os.Root // non-nil only for FromRoot; newBoundOS opens per-op
+	root      *os.Root
 	rootError error
 }
 
 func newBoundOS(d string) billy.Filesystem {
-	return &BoundOS{baseDir: d}
+	r, err := os.OpenRoot(d)
+	if err != nil {
+		return &BoundOS{baseDir: d, rootError: err}
+	}
+	return &BoundOS{baseDir: d, root: r}
 }
 
 func (fs *BoundOS) Capabilities() billy.Capability {
@@ -83,23 +85,9 @@ func (fs *BoundOS) Create(name string) (billy.File, error) {
 }
 
 func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.File, error) {
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return nil, err
-	}
-	defer cleanup()
-
-	// When not creating, read symlink links so that they can be made
-	// relative and therefore work.
-	if flag&os.O_CREATE == 0 {
-		fi, err := root.Lstat(name)
-		if err == nil && fi.Mode()&gofs.ModeSymlink != 0 {
-			fn, err := root.Readlink(name)
-			if err != nil {
-				return nil, err
-			}
-			name = fn
-		}
 	}
 
 	name = fs.toRelative(name)
@@ -111,10 +99,26 @@ func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.Fi
 	}
 
 	f, err := root.OpenFile(name, flag, perm)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return &file{File: f}, nil
 	}
-	return &file{File: f}, nil
+
+	// When the open fails because the path escapes the root, the file
+	// may be a symlink whose target is an absolute path that actually
+	// resides inside the root. Resolve the link and retry.
+	if flag&os.O_CREATE == 0 && isPathEscapeError(err) {
+		fi, lstatErr := root.Lstat(name)
+		if lstatErr == nil && fi.Mode()&gofs.ModeSymlink != 0 {
+			if fn, rlErr := root.Readlink(name); rlErr == nil {
+				fn = fs.toRelative(fn)
+				if f, err = root.OpenFile(fn, flag, perm); err == nil {
+					return &file{File: f}, nil
+				}
+			}
+		}
+	}
+
+	return nil, translateError(err, name)
 }
 
 func (fs *BoundOS) ReadDir(name string) ([]gofs.DirEntry, error) {
@@ -123,11 +127,10 @@ func (fs *BoundOS) ReadDir(name string) ([]gofs.DirEntry, error) {
 		name = "."
 	}
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	f, err := root.Open(name)
 	if err != nil {
@@ -146,11 +149,13 @@ func (fs *BoundOS) Rename(from, to string) error {
 		return billy.ErrBaseDirCannotBeRenamed
 	}
 
-	root, cleanup, err := fs.fsRoot()
+	from = fs.toRelative(from)
+	to = fs.toRelative(to)
+
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	// Ensure the target directory exists.
 	err = root.MkdirAll(filepath.Dir(to), defaultDirectoryMode)
@@ -162,11 +167,10 @@ func (fs *BoundOS) Rename(from, to string) error {
 }
 
 func (fs *BoundOS) MkdirAll(name string, perm gofs.FileMode) error {
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	// os.Root errors when perm contains bits other than the nine least-significant bits (0o777).
 	err = root.MkdirAll(name, perm&0o777)
@@ -183,11 +187,10 @@ func (fs *BoundOS) Stat(name string) (os.FileInfo, error) {
 		name = "."
 	}
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	fi, err := root.Stat(name)
 	if err != nil {
@@ -204,11 +207,10 @@ func (fs *BoundOS) Remove(name string) error {
 
 	name = fs.toRelative(name)
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	err = root.Remove(name)
 	if err == nil {
@@ -237,11 +239,10 @@ func (fs *BoundOS) RemoveAll(name string) error {
 
 	name = fs.toRelative(name)
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	return translateError(root.RemoveAll(name), name)
 }
@@ -249,11 +250,10 @@ func (fs *BoundOS) RemoveAll(name string) error {
 func (fs *BoundOS) Symlink(oldname, newname string) error {
 	newname = fs.toRelative(newname)
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 
 	err = fs.createDir(root, newname)
 	if err != nil {
@@ -266,11 +266,10 @@ func (fs *BoundOS) Symlink(oldname, newname string) error {
 func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
 	name = fs.toRelative(name)
 
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	fi, err := root.Lstat(name)
 	if err != nil {
@@ -281,11 +280,12 @@ func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
 }
 
 func (fs *BoundOS) Readlink(name string) (string, error) {
-	root, cleanup, err := fs.fsRoot()
+	name = fs.toRelative(name)
+
+	root, err := fs.fsRoot()
 	if err != nil {
 		return "", err
 	}
-	defer cleanup()
 
 	lnk, err := root.Readlink(name)
 	if err != nil {
@@ -296,22 +296,22 @@ func (fs *BoundOS) Readlink(name string) (string, error) {
 }
 
 func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
-	root, cleanup, err := fs.fsRoot()
+	path = fs.toRelative(path)
+
+	root, err := fs.fsRoot()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
 	return root.Chmod(path, mode)
 }
 
 // Chroot returns a new BoundOS filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
-	root, cleanup, err := fs.fsRoot()
+	root, err := fs.fsRoot()
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
 
 	fi, err := root.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -331,15 +331,7 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 		return nil, fmt.Errorf("unable to chroot: %w", err)
 	}
 
-	// When using a caller-provided root (FromRoot mode), preserve that
-	// mode for the child so it reuses a single os.Root rather than
-	// opening and closing one per operation.
-	if fs.root != nil {
-		return FromRoot(childRoot), nil
-	}
-
-	defer childRoot.Close()
-	return New(childRoot.Name(), WithBoundOS()), nil
+	return FromRoot(childRoot), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.
@@ -371,23 +363,16 @@ func (fs *BoundOS) createDir(root *os.Root, fullpath string) error {
 	return nil
 }
 
-// fsRoot returns the [os.Root] to use for filesystem operations along with
-// a cleanup function that must be called when the root is no longer needed.
-// For BoundOS instances created via [FromRoot], the cleanup is a no-op and
-// the caller-provided root is returned directly. Otherwise, a new [os.Root]
-// is opened for each call and closed by the cleanup function.
-func (fs *BoundOS) fsRoot() (*os.Root, func(), error) {
+// fsRoot returns the [os.Root] to use for filesystem operations.
+func (fs *BoundOS) fsRoot() (*os.Root, error) {
 	if fs.rootError != nil {
-		return nil, func() {}, fs.rootError
+		return nil, fs.rootError
 	}
-	if fs.root != nil {
-		return fs.root, func() {}, nil
-	}
-	r, err := os.OpenRoot(fs.baseDir)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	return r, func() { r.Close() }, nil
+	return fs.root, nil
+}
+
+func isPathEscapeError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), ErrPathEscapesParent.Error())
 }
 
 func translateError(err error, file string) error {
@@ -395,7 +380,7 @@ func translateError(err error, file string) error {
 		return nil
 	}
 
-	if strings.Contains(err.Error(), ErrPathEscapesParent.Error()) {
+	if isPathEscapeError(err) {
 		return fmt.Errorf("%w: %q", ErrPathEscapesParent, file)
 	}
 
