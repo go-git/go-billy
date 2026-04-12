@@ -84,6 +84,39 @@ func TestFromRoot(t *testing.T) {
 	})
 }
 
+// TestOpenAbsSymlinkInsideRoot verifies that Open can follow a symlink whose
+// target is an absolute path pointing inside the root. os.Root rejects such
+// symlinks because the absolute target appears to escape the root. BoundOS
+// detects this, resolves the link to a relative path, and retries.
+func TestOpenAbsSymlinkInsideRoot(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	absTarget := filepath.Join(dir, "target")
+	require.NoError(t, os.WriteFile(absTarget, []byte("content"), 0o600))
+	require.NoError(t, os.Symlink(absTarget, filepath.Join(dir, "link")))
+
+	// Prove os.Root alone rejects the absolute symlink target.
+	root, err := os.OpenRoot(dir)
+	require.NoError(t, err)
+	t.Cleanup(func() { root.Close() })
+
+	_, err = root.Open("link")
+	require.Error(t, err, "os.Root.Open must reject an absolute symlink target inside the root")
+	require.ErrorContains(t, err, ErrPathEscapesParent.Error())
+
+	// BoundOS resolves the absolute target to a relative path and succeeds.
+	bfs := newBoundOS(dir)
+	f, err := bfs.Open("link")
+	require.NoError(t, err)
+
+	got := make([]byte, 7)
+	_, err = f.Read(got)
+	require.NoError(t, err)
+	assert.Equal(t, "content", string(got))
+	require.NoError(t, f.Close())
+}
+
 func TestOpen(t *testing.T) {
 	tests := []struct {
 		name     string
