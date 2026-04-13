@@ -17,12 +17,20 @@ import (
 
 const fileName = "foo.bar"
 
+func mustFromRoot(tb testing.TB, root *os.Root) billy.Filesystem {
+	tb.Helper()
+	fs, err := osfs.FromRoot(root)
+	require.NoError(tb, err)
+	return fs
+}
+
 type benchEnv struct {
 	baseDir string
 	root    *os.Root
 	mem     billy.Filesystem
 	chroot  billy.Filesystem
 	bound   billy.Filesystem
+	rootFS  billy.Filesystem
 }
 
 func newBenchEnv(b *testing.B, withFile bool) benchEnv {
@@ -32,6 +40,7 @@ func newBenchEnv(b *testing.B, withFile bool) benchEnv {
 	baseDir := b.TempDir()
 	root, err := os.OpenRoot(baseDir)
 	require.NoError(b, err)
+	b.Cleanup(func() { root.Close() })
 
 	m := memfs.New()
 	if withFile {
@@ -48,6 +57,7 @@ func newBenchEnv(b *testing.B, withFile bool) benchEnv {
 		mem:     m,
 		chroot:  osfs.New(baseDir, osfs.WithChrootOS()),
 		bound:   osfs.New(baseDir, osfs.WithBoundOS()),
+		rootFS:  mustFromRoot(b, root),
 	}
 }
 
@@ -56,12 +66,14 @@ func BenchmarkOpen(b *testing.B) {
 	b.Run("memfs", benchmarkOpen(e.mem))
 	b.Run("chrootOS", benchmarkOpen(e.chroot))
 	b.Run("boundOS", benchmarkOpen(e.bound))
+	b.Run("rootOS", benchmarkOpen(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
-			_, err := e.root.Open(fileName)
+			f, err := e.root.Open(fileName)
 			if err != nil {
 				b.Fatal("cannot open file", "error", err)
 			}
+			f.Close()
 		}
 	})
 }
@@ -71,6 +83,7 @@ func BenchmarkCreate(b *testing.B) {
 	b.Run("memfs", benchmarkCreate(e.mem))
 	b.Run("chrootOS", benchmarkCreate(e.chroot))
 	b.Run("boundOS", benchmarkCreate(e.bound))
+	b.Run("rootOS", benchmarkCreate(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			f, err := e.root.Create(fileName)
@@ -87,6 +100,7 @@ func BenchmarkStat(b *testing.B) {
 	b.Run("memfs", benchmarkStat(e.mem))
 	b.Run("chrootOS", benchmarkStat(e.chroot))
 	b.Run("boundOS", benchmarkStat(e.bound))
+	b.Run("rootOS", benchmarkStat(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			_, err := e.root.Stat(fileName)
@@ -102,6 +116,7 @@ func BenchmarkLstat(b *testing.B) {
 	b.Run("memfs", benchmarkLstat(e.mem))
 	b.Run("chrootOS", benchmarkLstat(e.chroot))
 	b.Run("boundOS", benchmarkLstat(e.bound))
+	b.Run("rootOS", benchmarkLstat(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			_, err := e.root.Lstat(fileName)
@@ -119,6 +134,7 @@ func newBenchEnvMany(b *testing.B, n int) benchEnv {
 	baseDir := b.TempDir()
 	root, err := os.OpenRoot(baseDir)
 	require.NoError(b, err)
+	b.Cleanup(func() { root.Close() })
 
 	osfn := filepath.Join(baseDir, fileName)
 	m := memfs.New()
@@ -136,6 +152,7 @@ func newBenchEnvMany(b *testing.B, n int) benchEnv {
 		mem:     m,
 		chroot:  osfs.New(baseDir, osfs.WithChrootOS()),
 		bound:   osfs.New(baseDir, osfs.WithBoundOS()),
+		rootFS:  mustFromRoot(b, root),
 	}
 }
 
@@ -144,6 +161,7 @@ func BenchmarkReaddir(b *testing.B) {
 	b.Run("memfs", benchmarkReaddir(e.mem, "."))
 	b.Run("chrootOS", benchmarkReaddir(e.chroot, "."))
 	b.Run("boundOS", benchmarkReaddir(e.bound, "."))
+	b.Run("rootOS", benchmarkReaddir(e.rootFS, "."))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			_, err := os.ReadDir(e.baseDir)
@@ -159,6 +177,7 @@ func BenchmarkWalkdir(b *testing.B) {
 	b.Run("memfs", benchmarkWalkdir(iofs.New(e.mem)))
 	b.Run("chrootOS", benchmarkWalkdir(iofs.New(e.chroot)))
 	b.Run("boundOS", benchmarkWalkdir(iofs.New(e.bound)))
+	b.Run("rootOS", benchmarkWalkdir(iofs.New(e.rootFS)))
 	b.Run("go-lib", benchmarkWalkdir(e.root.FS()))
 }
 
@@ -167,9 +186,11 @@ func BenchmarkRename(b *testing.B) {
 	b.Run("memfs", benchmarkRename(e.mem))
 	b.Run("chrootOS", benchmarkRename(e.chroot))
 	b.Run("boundOS", benchmarkRename(e.bound))
+	b.Run("rootOS", benchmarkRename(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			b.StopTimer()
+			_ = e.root.Remove("rename-dst")
 			f, err := e.root.Create("rename-src")
 			if err != nil {
 				b.Fatal(err)
@@ -190,6 +211,7 @@ func BenchmarkRemove(b *testing.B) {
 	b.Run("memfs", benchmarkRemove(e.mem))
 	b.Run("chrootOS", benchmarkRemove(e.chroot))
 	b.Run("boundOS", benchmarkRemove(e.bound))
+	b.Run("rootOS", benchmarkRemove(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
 			b.StopTimer()
@@ -211,10 +233,11 @@ func BenchmarkRemove(b *testing.B) {
 func benchmarkOpen(fs billy.Filesystem) func(b *testing.B) {
 	return func(b *testing.B) {
 		for b.Loop() {
-			_, err := fs.Open(fileName)
+			f, err := fs.Open(fileName)
 			if err != nil {
 				b.Fatal("cannot open file", "error", err)
 			}
+			f.Close()
 		}
 	}
 }
@@ -289,6 +312,7 @@ func benchmarkRename(fs billy.Filesystem) func(b *testing.B) {
 	return func(b *testing.B) {
 		for b.Loop() {
 			b.StopTimer()
+			_ = fs.Remove("rename-dst")
 			f, err := fs.Create("rename-src")
 			if err != nil {
 				b.Fatal(err)

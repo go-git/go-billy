@@ -41,61 +41,46 @@ func TestBoundOSCapabilities(t *testing.T) {
 }
 
 func TestFromRoot(t *testing.T) {
-	validRoot, err := os.OpenRoot(t.TempDir())
-	require.NoError(t, err)
-	t.Cleanup(func() { validRoot.Close() })
+	t.Parallel()
 
-	closedRoot, err := os.OpenRoot(t.TempDir())
-	require.NoError(t, err)
-	require.NoError(t, closedRoot.Close())
+	t.Run("valid root", func(t *testing.T) {
+		t.Parallel()
+		root, err := os.OpenRoot(t.TempDir())
+		require.NoError(t, err)
+		t.Cleanup(func() { root.Close() })
 
-	tests := []struct {
-		name     string
-		root     *os.Root
-		wantRoot string
-		wantErr  string
-	}{
-		{
-			name:     "valid root",
-			root:     validRoot,
-			wantRoot: validRoot.Name(),
-		},
-		{
-			name:    "nil root",
-			root:    nil,
-			wantErr: "root is nil",
-		},
-		{
-			name:     "closed root",
-			root:     closedRoot,
-			wantRoot: closedRoot.Name(),
-			wantErr:  "file already closed",
-		},
-	}
+		fs, err := FromRoot(root)
+		require.NoError(t, err)
+		assert.IsType(t, &RootOS{}, fs)
+		assert.Equal(t, root.Name(), fs.Root())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert := assert.New(t)
+		f, err := fs.Create("test-file")
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
 
-			fs := FromRoot(tt.root)
-			require.NotNil(t, fs)
-			assert.IsType(&BoundOS{}, fs)
-			assert.Equal(tt.wantRoot, fs.Root())
+		_, err = fs.Stat("test-file")
+		require.NoError(t, err)
+	})
 
-			if tt.wantErr != "" {
-				_, err := fs.Stat(".")
-				require.ErrorContains(t, err, tt.wantErr)
-				return
-			}
+	t.Run("nil root", func(t *testing.T) {
+		t.Parallel()
+		_, err := FromRoot(nil)
+		require.Error(t, err)
+	})
 
-			f, err := fs.Create("test-file")
-			require.NoError(t, err)
-			require.NoError(t, f.Close())
+	t.Run("closed root", func(t *testing.T) {
+		t.Parallel()
+		root, err := os.OpenRoot(t.TempDir())
+		require.NoError(t, err)
+		require.NoError(t, root.Close())
 
-			_, err = fs.Stat("test-file")
-			require.NoError(t, err)
-		})
-	}
+		fs, err := FromRoot(root)
+		require.NoError(t, err)
+		assert.Equal(t, root.Name(), fs.Root())
+
+		_, err = fs.Stat(".")
+		require.ErrorContains(t, err, "file already closed")
+	})
 }
 
 // TestOpenAbsSymlinkInsideRoot verifies that Open can follow a symlink whose
