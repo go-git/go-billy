@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Wrapper script for go_js_wasm_exec to be executable by go test -exec.
+#
+# Prefers the Go toolchain's bundled Node.js launcher over any other
+# go_js_wasm_exec that may be present in PATH (e.g. wasmbrowsertest),
+# which ensures CI runs tests in Node.js rather than a headless browser.
+#
+
+set -e
+
+GOROOT=$(go env GOROOT)
+for candidate in \
+	"${GOROOT}/lib/wasm/go_js_wasm_exec" \
+	"${GOROOT}/misc/wasm/go_js_wasm_exec"; do
+	if [ -x "${candidate}" ]; then
+		exec "${candidate}" "$@"
+	fi
+done
+
+echo "jswasm-wrapper: could not find go_js_wasm_exec in GOROOT/lib/wasm or GOROOT/misc/wasm" >&2
+exit 1

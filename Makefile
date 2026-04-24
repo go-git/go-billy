@@ -1,7 +1,8 @@
 # Go parameters
 GOCMD = go
-GOTEST = $(GOCMD) test 
+GOTEST = $(GOCMD) test
 WASIRUN_WRAPPER := $(CURDIR)/scripts/wasirun-wrapper
+JSWASM_WRAPPER := $(CURDIR)/scripts/jswasm-wrapper
 
 # Coverage
 COVERAGE_REPORT := coverage.out
@@ -30,6 +31,12 @@ wasitest: export GOARCH=wasm
 wasitest: export GOOS=wasip1
 wasitest:
 	$(GOTEST) -exec $(WASIRUN_WRAPPER) ./...
+
+.PHONY: jstest
+jstest: export GOARCH=wasm
+jstest: export GOOS=js
+jstest:
+	$(GOTEST) -exec $(JSWASM_WRAPPER) ./...
 
 validate: validate-lint validate-dirty ## Run validation checks.
 
