@@ -110,6 +110,8 @@ func WithDeduplicatePath(enabled bool) Option {
 	}
 }
 
+type Option func(*options)
+
 type options struct {
 	Type
 	deduplicatePath bool
