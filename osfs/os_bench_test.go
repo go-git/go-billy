@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/helper/iofs"
 	"github.com/go-git/go-billy/v6/memfs"
 	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
@@ -16,56 +17,154 @@ import (
 
 const fileName = "foo.bar"
 
-func BenchmarkOpen(b *testing.B) {
+func mustFromRoot(tb testing.TB, root *os.Root) billy.Filesystem {
+	tb.Helper()
+	fs, err := osfs.FromRoot(root)
+	require.NoError(tb, err)
+	return fs
+}
+
+type benchEnv struct {
+	baseDir string
+	root    *os.Root
+	mem     billy.Filesystem
+	chroot  billy.Filesystem
+	bound   billy.Filesystem
+	rootFS  billy.Filesystem
+}
+
+func newBenchEnv(b *testing.B, withFile bool) benchEnv {
+	b.Helper()
 	b.StopTimer()
+
 	baseDir := b.TempDir()
 	root, err := os.OpenRoot(baseDir)
 	require.NoError(b, err)
-
-	osfn := filepath.Join(baseDir, fileName)
-
-	err = os.WriteFile(osfn, []byte("test"), 0o600)
-	require.NoError(b, err)
+	b.Cleanup(func() { root.Close() })
 
 	m := memfs.New()
-	err = util.WriteFile(m, fileName, []byte("test"), 0o600)
-	require.NoError(b, err)
-	b.StartTimer()
+	if withFile {
+		err = os.WriteFile(filepath.Join(baseDir, fileName), []byte("test"), 0o600)
+		require.NoError(b, err)
+		err = util.WriteFile(m, fileName, []byte("test"), 0o600)
+		require.NoError(b, err)
+	}
 
-	b.Run("memfs", benchmarkOpen(m))
-	b.Run("chrootOS", benchmarkOpen(osfs.New(baseDir, osfs.WithChrootOS())))
-	b.Run("boundOS", benchmarkOpen(osfs.New(baseDir, osfs.WithBoundOS())))
+	b.StartTimer()
+	return benchEnv{
+		baseDir: baseDir,
+		root:    root,
+		mem:     m,
+		chroot:  osfs.New(baseDir, osfs.WithChrootOS()),
+		bound:   osfs.New(baseDir, osfs.WithBoundOS()),
+		rootFS:  mustFromRoot(b, root),
+	}
+}
+
+func BenchmarkOpen(b *testing.B) {
+	e := newBenchEnv(b, true)
+	b.Run("memfs", benchmarkOpen(e.mem))
+	b.Run("chrootOS", benchmarkOpen(e.chroot))
+	b.Run("boundOS", benchmarkOpen(e.bound))
+	b.Run("rootOS", benchmarkOpen(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
-			_, err := root.Open(fileName)
+			f, err := e.root.Open(fileName)
 			if err != nil {
 				b.Fatal("cannot open file", "error", err)
+			}
+			f.Close()
+		}
+	})
+}
+
+func BenchmarkCreate(b *testing.B) {
+	e := newBenchEnv(b, false)
+	b.Run("memfs", benchmarkCreate(e.mem))
+	b.Run("chrootOS", benchmarkCreate(e.chroot))
+	b.Run("boundOS", benchmarkCreate(e.bound))
+	b.Run("rootOS", benchmarkCreate(e.rootFS))
+	b.Run("go-lib", func(b *testing.B) {
+		for b.Loop() {
+			f, err := e.root.Create(fileName)
+			if err != nil {
+				b.Fatal("cannot create file", "error", err)
+			}
+			f.Close()
+		}
+	})
+}
+
+func BenchmarkStat(b *testing.B) {
+	e := newBenchEnv(b, true)
+	b.Run("memfs", benchmarkStat(e.mem))
+	b.Run("chrootOS", benchmarkStat(e.chroot))
+	b.Run("boundOS", benchmarkStat(e.bound))
+	b.Run("rootOS", benchmarkStat(e.rootFS))
+	b.Run("go-lib", func(b *testing.B) {
+		for b.Loop() {
+			_, err := e.root.Stat(fileName)
+			if err != nil {
+				b.Fatal("cannot stat file", "error", err)
 			}
 		}
 	})
 }
 
-func BenchmarkReaddir(b *testing.B) {
+func BenchmarkLstat(b *testing.B) {
+	e := newBenchEnv(b, true)
+	b.Run("memfs", benchmarkLstat(e.mem))
+	b.Run("chrootOS", benchmarkLstat(e.chroot))
+	b.Run("boundOS", benchmarkLstat(e.bound))
+	b.Run("rootOS", benchmarkLstat(e.rootFS))
+	b.Run("go-lib", func(b *testing.B) {
+		for b.Loop() {
+			_, err := e.root.Lstat(fileName)
+			if err != nil {
+				b.Fatal("cannot lstat file", "error", err)
+			}
+		}
+	})
+}
+
+func newBenchEnvMany(b *testing.B, n int) benchEnv {
+	b.Helper()
 	b.StopTimer()
+
 	baseDir := b.TempDir()
+	root, err := os.OpenRoot(baseDir)
+	require.NoError(b, err)
+	b.Cleanup(func() { root.Close() })
+
 	osfn := filepath.Join(baseDir, fileName)
-
 	m := memfs.New()
-	for i := 0; i < 1000; i++ {
-		err := os.WriteFile(fmt.Sprint(osfn, i), []byte("test"), 0o600)
+	for i := range n {
+		err = os.WriteFile(fmt.Sprint(osfn, i), []byte("test"), 0o600)
 		require.NoError(b, err)
-
 		err = util.WriteFile(m, fmt.Sprint(fileName, i), []byte("test"), 0o600)
 		require.NoError(b, err)
 	}
-	b.StartTimer()
 
-	b.Run("memfs", benchmarkReaddir(m, "."))
-	b.Run("chrootOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithChrootOS()), "."))
-	b.Run("boundOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithBoundOS()), "."))
+	b.StartTimer()
+	return benchEnv{
+		baseDir: baseDir,
+		root:    root,
+		mem:     m,
+		chroot:  osfs.New(baseDir, osfs.WithChrootOS()),
+		bound:   osfs.New(baseDir, osfs.WithBoundOS()),
+		rootFS:  mustFromRoot(b, root),
+	}
+}
+
+func BenchmarkReaddir(b *testing.B) {
+	e := newBenchEnvMany(b, 1000)
+	b.Run("memfs", benchmarkReaddir(e.mem, "."))
+	b.Run("chrootOS", benchmarkReaddir(e.chroot, "."))
+	b.Run("boundOS", benchmarkReaddir(e.bound, "."))
+	b.Run("rootOS", benchmarkReaddir(e.rootFS, "."))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
-			_, err := os.ReadDir(baseDir)
+			_, err := os.ReadDir(e.baseDir)
 			if err != nil {
 				b.Fatal("cannot read dir", "error", err)
 			}
@@ -74,38 +173,58 @@ func BenchmarkReaddir(b *testing.B) {
 }
 
 func BenchmarkWalkdir(b *testing.B) {
-	b.StopTimer()
-	baseDir := b.TempDir()
-	root, err := os.OpenRoot(baseDir)
-	require.NoError(b, err)
-	osfn := filepath.Join(baseDir, fileName)
+	e := newBenchEnvMany(b, 1000)
+	b.Run("memfs", benchmarkWalkdir(iofs.New(e.mem)))
+	b.Run("chrootOS", benchmarkWalkdir(iofs.New(e.chroot)))
+	b.Run("boundOS", benchmarkWalkdir(iofs.New(e.bound)))
+	b.Run("rootOS", benchmarkWalkdir(iofs.New(e.rootFS)))
+	b.Run("go-lib", benchmarkWalkdir(e.root.FS()))
+}
 
-	m := memfs.New()
-	for i := 0; i < 1000; i++ {
-		err = os.WriteFile(fmt.Sprint(osfn, i), []byte("test"), 0o600)
-		require.NoError(b, err)
-
-		err = util.WriteFile(m, fmt.Sprint(fileName, i), []byte("test"), 0o600)
-		require.NoError(b, err)
-	}
-	b.StartTimer()
-
-	b.Run("memfs", benchmarkReaddir(m, "."))
-	b.Run("chrootOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithChrootOS()), "."))
-	b.Run("boundOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithBoundOS()), "."))
+func BenchmarkRename(b *testing.B) {
+	e := newBenchEnv(b, false)
+	b.Run("memfs", benchmarkRename(e.mem))
+	b.Run("chrootOS", benchmarkRename(e.chroot))
+	b.Run("boundOS", benchmarkRename(e.bound))
+	b.Run("rootOS", benchmarkRename(e.rootFS))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
-			i := 0
-			err := fs.WalkDir(root.FS(), ".", func(_ string, _ fs.DirEntry, err error) error {
-				i++
-				return err
-			})
+			b.StopTimer()
+			_ = e.root.Remove("rename-dst")
+			f, err := e.root.Create("rename-src")
 			if err != nil {
-				b.Fatal("cannot walk dir", "error", err)
+				b.Fatal(err)
 			}
+			f.Close()
+			b.StartTimer()
 
-			if i != 1001 { // 1000 files + dir entry
-				b.Fatal("wrong walk number", "i", i)
+			err = e.root.Rename("rename-src", "rename-dst")
+			if err != nil {
+				b.Fatal("cannot rename file", "error", err)
+			}
+		}
+	})
+}
+
+func BenchmarkRemove(b *testing.B) {
+	e := newBenchEnv(b, false)
+	b.Run("memfs", benchmarkRemove(e.mem))
+	b.Run("chrootOS", benchmarkRemove(e.chroot))
+	b.Run("boundOS", benchmarkRemove(e.bound))
+	b.Run("rootOS", benchmarkRemove(e.rootFS))
+	b.Run("go-lib", func(b *testing.B) {
+		for b.Loop() {
+			b.StopTimer()
+			f, err := e.root.Create("remove-target")
+			if err != nil {
+				b.Fatal(err)
+			}
+			f.Close()
+			b.StartTimer()
+
+			err = e.root.Remove("remove-target")
+			if err != nil {
+				b.Fatal("cannot remove file", "error", err)
 			}
 		}
 	})
@@ -114,9 +233,62 @@ func BenchmarkWalkdir(b *testing.B) {
 func benchmarkOpen(fs billy.Filesystem) func(b *testing.B) {
 	return func(b *testing.B) {
 		for b.Loop() {
-			_, err := fs.Open(fileName)
+			f, err := fs.Open(fileName)
 			if err != nil {
 				b.Fatal("cannot open file", "error", err)
+			}
+			f.Close()
+		}
+	}
+}
+
+func benchmarkCreate(fs billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			f, err := fs.Create(fileName)
+			if err != nil {
+				b.Fatal("cannot create file", "error", err)
+			}
+			f.Close()
+		}
+	}
+}
+
+func benchmarkStat(fs billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			_, err := fs.Stat(fileName)
+			if err != nil {
+				b.Fatal("cannot stat file", "error", err)
+			}
+		}
+	}
+}
+
+func benchmarkLstat(fs billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			_, err := fs.Lstat(fileName)
+			if err != nil {
+				b.Fatal("cannot lstat file", "error", err)
+			}
+		}
+	}
+}
+
+func benchmarkWalkdir(fsys fs.FS) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			i := 0
+			err := fs.WalkDir(fsys, ".", func(_ string, _ fs.DirEntry, err error) error {
+				i++
+				return err
+			})
+			if err != nil {
+				b.Fatal("cannot walk dir", "error", err)
+			}
+			if i != 1001 { // 1000 files + dir entry
+				b.Fatal("wrong walk number", "i", i)
 			}
 		}
 	}
@@ -131,6 +303,45 @@ func benchmarkReaddir(fs billy.Filesystem, path string) func(b *testing.B) {
 			}
 			if len(fi) != 1000 {
 				b.Fatal("missing files", "len", len(fi))
+			}
+		}
+	}
+}
+
+func benchmarkRename(fs billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			b.StopTimer()
+			_ = fs.Remove("rename-dst")
+			f, err := fs.Create("rename-src")
+			if err != nil {
+				b.Fatal(err)
+			}
+			f.Close()
+			b.StartTimer()
+
+			err = fs.Rename("rename-src", "rename-dst")
+			if err != nil {
+				b.Fatal("cannot rename file", "error", err)
+			}
+		}
+	}
+}
+
+func benchmarkRemove(fs billy.Filesystem) func(b *testing.B) {
+	return func(b *testing.B) {
+		for b.Loop() {
+			b.StopTimer()
+			f, err := fs.Create("remove-target")
+			if err != nil {
+				b.Fatal(err)
+			}
+			f.Close()
+			b.StartTimer()
+
+			err = fs.Remove("remove-target")
+			if err != nil {
+				b.Fatal("cannot remove file", "error", err)
 			}
 		}
 	}
