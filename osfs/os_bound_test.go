@@ -48,6 +48,22 @@ func TestOpen(t *testing.T) {
 			filename: "test-file",
 		},
 		{
+			name: "file: dot rel same dir",
+			before: func(dir string) billy.Filesystem {
+				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				return newBoundOS(dir, true)
+			},
+			filename: "./test-file",
+		},
+		{
+			name: "file: dot rel same dir without deduplication",
+			before: func(dir string) billy.Filesystem {
+				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				return newBoundOS(dir, false)
+			},
+			filename: "./test-file",
+		},
+		{
 			name: "file: rel path to above cwd",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
@@ -141,6 +157,35 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+func TestOpenPreservesBackslashFilenamesOnNonWindows(t *testing.T) {
+	if filepath.Separator == '\\' {
+		t.Skip("backslash is a path separator on windows")
+	}
+
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+
+	tests := []struct {
+		filename string
+		openPath string
+	}{
+		{filename: `.\test-file`, openPath: `.\test-file`},
+		{filename: `\test-file`, openPath: `./\test-file`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.openPath, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			err := os.WriteFile(filepath.Join(dir, tt.filename), []byte("anything"), 0o600)
+			g.Expect(err).To(gomega.Succeed())
+
+			fi, err := fs.Open(tt.openPath)
+			g.Expect(err).To(gomega.BeNil())
+			g.Expect(fi).ToNot(gomega.BeNil())
+			g.Expect(fi.Close()).To(gomega.Succeed())
+		})
+	}
+}
+
 func Test_Symlink(t *testing.T) {
 	// The umask value set at OS level can impact this test, so
 	// it is set to 0 during the duration of this test and then
@@ -158,6 +203,11 @@ func Test_Symlink(t *testing.T) {
 		{
 			name:   "link to abs valid target",
 			link:   "symlink",
+			target: filepath.FromSlash("/etc/passwd"),
+		},
+		{
+			name:   "dot link to abs valid target",
+			link:   "./symlink",
 			target: filepath.FromSlash("/etc/passwd"),
 		},
 		{
@@ -273,6 +323,7 @@ func TestChroot(t *testing.T) {
 	f, err := fs.Chroot("test")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(f).ToNot(gomega.BeNil())
+	g.Expect(f).To(gomega.BeAssignableToTypeOf(&BoundOS{}))
 	g.Expect(f.Root()).To(gomega.Equal(filepath.Join(tmp, "test")))
 }
 
@@ -621,6 +672,10 @@ func TestStat(t *testing.T) {
 			filename: "test-file",
 			makeAbs:  true,
 		},
+		{
+			name:     "dot dir",
+			filename: ".",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -675,6 +730,31 @@ func TestRemove(t *testing.T) {
 			},
 			filename: "inexistent",
 			wantErr:  notFoundError(),
+		},
+		{
+			name:     "base dir as empty path",
+			filename: "",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot",
+			filename: ".",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot slash",
+			filename: "./",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute parent",
+			filename: "/..",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute child parent",
+			filename: "/foo/..",
+			wantErr:  "base dir cannot be removed",
 		},
 		{
 			name: "same dir file",
@@ -789,6 +869,31 @@ func TestRemoveAll(t *testing.T) {
 			filename: "inexistent",
 		},
 		{
+			name:     "base dir as empty path",
+			filename: "",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot",
+			filename: ".",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot slash",
+			filename: "./",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute parent",
+			filename: "/..",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute child parent",
+			filename: "/foo/..",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
 			name: "same dir file",
 			before: func(dir string) billy.Filesystem {
 				os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
@@ -855,6 +960,37 @@ func TestRemoveAll(t *testing.T) {
 			} else {
 				g.Expect(err).To(gomega.BeNil())
 			}
+		})
+	}
+}
+
+func TestRemoveBaseDirAbsolutePath(t *testing.T) {
+	tests := []struct {
+		name   string
+		remove func(fs *BoundOS, path string) error
+	}{
+		{
+			name: "remove",
+			remove: func(fs *BoundOS, path string) error {
+				return fs.Remove(path)
+			},
+		},
+		{
+			name: "remove all",
+			remove: func(fs *BoundOS, path string) error {
+				return fs.RemoveAll(path)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			dir := t.TempDir()
+			fs := newBoundOS(dir, true).(*BoundOS)
+
+			err := tt.remove(fs, dir)
+			g.Expect(err).To(gomega.MatchError("base dir cannot be removed"))
+			mustExist(dir)
 		})
 	}
 }
@@ -1075,6 +1211,23 @@ func TestAbs(t *testing.T) {
 	}
 }
 
+func TestAbsReturnsSecureJoinError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires additional privileges on windows")
+	}
+
+	g := gomega.NewWithT(t)
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true).(*BoundOS)
+
+	err := os.Symlink("loop", filepath.Join(dir, "loop"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	got, err := fs.abs(filepath.Join("loop", "file"))
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(got).To(gomega.BeEmpty())
+}
+
 func TestReadDir(t *testing.T) {
 	g := gomega.NewWithT(t)
 	dir := t.TempDir()
@@ -1183,6 +1336,18 @@ func TestRename(t *testing.T) {
 	err = fs.Rename(oldFile, filepath.FromSlash("/tmp/outside/cwd/file2"))
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(err.Error()).To(gomega.ContainSubstring(notFoundError()))
+}
+
+func TestRenameBaseDir(t *testing.T) {
+	g := gomega.NewWithT(t)
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+
+	for _, from := range []string{"", ".", "./", "/..", "/foo/..", dir} {
+		err := fs.Rename(from, "renamed")
+		g.Expect(err).To(gomega.MatchError("base dir cannot be renamed"))
+		mustExist(dir)
+	}
 }
 
 func mustExist(filename string) {
