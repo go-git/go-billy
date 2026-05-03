@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -11,7 +12,9 @@ import (
 	"github.com/go-git/go-billy/v6/helper/polyfill"
 )
 
-// ChrootHelper is a helper to implement billy.Chroot.
+// ChrootHelper is a helper to implement billy.Chroot. It is not a security
+// boundary; callers that need containment should use a filesystem implementation
+// that enforces paths at the OS boundary instead.
 type ChrootHelper struct { //nolint
 	underlying billy.Filesystem
 	base       string
@@ -35,11 +38,12 @@ func (fs *ChrootHelper) underlyingPath(filename string) (string, error) {
 	return fs.Join(fs.Root(), filename), nil
 }
 
-func isCrossBoundaries(path string) bool {
-	path = filepath.ToSlash(path)
-	path = filepath.Clean(path)
+func isCrossBoundaries(name string) bool {
+	name = filepath.ToSlash(name)
+	name = strings.TrimLeft(name, "/")
+	name = path.Clean(name)
 
-	return strings.HasPrefix(path, ".."+string(filepath.Separator))
+	return name == ".." || strings.HasPrefix(name, "../")
 }
 
 func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
