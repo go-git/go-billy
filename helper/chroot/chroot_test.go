@@ -37,6 +37,58 @@ func (s *ChrootSuite) TestCreateErrCrossedBoundary(c *C) {
 	c.Assert(err, Equals, billy.ErrCrossedBoundary)
 }
 
+func (s *ChrootSuite) TestCreateErrCrossedBoundaryVariants(c *C) {
+	tests := []string{
+		"..",
+		"foo/../..",
+		"/../foo",
+		"/foo/../..",
+		"/foo/../../bar",
+		"foo" + string(filepath.Separator) + "../..",
+		"/foo" + string(filepath.Separator) + "../..",
+	}
+
+	for _, path := range tests {
+		m := &test.BasicMock{}
+		fs := New(m, "/foo")
+
+		f, err := fs.Create(path)
+		c.Assert(err, Equals, billy.ErrCrossedBoundary, Commentf("path: %q", path))
+		c.Assert(f, IsNil, Commentf("path: %q", path))
+		c.Assert(m.CreateArgs, HasLen, 0, Commentf("path: %q", path))
+	}
+}
+
+func (s *ChrootSuite) TestIsCrossBoundaries(c *C) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "", want: false},
+		{path: ".", want: false},
+		{path: "foo", want: false},
+		{path: "..foo", want: false},
+		{path: "foo/..bar", want: false},
+		{path: "foo/..", want: false},
+		{path: "foo/../bar", want: false},
+		{path: "/foo/..", want: false},
+		{path: "/foo/../bar", want: false},
+		{path: "..", want: true},
+		{path: "../foo", want: true},
+		{path: "foo/../..", want: true},
+		{path: "/..", want: true},
+		{path: "/../foo", want: true},
+		{path: "/foo/../..", want: true},
+		{path: "/foo/../../bar", want: true},
+		{path: "foo" + string(filepath.Separator) + "../..", want: true},
+		{path: "/foo" + string(filepath.Separator) + "../..", want: true},
+	}
+
+	for _, tt := range tests {
+		c.Check(isCrossBoundaries(tt.path), Equals, tt.want, Commentf("path: %q", tt.path))
+	}
+}
+
 func (s *ChrootSuite) TestLeadingPeriodsPathNotCrossedBoundary(c *C) {
 	m := &test.BasicMock{}
 
