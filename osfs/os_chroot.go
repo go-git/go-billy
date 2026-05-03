@@ -14,6 +14,8 @@ import (
 // ChrootOS is a legacy filesystem based on a "soft chroot" of the os filesystem.
 // Although this is still the default os filesystem, consider using BoundOS instead.
 //
+// Deprecated: use New with WithBoundOS instead.
+//
 // Behaviours of note:
 //  1. A "soft chroot" translates the base dir to "/" for the purposes of the
 //     fs abstraction.

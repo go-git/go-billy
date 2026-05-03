@@ -2,10 +2,11 @@ package test
 
 import (
 	"os"
+	"path/filepath"
 
-	. "gopkg.in/check.v1"
 	. "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	. "gopkg.in/check.v1"
 )
 
 // ChrootSuite is a convenient test suite to validate any implementation of
@@ -28,6 +29,25 @@ func (s *ChrootSuite) TestCreateWithChroot(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(f.Name(), Equals, s.FS.Join("foo", "bar"))
 	c.Assert(f.Close(), IsNil)
+}
+
+func (s *ChrootSuite) TestCreateOutOffBoundaryVariants(c *C) {
+	tests := []string{
+		"..",
+		"foo/../..",
+		"/../foo",
+		"/foo/../..",
+		"/foo/../../bar",
+		"foo" + string(filepath.Separator) + "../..",
+		"/foo" + string(filepath.Separator) + "../..",
+	}
+
+	fs, _ := s.FS.Chroot("foo")
+	for _, path := range tests {
+		f, err := fs.Create(path)
+		c.Assert(err, Equals, ErrCrossedBoundary, Commentf("path: %q", path))
+		c.Assert(f, IsNil, Commentf("path: %q", path))
+	}
 }
 
 func (s *ChrootSuite) TestOpenWithChroot(c *C) {
