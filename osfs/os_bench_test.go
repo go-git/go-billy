@@ -33,7 +33,6 @@ func BenchmarkOpen(b *testing.B) {
 	b.StartTimer()
 
 	b.Run("memfs", benchmarkOpen(m))
-	b.Run("chrootOS", benchmarkOpen(osfs.New(baseDir, osfs.WithChrootOS())))
 	b.Run("boundOS", benchmarkOpen(osfs.New(baseDir, osfs.WithBoundOS())))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
@@ -61,7 +60,6 @@ func BenchmarkReaddir(b *testing.B) {
 	b.StartTimer()
 
 	b.Run("memfs", benchmarkReaddir(m, "."))
-	b.Run("chrootOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithChrootOS()), "."))
 	b.Run("boundOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithBoundOS()), "."))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {
@@ -91,7 +89,6 @@ func BenchmarkWalkdir(b *testing.B) {
 	b.StartTimer()
 
 	b.Run("memfs", benchmarkReaddir(m, "."))
-	b.Run("chrootOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithChrootOS()), "."))
 	b.Run("boundOS", benchmarkReaddir(osfs.New(baseDir, osfs.WithBoundOS()), "."))
 	b.Run("go-lib", func(b *testing.B) {
 		for b.Loop() {

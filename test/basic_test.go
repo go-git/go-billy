@@ -7,14 +7,12 @@ import (
 	stdfs "io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
 	. "github.com/go-git/go-billy/v6" //nolint
-	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -581,10 +579,7 @@ func TestRename(t *testing.T) {
 	})
 }
 
-func fsRoot(fs Filesystem) string {
-	if reflect.TypeOf(fs) == reflect.TypeOf(&osfs.BoundOS{}) {
-		return fs.Root()
-	}
+func fsRoot(_ Filesystem) string {
 	return string(filepath.Separator)
 }
 
