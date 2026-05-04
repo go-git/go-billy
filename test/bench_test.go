@@ -43,13 +43,6 @@ func BenchmarkCompare(b *testing.B) {
 			createF: stdlibCreate,
 		},
 		{
-			name:    "osfs.chrootOS",
-			fn:      fn,
-			sut:     osfs.New(b.TempDir(), osfs.WithChrootOS()),
-			openF:   billyOpen,
-			createF: billyCreate,
-		},
-		{
 			name:    "osfs.boundOS",
 			fn:      fn,
 			sut:     osfs.New(b.TempDir(), osfs.WithBoundOS()),

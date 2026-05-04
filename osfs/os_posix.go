@@ -3,7 +3,6 @@
 package osfs
 
 import (
-	"os"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -25,10 +24,6 @@ func (f *file) Unlock() error {
 
 func (f *file) Sync() error {
 	return f.File.Sync()
-}
-
-func rename(from, to string) error {
-	return os.Rename(from, to)
 }
 
 // umask sets umask to a new value, and returns a func which allows the

@@ -31,6 +31,27 @@ func TestCreateErrCrossedBoundary(t *testing.T) {
 	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
+func TestCreateErrCrossedBoundaryVariants(t *testing.T) {
+	tests := []string{
+		"..",
+		"foo/../..",
+		"/../foo",
+		"/foo/../..",
+		"/foo/../../bar",
+		"foo" + string(filepath.Separator) + "../..",
+		"/foo" + string(filepath.Separator) + "../..",
+	}
+	for _, path := range tests {
+		t.Run(path, func(t *testing.T) {
+			m := &test.BasicMock{}
+			fs := New(m, "/foo")
+
+			_, err := fs.Create(path)
+			assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
+		})
+	}
+}
+
 func TestLeadingPeriodsPathNotCrossedBoundary(t *testing.T) {
 	m := &test.BasicMock{}
 
@@ -38,6 +59,31 @@ func TestLeadingPeriodsPathNotCrossedBoundary(t *testing.T) {
 	f, err := fs.Create("..foo")
 	require.NoError(t, err)
 	assert.Equal(t, f.Name(), "..foo")
+}
+
+func TestIsCrossBoundaries(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "", want: false},
+		{path: ".", want: false},
+		{path: "foo", want: false},
+		{path: "foo/..", want: false},
+		{path: "..foo", want: false},
+		{path: "foo/../bar", want: false},
+		{path: "..", want: true},
+		{path: "../foo", want: true},
+		{path: "foo/../..", want: true},
+		{path: "/../foo", want: true},
+		{path: "/foo/../..", want: true},
+		{path: "/foo/../../bar", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			assert.Equal(t, tt.want, isCrossBoundaries(tt.path))
+		})
+	}
 }
 
 func TestOpen(t *testing.T) {

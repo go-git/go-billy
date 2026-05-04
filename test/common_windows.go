@@ -17,7 +17,7 @@ var (
 
 func allFS(tempDir func() string) []billy.Filesystem {
 	return []billy.Filesystem{
-		osfs.New(tempDir(), osfs.WithChrootOS()),
+		osfs.New(tempDir(), osfs.WithBoundOS()),
 		memfs.New(),
 	}
 }

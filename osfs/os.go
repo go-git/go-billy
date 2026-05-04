@@ -19,7 +19,7 @@ const (
 )
 
 // Default Filesystem representing the root of the os filesystem.
-var Default = &ChrootOS{}
+var Default = newBoundOS(string(os.PathSeparator), true)
 
 // New returns a new OS filesystem.
 // By default paths are deduplicated, but still enforced
@@ -32,24 +32,13 @@ func New(baseDir string, opts ...Option) billy.Filesystem {
 		opt(o)
 	}
 
-	if o.Type == BoundOSFS {
-		return newBoundOS(baseDir, o.deduplicatePath)
-	}
-
-	return newChrootOS(baseDir)
+	return newBoundOS(baseDir, o.deduplicatePath)
 }
 
 // WithBoundOS returns the option of using a Bound filesystem OS.
 func WithBoundOS() Option {
 	return func(o *options) {
 		o.Type = BoundOSFS
-	}
-}
-
-// WithChrootOS returns the option of using a Chroot filesystem OS.
-func WithChrootOS() Option {
-	return func(o *options) {
-		o.Type = ChrootOSFS
 	}
 }
 
@@ -79,15 +68,15 @@ const (
 	BoundOSFS
 )
 
-func tempFile(dir, prefix string) (billy.File, error) {
+func tempFile(dir, prefix, name string) (billy.File, error) {
 	f, err := os.CreateTemp(dir, prefix)
 	if err != nil {
 		return nil, err
 	}
-	return &file{File: f}, nil
+	return &file{File: f, name: name}, nil
 }
 
-func openFile(fn string, flag int, perm fs.FileMode, createDir func(string) error) (billy.File, error) {
+func openFile(fn, name string, flag int, perm fs.FileMode, createDir func(string) error) (billy.File, error) {
 	if flag&os.O_CREATE != 0 {
 		if createDir == nil {
 			return nil, fmt.Errorf("createDir func cannot be nil if file needs to be opened in create mode")
@@ -101,16 +90,33 @@ func openFile(fn string, flag int, perm fs.FileMode, createDir func(string) erro
 	if err != nil {
 		return nil, err
 	}
-	return &file{File: f}, err
+	return &file{File: f, name: name}, err
 }
 
 // file is a wrapper for an os.File which adds support for file locking.
 type file struct {
 	*os.File
-	m sync.Mutex
+	name string
+	m    sync.Mutex
+}
+
+func (f *file) Name() string {
+	if f.name != "" {
+		return f.name
+	}
+	return f.File.Name()
 }
 
 func (f *file) WriteTo(w io.Writer) error {
 	_, err := f.File.WriteTo(w)
 	return err
+}
+
+type fileInfo struct {
+	fs.FileInfo
+	name string
+}
+
+func (fi fileInfo) Name() string {
+	return fi.name
 }

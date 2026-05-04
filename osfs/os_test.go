@@ -11,7 +11,7 @@ import (
 var _ fs.File = &file{}
 
 func TestDefault(t *testing.T) {
-	want := &ChrootOS{}
+	want := &BoundOS{}
 	got := Default
 
 	if reflect.TypeOf(got) != reflect.TypeOf(want) {
@@ -23,5 +23,4 @@ var (
 	// API call assertions
 	_ = New("/")
 	_ = New("/", WithBoundOS())
-	_ = New("/", WithChrootOS())
 )
