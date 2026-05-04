@@ -39,7 +39,7 @@ func TestBoundOSCapabilities(t *testing.T) {
 	assert.True(t, ok)
 
 	caps := billy.Capabilities(fs)
-	assert.Equal(t, billy.DefaultCapabilities&billy.SyncCapability, caps)
+	assert.Equal(t, billy.AllCapabilities, caps)
 }
 
 func TestOpen(t *testing.T) {
