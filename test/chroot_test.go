@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/go-git/go-billy/v6" //nolint
+	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,26 +61,51 @@ func TestOpenWithChroot(t *testing.T) {
 func TestOpenOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0o644)
+		err := util.WriteFile(fs, "bar", []byte("root"), 0o644)
+		require.NoError(t, err)
+		err = util.WriteFile(fs, "foo/bar", []byte("chroot"), 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Open("../bar")
-		assert.Equal(t, err, ErrCrossedBoundary)
-		assert.Nil(t, f)
+		if _, ok := chroot.(*osfs.BoundOS); !ok {
+			require.ErrorIs(t, err, ErrCrossedBoundary)
+			assert.Nil(t, f)
+			assertFileContents(t, fs, "bar", []byte("root"))
+			assertFileContents(t, fs, "foo/bar", []byte("chroot"))
+			return
+		}
+
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		data, err := util.ReadFile(chroot, "../bar")
+		require.NoError(t, err)
+		assert.Equal(t, []byte("chroot"), data)
+		assertFileContents(t, fs, "bar", []byte("root"))
 	})
 }
 
 func TestStatOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0o644)
+		err := util.WriteFile(fs, "bar", []byte("root"), 0o644)
+		require.NoError(t, err)
+		err = util.WriteFile(fs, "foo/bar", []byte("chroot"), 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		f, err := chroot.Stat("../bar")
-		assert.Equal(t, err, ErrCrossedBoundary)
-		assert.Nil(t, f)
+		if _, ok := chroot.(*osfs.BoundOS); !ok {
+			require.ErrorIs(t, err, ErrCrossedBoundary)
+			assert.Nil(t, f)
+			assertFileContents(t, fs, "bar", []byte("root"))
+			assertFileContents(t, fs, "foo/bar", []byte("chroot"))
+			return
+		}
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(len("chroot")), f.Size())
+		assertFileContents(t, fs, "bar", []byte("root"))
 	})
 }
 
@@ -120,31 +146,76 @@ func TestStatWithChroot(t *testing.T) {
 func TestRenameOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "foo/foo", nil, 0o644)
+		err := util.WriteFile(fs, "bar", []byte("root"), 0o644)
 		require.NoError(t, err)
-
-		err = util.WriteFile(fs, "bar", nil, 0o644)
+		err = util.WriteFile(fs, "foo/bar", []byte("chroot-from"), 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
-		err = chroot.Rename("../bar", "foo")
-		assert.Equal(t, err, ErrCrossedBoundary)
+		err = chroot.Rename("../bar", "renamed")
+		if _, ok := chroot.(*osfs.BoundOS); !ok {
+			require.ErrorIs(t, err, ErrCrossedBoundary)
+			assertFileContents(t, fs, "bar", []byte("root"))
+			assertFileContents(t, fs, "foo/bar", []byte("chroot-from"))
+			return
+		}
 
-		err = chroot.Rename("foo", "../bar")
-		assert.Equal(t, err, ErrCrossedBoundary)
+		require.NoError(t, err)
+		assertFileContents(t, fs, "bar", []byte("root"))
+		assertFileContents(t, fs, "foo/renamed", []byte("chroot-from"))
+	})
+}
+
+func TestRenameIntoParentBoundary(t *testing.T) {
+	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
+		t.Helper()
+		err := util.WriteFile(fs, "bar", []byte("root"), 0o644)
+		require.NoError(t, err)
+		err = util.WriteFile(fs, "foo/file", []byte("chroot-to"), 0o644)
+		require.NoError(t, err)
+
+		chroot, _ := fs.Chroot("foo")
+		err = chroot.Rename("file", "../bar")
+		if _, ok := chroot.(*osfs.BoundOS); ok {
+			require.NoError(t, err)
+			assertFileContents(t, fs, "bar", []byte("root"))
+			assertFileContents(t, fs, "foo/bar", []byte("chroot-to"))
+			return
+		}
+
+		require.ErrorIs(t, err, ErrCrossedBoundary)
+		assertFileContents(t, fs, "bar", []byte("root"))
+		assertFileContents(t, fs, "foo/file", []byte("chroot-to"))
 	})
 }
 
 func TestRemoveOutOffBoundary(t *testing.T) {
 	eachChrootFS(t, func(t *testing.T, fs chrootFS) {
 		t.Helper()
-		err := util.WriteFile(fs, "bar", nil, 0o644)
+		err := util.WriteFile(fs, "bar", []byte("root"), 0o644)
+		require.NoError(t, err)
+		err = util.WriteFile(fs, "foo/bar", []byte("chroot"), 0o644)
 		require.NoError(t, err)
 
 		chroot, _ := fs.Chroot("foo")
 		err = chroot.Remove("../bar")
-		assert.Equal(t, err, ErrCrossedBoundary)
+		if _, ok := chroot.(*osfs.BoundOS); ok {
+			require.NoError(t, err)
+			_, err = fs.Open("foo/bar")
+			assert.ErrorIs(t, err, os.ErrNotExist)
+		} else {
+			require.ErrorIs(t, err, ErrCrossedBoundary)
+			assertFileContents(t, fs, "foo/bar", []byte("chroot"))
+		}
+		assertFileContents(t, fs, "bar", []byte("root"))
 	})
+}
+
+func assertFileContents(t *testing.T, fs Basic, path string, want []byte) {
+	t.Helper()
+	data, err := util.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.Equal(t, want, data)
 }
 
 func TestRoot(t *testing.T) {

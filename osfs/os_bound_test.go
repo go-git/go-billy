@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/go-git/go-billy/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,6 +65,15 @@ func TestOpen(t *testing.T) {
 				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
 				require.NoError(t, err)
 				return newBoundOS(dir, true)
+			},
+			filename: "./test-file",
+		},
+		{
+			name: "file: dot rel same dir without deduplication",
+			before: func(dir string) billy.Filesystem {
+				err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+				require.NoError(t, err)
+				return newBoundOS(dir, false)
 			},
 			filename: "./test-file",
 		},
@@ -164,6 +174,66 @@ func TestOpen(t *testing.T) {
 				assert.NotNil(fi)
 				require.NoError(t, fi.Close())
 			}
+		})
+	}
+}
+
+func TestOpenPreservesBackslashFilenamesOnNonWindows(t *testing.T) {
+	if filepath.Separator == '\\' {
+		t.Skip("backslash is a path separator on windows")
+	}
+
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+
+	tests := []struct {
+		filename string
+		openPath string
+	}{
+		{filename: `.\test-file`, openPath: `.\test-file`},
+		{filename: `\test-file`, openPath: `./\test-file`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.openPath, func(t *testing.T) {
+			err := os.WriteFile(filepath.Join(dir, tt.filename), []byte("anything"), 0o600)
+			require.NoError(t, err)
+
+			fi, err := fs.Open(tt.openPath)
+			require.NoError(t, err)
+			require.NotNil(t, fi)
+			require.NoError(t, fi.Close())
+		})
+	}
+}
+
+func TestWindowsOpenBackslashDotPaths(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("backslash is only a path separator on windows")
+	}
+
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+
+	err := os.WriteFile(filepath.Join(dir, "test-file"), []byte("anything"), 0o600)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		openPath string
+		wantName string
+	}{
+		{name: "dot backslash file", openPath: `.\test-file`, wantName: "test-file"},
+		{name: "dot backslash parent", openPath: `.\..`, wantName: "."},
+		{name: "absolute parent", openPath: `\..`, wantName: "."},
+		{name: "absolute child parent", openPath: `\foo\..`, wantName: "."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := fs.Open(tt.openPath)
+			require.NoError(t, err)
+			require.NotNil(t, f)
+			assert.Equal(t, filepath.Clean(tt.wantName), filepath.Clean(f.Name()))
+			require.NoError(t, f.Close())
 		})
 	}
 }
@@ -281,7 +351,7 @@ func TestTempFile(t *testing.T) {
 	f, err = fs.TempFile("/above/cwd", "prefix")
 	require.NoError(t, err)
 	assert.NotNil(f)
-	assert.Contains(f.Name(), filepath.Join(dir, "/above/cwd", "prefix"))
+	assert.Contains(f.Name(), filepath.Join("above", "cwd", "prefix"))
 	require.NoError(t, f.Close())
 
 	dir = os.TempDir()
@@ -293,7 +363,7 @@ func TestTempFile(t *testing.T) {
 	f, err = fs.TempFile(dir, "prefix")
 	require.NoError(t, err)
 	assert.NotNil(f)
-	assert.Contains(f.Name(), filepath.Join(dir, "prefix"))
+	assert.Contains(f.Name(), filepath.Join(strings.TrimLeft(dir, `/\`), "prefix"))
 	require.NoError(t, f.Close())
 }
 
@@ -339,9 +409,9 @@ func TestReadLink(t *testing.T) {
 			expected: filepath.FromSlash("/etc/passwd"),
 		},
 		{
-			name:     "file: rel pointing to abs above cwd",
+			name:     "file: rel parent traversal is clamped to cwd",
 			filename: "../../file",
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 		{
 			name: "symlink: abs symlink pointing outside cwd",
@@ -374,7 +444,7 @@ func TestReadLink(t *testing.T) {
 			},
 			filename: "current-dir/symlink/file",
 			makeAbs:  true,
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 		{
 			name: "symlink: within cwd + baseDir symlink",
@@ -424,7 +494,7 @@ func TestReadLink(t *testing.T) {
 				return newBoundOS(cwd, true)
 			},
 			filename: "symlink-outside/symlink-file",
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 	}
 	for _, tt := range tests {
@@ -457,6 +527,23 @@ func TestReadLink(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReadlinkReadsSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	target := filepath.Join(dir, "target-file")
+	link := filepath.Join(dir, "link")
+
+	err := os.WriteFile(target, []byte("target"), 0o600)
+	require.NoError(t, err)
+	err = os.Symlink("target-file", link)
+	require.NoError(t, err)
+
+	got, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, "target-file", got)
+	requireFileContents(t, target, []byte("target"))
 }
 
 func TestLstat(t *testing.T) {
@@ -554,17 +641,17 @@ func TestLstat(t *testing.T) {
 			},
 			filename: "symlink-outside/symlink-file",
 			makeAbs:  false,
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 		{
-			name:     "path: rel pointing to abs above cwd",
+			name:     "path: rel parent traversal is clamped to cwd",
 			filename: "../../file",
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 		{
 			name:     "path: abs pointing outside cwd",
 			filename: "/etc/passwd",
-			wantErr:  "path outside base dir",
+			wantErr:  notFoundError(),
 		},
 		{
 			name: "file: rel",
@@ -620,6 +707,92 @@ func TestLstat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLstatStatsSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	target := filepath.Join(dir, "target-file")
+	link := filepath.Join(dir, "link")
+
+	err := os.WriteFile(target, []byte("target"), 0o600)
+	require.NoError(t, err)
+	err = os.Symlink("target-file", link)
+	require.NoError(t, err)
+
+	fi, err := fs.Lstat("link")
+	require.NoError(t, err)
+	assert.Equal(t, "link", fi.Name())
+	assert.NotZero(t, fi.Mode()&os.ModeSymlink)
+	requireFileContents(t, target, []byte("target"))
+}
+
+func TestNoFollowOperationsAllowMissingPathUnderSymlinkedBase(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires additional privileges on windows")
+	}
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	base := filepath.Join(dir, "base")
+	err := os.Mkdir(target, 0o700)
+	require.NoError(t, err)
+	err = os.Symlink(target, base)
+	require.NoError(t, err)
+
+	fs := newBoundOS(base, true)
+
+	_, err = fs.Lstat("/etc/passwd")
+	require.ErrorContains(t, err, notFoundError())
+	assert.NotContains(t, err.Error(), "path outside base dir")
+
+	err = fs.Remove("/some/path/outside/cwd")
+	require.ErrorContains(t, err, notFoundError())
+	assert.NotContains(t, err.Error(), "path outside base dir")
+
+	err = os.WriteFile(filepath.Join(target, "old-file"), []byte("renamed"), 0o600)
+	require.NoError(t, err)
+	err = fs.Rename("old-file", filepath.Join("newdir", "newfile"))
+	require.NoError(t, err)
+	requireFileContents(t, filepath.Join(target, "newdir", "newfile"), []byte("renamed"))
+	mustNotExist(filepath.Join(target, "old-file"))
+}
+
+func TestNoFollowOperationsContainSymlinkedParentOutsideBase(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires additional privileges on windows")
+	}
+
+	dir := t.TempDir()
+	base := filepath.Join(dir, "base")
+	outside := filepath.Join(dir, "outside")
+	err := os.Mkdir(base, 0o700)
+	require.NoError(t, err)
+	err = os.Mkdir(outside, 0o700)
+	require.NoError(t, err)
+	err = os.Symlink(outside, filepath.Join(base, "link"))
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(base, "file"), []byte("source"), 0o600)
+	require.NoError(t, err)
+
+	fs := newBoundOS(base, true)
+
+	_, err = fs.Lstat(filepath.Join("link", "missing", "file"))
+	require.ErrorContains(t, err, notFoundError())
+	assert.NotContains(t, err.Error(), "path outside base dir")
+
+	err = fs.Remove(filepath.Join("link", "missing", "file"))
+	require.ErrorContains(t, err, notFoundError())
+	assert.NotContains(t, err.Error(), "path outside base dir")
+
+	err = fs.Rename("file", filepath.Join("link", "missing", "file"))
+	require.NoError(t, err)
+
+	parent, err := securejoin.SecureJoin(base, filepath.Join("link", "missing"))
+	require.NoError(t, err)
+	requireFileContents(t, filepath.Join(parent, "file"), []byte("source"))
+	mustNotExist(filepath.Join(base, "file"))
+	mustNotExist(filepath.Join(outside, "missing", "file"))
 }
 
 func TestStat(t *testing.T) {
@@ -751,7 +924,7 @@ func TestRemove(t *testing.T) {
 			wantErr:  notFoundError(),
 		},
 		{
-			name:     "path: rel pointing outside cwd",
+			name:     "path: rel parent traversal is clamped to cwd",
 			filename: "../../../../path/outside/cwd",
 			wantErr:  notFoundError(),
 		},
@@ -764,11 +937,31 @@ func TestRemove(t *testing.T) {
 			wantErr:  notFoundError(),
 		},
 		{
-			name: "same dot dir",
+			name:     "base dir as empty path",
+			filename: "",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name: "base dir as dot",
 			before: func(dir string) billy.Filesystem {
 				return newBoundOS(dir, true)
 			},
 			filename: ".",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot slash",
+			filename: "./",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute parent",
+			filename: "/..",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute child parent",
+			filename: "/foo/..",
 			wantErr:  "base dir cannot be removed",
 		},
 		{
@@ -793,7 +986,7 @@ func TestRemove(t *testing.T) {
 			filename: "symlink",
 		},
 		{
-			name: "rel path to file above cwd",
+			name: "rel parent traversal removes file under cwd",
 			before: func(dir string) billy.Filesystem {
 				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
 				require.NoError(t, err)
@@ -812,7 +1005,7 @@ func TestRemove(t *testing.T) {
 			makeAbs:  true,
 		},
 		{
-			name: "abs symlink: pointing outside is forced to descend",
+			name: "abs symlink: pointing outside removes link",
 			before: func(dir string) billy.Filesystem {
 				cwd := filepath.Join(dir, "current-dir")
 				outsideFile := filepath.Join(dir, "outside-cwd/file")
@@ -828,7 +1021,6 @@ func TestRemove(t *testing.T) {
 				return newBoundOS(cwd, true)
 			},
 			filename: "remove-abs-symlink",
-			wantErr:  notFoundError(),
 		},
 		{
 			name: "rel symlink: pointing outside is forced to descend",
@@ -874,6 +1066,54 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+func TestRemoveRemovesSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	target := filepath.Join(dir, "target-file")
+	link := filepath.Join(dir, "link")
+
+	err := os.WriteFile(target, []byte("target"), 0o600)
+	require.NoError(t, err)
+	err = os.Symlink("target-file", link)
+	require.NoError(t, err)
+
+	err = fs.Remove("link")
+	require.NoError(t, err)
+	_, err = os.Lstat(link)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	requireFileContents(t, target, []byte("target"))
+}
+
+func TestWindowsRemoveBackslashDotPaths(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("backslash is only a path separator on windows")
+	}
+
+	t.Run("dot backslash file", func(t *testing.T) {
+		dir := t.TempDir()
+		fs := newBoundOS(dir, true)
+
+		filename := filepath.Join(dir, "test-file")
+		err := os.WriteFile(filename, []byte("anything"), 0o600)
+		require.NoError(t, err)
+
+		err = fs.Remove(`.\test-file`)
+		require.NoError(t, err)
+		mustNotExist(filename)
+	})
+
+	for _, path := range windowsBackslashBaseDirAliases() {
+		t.Run(path, func(t *testing.T) {
+			dir := t.TempDir()
+			fs := newBoundOS(dir, true)
+
+			err := fs.Remove(path)
+			require.ErrorIs(t, err, billy.ErrBaseDirCannotBeRemoved)
+			mustExist(dir)
+		})
+	}
+}
+
 func TestRemoveAll(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -895,6 +1135,31 @@ func TestRemoveAll(t *testing.T) {
 		{
 			name:     "inexistent dir",
 			filename: "inexistent",
+		},
+		{
+			name:     "base dir as empty path",
+			filename: "",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot",
+			filename: ".",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as dot slash",
+			filename: "./",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute parent",
+			filename: "/..",
+			wantErr:  "base dir cannot be removed",
+		},
+		{
+			name:     "base dir as absolute child parent",
+			filename: "/foo/..",
+			wantErr:  "base dir cannot be removed",
 		},
 		{
 			name: "same dir file",
@@ -920,7 +1185,7 @@ func TestRemoveAll(t *testing.T) {
 			filename: "symlink",
 		},
 		{
-			name: "rel path to file above cwd",
+			name: "rel parent traversal removes file under cwd",
 			before: func(t *testing.T, dir string) billy.Filesystem {
 				t.Helper()
 				err := os.WriteFile(filepath.Join(dir, "rel-above-cwd"), []byte("anything"), 0o600)
@@ -975,6 +1240,90 @@ func TestRemoveAll(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestRemoveAllRemovesSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fs, ok := newBoundOS(dir, true).(*BoundOS)
+	require.True(t, ok)
+	target := filepath.Join(dir, "target-dir")
+	link := filepath.Join(dir, "link")
+
+	err := os.Mkdir(target, 0o700)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(target, "file"), []byte("target"), 0o600)
+	require.NoError(t, err)
+	err = os.Symlink("target-dir", link)
+	require.NoError(t, err)
+
+	err = fs.RemoveAll("link")
+	require.NoError(t, err)
+	_, err = os.Lstat(link)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	requireFileContents(t, filepath.Join(target, "file"), []byte("target"))
+}
+
+func TestWindowsRemoveAllBackslashDotPaths(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("backslash is only a path separator on windows")
+	}
+
+	t.Run("dot backslash file", func(t *testing.T) {
+		dir := t.TempDir()
+		fs, ok := newBoundOS(dir, true).(*BoundOS)
+		require.True(t, ok)
+
+		filename := filepath.Join(dir, "test-file")
+		err := os.WriteFile(filename, []byte("anything"), 0o600)
+		require.NoError(t, err)
+
+		err = fs.RemoveAll(`.\test-file`)
+		require.NoError(t, err)
+		mustNotExist(filename)
+	})
+
+	for _, path := range windowsBackslashBaseDirAliases() {
+		t.Run(path, func(t *testing.T) {
+			dir := t.TempDir()
+			fs, ok := newBoundOS(dir, true).(*BoundOS)
+			require.True(t, ok)
+
+			err := fs.RemoveAll(path)
+			require.ErrorIs(t, err, billy.ErrBaseDirCannotBeRemoved)
+			mustExist(dir)
+		})
+	}
+}
+
+func TestRemoveBaseDirAbsolutePath(t *testing.T) {
+	tests := []struct {
+		name   string
+		remove func(fs *BoundOS, path string) error
+	}{
+		{
+			name: "remove",
+			remove: func(fs *BoundOS, path string) error {
+				return fs.Remove(path)
+			},
+		},
+		{
+			name: "remove all",
+			remove: func(fs *BoundOS, path string) error {
+				return fs.RemoveAll(path)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			fs, ok := newBoundOS(dir, true).(*BoundOS)
+			require.True(t, ok)
+
+			err := tt.remove(fs, dir)
+			require.ErrorIs(t, err, billy.ErrBaseDirCannotBeRemoved)
+			mustExist(dir)
 		})
 	}
 }
@@ -1204,6 +1553,23 @@ func TestAbs(t *testing.T) {
 	}
 }
 
+func TestAbsReturnsSecureJoinError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation requires additional privileges on windows")
+	}
+
+	dir := t.TempDir()
+	fs, ok := newBoundOS(dir, true).(*BoundOS)
+	require.True(t, ok)
+
+	err := os.Symlink("loop", filepath.Join(dir, "loop"))
+	require.NoError(t, err)
+
+	got, err := fs.abs(filepath.Join("loop", "file"))
+	require.Error(t, err)
+	assert.Empty(t, got)
+}
+
 func TestReadDir(t *testing.T) {
 	assert := assert.New(t)
 	dir := t.TempDir()
@@ -1236,18 +1602,14 @@ func TestReadDir(t *testing.T) {
 	assert.Nil(dirs)
 }
 
-func TestInsideBaseDirEval(t *testing.T) {
-	assert := assert.New(t)
+func TestAbsNoFollowRootRelativePath(t *testing.T) {
+	root := t.TempDir()
+	fs, ok := newBoundOS(root, true).(*BoundOS)
+	require.True(t, ok)
 
-	fs := BoundOS{baseDir: "/"}
-	b, err := fs.insideBaseDirEval("a")
-	assert.True(b)
+	got, err := fs.absNoFollow(filepath.Join("a", "..", "b", "file"))
 	require.NoError(t, err)
-
-	fs = BoundOS{baseDir: ""}
-	b, err = fs.insideBaseDirEval(filepath.Join("a", "b", "c"))
-	assert.True(b)
-	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(root, "b", "file"), got)
 }
 
 func TestMkdirAll(t *testing.T) {
@@ -1334,11 +1696,97 @@ func TestRename(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
+func TestRenameRenamesSymlink(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+	target := filepath.Join(dir, "target-file")
+	link := filepath.Join(dir, "link")
+	renamed := filepath.Join(dir, "renamed-link")
+
+	err := os.WriteFile(target, []byte("target"), 0o600)
+	require.NoError(t, err)
+	err = os.Symlink("target-file", link)
+	require.NoError(t, err)
+
+	err = fs.Rename("link", "renamed-link")
+	require.NoError(t, err)
+	_, err = os.Lstat(link)
+	require.ErrorIs(t, err, os.ErrNotExist)
+
+	fi, err := os.Lstat(renamed)
+	require.NoError(t, err)
+	assert.NotZero(t, fi.Mode()&os.ModeSymlink)
+	got, err := os.Readlink(renamed)
+	require.NoError(t, err)
+	assert.Equal(t, "target-file", got)
+	requireFileContents(t, target, []byte("target"))
+}
+
+func TestRenameBaseDir(t *testing.T) {
+	dir := t.TempDir()
+	fs := newBoundOS(dir, true)
+
+	for _, from := range []string{"", ".", "./", "/..", "/foo/..", dir} {
+		err := fs.Rename(from, "renamed")
+		require.ErrorIs(t, err, billy.ErrBaseDirCannotBeRenamed)
+		mustExist(dir)
+	}
+}
+
+func TestWindowsRenameBackslashDotPaths(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("backslash is only a path separator on windows")
+	}
+
+	t.Run("dot backslash file", func(t *testing.T) {
+		dir := t.TempDir()
+		fs := newBoundOS(dir, true)
+
+		oldPath := filepath.Join(dir, "test-file")
+		newPath := filepath.Join(dir, "renamed")
+		err := os.WriteFile(oldPath, []byte("anything"), 0o600)
+		require.NoError(t, err)
+
+		err = fs.Rename(`.\test-file`, "renamed")
+		require.NoError(t, err)
+		mustNotExist(oldPath)
+		mustExist(newPath)
+	})
+
+	for _, path := range windowsBackslashBaseDirAliases() {
+		t.Run(path, func(t *testing.T) {
+			dir := t.TempDir()
+			fs := newBoundOS(dir, true)
+
+			err := fs.Rename(path, "renamed")
+			require.ErrorIs(t, err, billy.ErrBaseDirCannotBeRenamed)
+			mustExist(dir)
+		})
+	}
+}
+
+func windowsBackslashBaseDirAliases() []string {
+	return []string{`.\..`, `\..`, `\foo\..`}
+}
+
 func mustExist(filename string) {
 	fi, err := os.Stat(filename)
 	if err != nil || fi == nil {
 		panic(fmt.Sprintf("file %s should exist", filename))
 	}
+}
+
+func mustNotExist(filename string) {
+	if _, err := os.Stat(filename); !os.IsNotExist(err) {
+		panic(fmt.Sprintf("file %s should not exist", filename))
+	}
+}
+
+func requireFileContents(t *testing.T, filename string, want []byte) {
+	t.Helper()
+	got, err := os.ReadFile(filename)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
 }
 
 func notFoundError() string {
