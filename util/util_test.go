@@ -60,7 +60,6 @@ func TestReadFile(t *testing.T) {
 	if string(data) != "foo" || err != nil {
 		t.Errorf("ReadFile(%q, %q) = %v, %v", fs, f.Name(), data, err)
 	}
-
 }
 
 func TestTempDir(t *testing.T) {
