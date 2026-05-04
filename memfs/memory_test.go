@@ -472,6 +472,25 @@ func TestSymlink(t *testing.T) {
 	assert.Nil(t, fi)
 }
 
+func TestRenameLeavesSiblingPrefix(t *testing.T) {
+	fs := New()
+	require.NoError(t, util.WriteFile(fs, "foo/file", []byte("renamed"), 0o644))
+	require.NoError(t, util.WriteFile(fs, "foobar/file", []byte("sibling"), 0o644))
+
+	require.NoError(t, fs.Rename("foo", "bar"))
+
+	data, err := util.ReadFile(fs, "bar/file")
+	require.NoError(t, err)
+	assert.Equal(t, []byte("renamed"), data)
+
+	data, err = util.ReadFile(fs, "foobar/file")
+	require.NoError(t, err)
+	assert.Equal(t, []byte("sibling"), data)
+
+	_, err = fs.Stat("foo/file")
+	assert.ErrorIs(t, err, os.ErrNotExist)
+}
+
 func TestThreadSafety(t *testing.T) {
 	fs := New()
 
