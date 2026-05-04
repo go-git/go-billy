@@ -2,6 +2,7 @@ package util_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	iofs "io/fs"
 	"os"
@@ -186,6 +187,41 @@ func TestWriteFile_Sync(t *testing.T) {
 
 	assert.Len(t, fs.CallLogger.Calls, 1)
 	assert.Equal(t, "Sync TestWriteFile.txt", fs.CallLogger.Calls[0])
+}
+
+func TestWriteFileSyncPreservesWriteError(t *testing.T) {
+	writeErr := errors.New("write failed")
+	file := &writeErrorSyncFile{writeErr: writeErr}
+	fs := &writeErrorSyncFS{file: file}
+
+	err := util.WriteFile(fs, "file", []byte("content"), 0o644)
+	require.ErrorIs(t, err, writeErr)
+	assert.False(t, file.syncCalled)
+}
+
+type writeErrorSyncFS struct {
+	test.BasicMock
+	file billy.File
+}
+
+func (fs *writeErrorSyncFS) OpenFile(filename string, flag int, mode iofs.FileMode) (billy.File, error) {
+	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]interface{}{filename, flag, mode})
+	return fs.file, nil
+}
+
+type writeErrorSyncFile struct {
+	test.FileMock
+	writeErr   error
+	syncCalled bool
+}
+
+func (f *writeErrorSyncFile) Write(_ []byte) (int, error) {
+	return 0, f.writeErr
+}
+
+func (f *writeErrorSyncFile) Sync() error {
+	f.syncCalled = true
+	return nil
 }
 
 func TestRemoveAllWithScopedFilesystems(t *testing.T) {
