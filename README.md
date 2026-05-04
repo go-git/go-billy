@@ -8,8 +8,7 @@ Billy was born as part of [go-git/go-git](https://github.com/go-git/go-git) proj
 ## Installation
 
 ```go
-import "github.com/go-git/go-billy/v6" // with go modules enabled (GO111MODULE=on or outside GOPATH)
-import "github.com/go-git/go-billy" // with go modules disabled
+import "github.com/go-git/go-billy/v6"
 ```
 
 ## Usage
