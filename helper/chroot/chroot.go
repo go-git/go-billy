@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -18,6 +19,8 @@ type ChrootHelper struct {
 	underlying billy.Filesystem
 	base       string
 }
+
+const maxFollowedSymlinks = 8 // Aligns with POSIX_SYMLOOP_MAX
 
 // New creates a new filesystem wrapping up the given 'fs'.
 // The created filesystem has its base in the given ChrootHelperectory of the
@@ -37,6 +40,168 @@ func (fs *ChrootHelper) underlyingPath(filename string) (string, error) {
 	return fs.Join(fs.Root(), filename), nil
 }
 
+func (fs *ChrootHelper) followedPath(filename string, followFinal bool) (string, error) {
+	fullpath, err := fs.underlyingPath(filename)
+	if err != nil {
+		return "", err
+	}
+
+	sl, ok := fs.underlying.(billy.Symlink)
+	if !ok {
+		return fullpath, nil
+	}
+
+	rel, err := fs.relativeToRoot(fullpath)
+	if err != nil {
+		return "", err
+	}
+
+	fullpath, err = fs.resolveFollowedPath(rel, followFinal, sl)
+	if errors.Is(err, billy.ErrNotSupported) {
+		return fs.underlyingPath(filename)
+	}
+
+	return fullpath, err
+}
+
+func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl billy.Symlink) (string, error) {
+	if rel == "" {
+		return fs.resolveFollowedRoot(followFinal, sl)
+	}
+
+	parts := splitRelativePath(rel)
+	resolved := ""
+	followed := 0
+
+	for len(parts) > 0 {
+		part := parts[0]
+		parts = parts[1:]
+
+		currentRel := joinRelativePath(resolved, part)
+		currentPath := fs.Join(fs.Root(), currentRel)
+		if len(parts) == 0 && !followFinal {
+			return currentPath, nil
+		}
+
+		fi, err := sl.Lstat(currentPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fs.Join(fs.Root(), joinRelativePath(append([]string{currentRel}, parts...)...)), nil
+			}
+			return "", err
+		}
+
+		if fi == nil || fi.Mode()&os.ModeSymlink == 0 {
+			resolved = currentRel
+			continue
+		}
+
+		followed++
+		if followed > maxFollowedSymlinks {
+			return "", &os.PathError{Op: "open", Path: currentPath, Err: syscall.ELOOP}
+		}
+
+		target, err := sl.Readlink(currentPath)
+		if err != nil {
+			return "", err
+		}
+
+		targetRel, err := fs.linkTargetRel(currentPath, target)
+		if err != nil {
+			return "", err
+		}
+		if targetRel == currentRel {
+			resolved = currentRel
+			continue
+		}
+
+		parts = append(splitRelativePath(targetRel), parts...)
+		resolved = ""
+	}
+
+	return fs.Join(fs.Root(), resolved), nil
+}
+
+func (fs *ChrootHelper) resolveFollowedRoot(followFinal bool, sl billy.Symlink) (string, error) {
+	root := fs.Join(fs.Root(), "")
+	if !followFinal {
+		return root, nil
+	}
+
+	fi, err := sl.Lstat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return root, nil
+		}
+		return "", err
+	}
+
+	if fi == nil || fi.Mode()&os.ModeSymlink == 0 {
+		return root, nil
+	}
+
+	target, err := sl.Readlink(root)
+	if err != nil {
+		return "", err
+	}
+
+	targetRel, err := fs.linkTargetRel(root, target)
+	if err != nil || targetRel == "" {
+		return root, err
+	}
+
+	return fs.resolveFollowedPath(targetRel, followFinal, sl)
+}
+
+func (fs *ChrootHelper) relativeToRoot(filename string) (string, error) {
+	rel, err := filepath.Rel(filepath.Clean(fs.Root()), filepath.Clean(filename))
+	if err != nil || isCrossBoundaries(rel) {
+		return "", billy.ErrCrossedBoundary
+	}
+
+	if rel == "." {
+		return "", nil
+	}
+	return rel, nil
+}
+
+func (fs *ChrootHelper) linkTargetRel(linkPath, target string) (string, error) {
+	target = filepath.FromSlash(target)
+	if filepath.IsAbs(target) || strings.HasPrefix(target, string(filepath.Separator)) {
+		return fs.relativeToRoot(target)
+	}
+
+	return fs.relativeToRoot(fs.Join(filepath.Dir(linkPath), target))
+}
+
+func splitRelativePath(filename string) []string {
+	filename = filepath.Clean(filename)
+	if filename == "" || filename == "." {
+		return nil
+	}
+
+	return strings.Split(filepath.ToSlash(filename), "/")
+}
+
+func joinRelativePath(elem ...string) string {
+	parts := make([]string, 0, len(elem))
+	for _, part := range elem {
+		if part == "" || part == "." {
+			continue
+		}
+		parts = append(parts, part)
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return filepath.Join(parts...)
+}
+
+func isCreateExclusive(flag int) bool {
+	return flag&os.O_CREATE != 0 && flag&os.O_EXCL != 0
+}
+
 func isCrossBoundaries(name string) bool {
 	name = filepath.ToSlash(name)
 	name = strings.TrimLeft(name, "/")
@@ -46,7 +211,7 @@ func isCrossBoundaries(name string) bool {
 }
 
 func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
-	fullpath, err := fs.underlyingPath(filename)
+	fullpath, err := fs.followedPath(filename, true)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +225,7 @@ func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
-	fullpath, err := fs.underlyingPath(filename)
+	fullpath, err := fs.followedPath(filename, true)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +239,7 @@ func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) OpenFile(filename string, flag int, mode os.FileMode) (billy.File, error) {
-	fullpath, err := fs.underlyingPath(filename)
+	fullpath, err := fs.followedPath(filename, !isCreateExclusive(flag))
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +253,16 @@ func (fs *ChrootHelper) OpenFile(filename string, flag int, mode os.FileMode) (b
 }
 
 func (fs *ChrootHelper) Stat(filename string) (os.FileInfo, error) {
-	fullpath, err := fs.underlyingPath(filename)
+	fullpath, err := fs.followedPath(filename, true)
 	if err != nil {
 		return nil, err
 	}
 
-	return fs.underlying.Stat(fullpath)
+	fi, err := fs.underlying.Stat(fullpath)
+	if err != nil {
+		return nil, err
+	}
+	return fileInfo{FileInfo: fi, name: filepath.Base(filename)}, nil
 }
 
 func (fs *ChrootHelper) Rename(from, to string) error {
@@ -139,7 +308,7 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) ReadDir(path string) ([]os.FileInfo, error) {
-	fullpath, err := fs.underlyingPath(path)
+	fullpath, err := fs.followedPath(path, true)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +414,11 @@ type file struct {
 	name string
 }
 
+type fileInfo struct {
+	os.FileInfo
+	name string
+}
+
 func newFile(fs billy.Filesystem, f billy.File, filename string) billy.File {
 	filename = fs.Join(fs.Root(), filename)
 	filename, _ = filepath.Rel(fs.Root(), filename)
@@ -257,4 +431,8 @@ func newFile(fs billy.Filesystem, f billy.File, filename string) billy.File {
 
 func (f *file) Name() string {
 	return f.name
+}
+
+func (fi fileInfo) Name() string {
+	return fi.name
 }

@@ -4,9 +4,9 @@ import (
 	"os"
 	"runtime"
 
-	. "gopkg.in/check.v1"
 	. "github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/util"
+	. "gopkg.in/check.v1"
 )
 
 // FilesystemSuite is a convenient test suite to validate any implementation of
@@ -122,9 +122,13 @@ func (s *FilesystemSuite) TestSymlinkWithChrootCrossBounders(c *C) {
 	err := qux.Symlink("../../file", "qux/link")
 	c.Assert(err, Equals, nil)
 
-	fi, err := qux.Stat("qux/link")
+	fi, err := qux.Lstat("qux/link")
 	c.Assert(fi, NotNil)
 	c.Assert(err, Equals, nil)
+
+	fi, err = qux.Stat("qux/link")
+	c.Assert(fi, IsNil)
+	c.Assert(err, Equals, ErrCrossedBoundary)
 }
 
 func (s *FilesystemSuite) TestReadDirWithLink(c *C) {
