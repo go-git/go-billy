@@ -91,7 +91,7 @@ func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl bil
 			return "", err
 		}
 
-		if fi == nil || fi.Mode()&os.ModeSymlink == 0 {
+		if fi.Mode()&os.ModeSymlink == 0 {
 			resolved = currentRel
 			continue
 		}
@@ -136,7 +136,7 @@ func (fs *ChrootHelper) resolveFollowedRoot(followFinal bool, sl billy.Symlink) 
 		return "", err
 	}
 
-	if fi == nil || fi.Mode()&os.ModeSymlink == 0 {
+	if fi.Mode()&os.ModeSymlink == 0 {
 		return root, nil
 	}
 

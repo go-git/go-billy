@@ -1,12 +1,11 @@
 package mount
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"fmt"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -211,7 +210,7 @@ func (fs *Mount) mustRelToMountpoint(path string) string {
 
 func (fs *Mount) isMountpoint(path string) bool {
 	path = cleanPath(path)
-	return strings.HasPrefix(path, fs.mountpoint)
+	return path == fs.mountpoint || strings.HasPrefix(path, fs.mountpoint+separator)
 }
 
 func cleanPath(path string) string {

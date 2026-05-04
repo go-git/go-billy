@@ -92,6 +92,16 @@ func (s *MountSuite) TestOpenInMount(c *C) {
 	c.Assert(s.Source.OpenArgs[0], Equals, filepath.Join("bar", "qux"))
 }
 
+func (s *MountSuite) TestOpenMountPointPrefix(c *C) {
+	f, err := s.Helper.Open("foobar/qux")
+	c.Assert(err, IsNil)
+	c.Assert(f.Name(), Equals, filepath.Join("foobar", "qux"))
+
+	c.Assert(s.Underlying.OpenArgs, HasLen, 1)
+	c.Assert(s.Underlying.OpenArgs[0], Equals, filepath.Join("foobar", "qux"))
+	c.Assert(s.Source.OpenArgs, HasLen, 0)
+}
+
 func (s *MountSuite) TestOpenFile(c *C) {
 	f, err := s.Helper.OpenFile("bar/qux", 42, 0777)
 	c.Assert(err, IsNil)
@@ -320,6 +330,25 @@ func (s *MountSuite) TestReadlinkInMount(c *C) {
 	c.Assert(s.Underlying.ReadlinkArgs, HasLen, 0)
 	c.Assert(s.Source.ReadlinkArgs, HasLen, 1)
 	c.Assert(s.Source.ReadlinkArgs[0], Equals, filepath.Join("bar", "qux"))
+}
+
+func (s *MountSuite) TestIsMountpoint(c *C) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "foo", want: true},
+		{path: "/foo", want: true},
+		{path: "foo/bar", want: true},
+		{path: "/foo/bar", want: true},
+		{path: "foobar", want: false},
+		{path: "/foobar/qux", want: false},
+		{path: "bar/foo", want: false},
+	}
+
+	for _, tt := range tests {
+		c.Assert(s.Helper.isMountpoint(tt.path), Equals, tt.want, Commentf("path: %q", tt.path))
+	}
 }
 
 func (s *MountSuite) TestUnderlyingNotSupported(c *C) {
