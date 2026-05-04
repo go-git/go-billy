@@ -19,7 +19,7 @@ const (
 )
 
 // Default Filesystem representing the root of the os filesystem.
-var Default = &BoundOS{}
+var Default = newBoundOS(string(os.PathSeparator), true)
 
 // New returns a new OS filesystem.
 // By default paths are deduplicated, but still enforced
