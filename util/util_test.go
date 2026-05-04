@@ -1,6 +1,8 @@
 package util_test
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -65,6 +67,85 @@ func TestReadFile(t *testing.T) {
 
 	if string(data) != "foo" || err != nil {
 		t.Errorf("ReadFile(%q, %q) = %v, %v", fs, f.Name(), data, err)
+	}
+}
+
+func TestReadFileCases(t *testing.T) {
+	t.Parallel()
+
+	memFile := func(name string, content []byte) func(t *testing.T) (billy.Basic, string) {
+		return func(t *testing.T) (billy.Basic, string) {
+			t.Helper()
+			fs := memfs.New()
+			require.NoError(t, util.WriteFile(fs, name, content, 0o644))
+			return fs, name
+		}
+	}
+
+	type readFileCase struct {
+		name    string
+		setup   func(t *testing.T) (billy.Basic, string)
+		want    []byte
+		wantErr error
+	}
+
+	tests := []readFileCase{
+		{name: "empty", setup: memFile("empty", nil), want: []byte{}},
+		{name: "binary", setup: memFile("bin", []byte{0x00, 0x01, 0x7f, 0x80, 0xfe, 0xff, 0x00}), want: []byte{0x00, 0x01, 0x7f, 0x80, 0xfe, 0xff, 0x00}},
+		{
+			name: "missing",
+			setup: func(t *testing.T) (billy.Basic, string) {
+				t.Helper()
+				return memfs.New(), "missing"
+			},
+			wantErr: os.ErrNotExist,
+		},
+		{
+			name: "symlink",
+			setup: func(t *testing.T) (billy.Basic, string) {
+				t.Helper()
+				fs := memfs.New()
+				require.NoError(t, util.WriteFile(fs, "target", []byte("hello"), 0o644))
+				require.NoError(t, fs.Symlink("target", "link"))
+				return fs, "link"
+			},
+			want: []byte("hello"),
+		},
+		{
+			name: "os fs",
+			setup: func(t *testing.T) (billy.Basic, string) {
+				t.Helper()
+				dir := t.TempDir()
+				content := bytes.Repeat([]byte("xyz"), 1024)
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "file"), content, 0o644))
+				return osfs.New(dir), "file"
+			},
+			want: bytes.Repeat([]byte("xyz"), 1024),
+		},
+	}
+
+	for _, size := range []int{1, 511, 512, 513, 1024, 4096, 1 << 16} {
+		content := bytes.Repeat([]byte{'a'}, size)
+		tests = append(tests, readFileCase{
+			name:  fmt.Sprintf("%d bytes", size),
+			setup: memFile("f", content),
+			want:  content,
+		})
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fs, name := tt.setup(t)
+			data, err := util.ReadFile(fs, name)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, data)
+		})
 	}
 }
 
