@@ -1,4 +1,9 @@
-// Package memfs provides a billy filesystem base on memory.
+// Package memfs provides a billy filesystem backed by memory.
+//
+// Filesystems created by this package are ephemeral and process-local: data is
+// not persisted and disappears when the filesystem is discarded or the process
+// exits. memfs is useful for tests and temporary data, but is not a persistence
+// layer.
 package memfs // import "github.com/go-git/go-billy/v6/memfs"
 
 import (
@@ -25,13 +30,19 @@ const (
 	defaultFileMode = 0o666
 )
 
-// Memory a very convenient filesystem based on memory files.
+// Memory is a convenient filesystem based on memory files.
+//
+// All filesystem data is loaded into memory. Users should ensure enough memory
+// is available for the data they intend to store.
 type Memory struct {
 	s     *storage
 	umask uint32
 }
 
 // New returns a new Memory filesystem.
+//
+// The returned value is a billy.Filesystem wrapped with the chroot helper, not
+// the raw *Memory implementation.
 func New(opts ...Option) billy.Filesystem {
 	o := &options{}
 	// Aligns default umask with general Windows behaviour.
@@ -202,6 +213,8 @@ func (fs *Memory) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
+// Symlink creates link with target stored as provided. The target may point to
+// a missing path.
 func (fs *Memory) Symlink(target, link string) error {
 	_, err := fs.Lstat(link)
 	if err == nil {
@@ -215,6 +228,7 @@ func (fs *Memory) Symlink(target, link string) error {
 	return util.WriteFile(fs, link, []byte(target), 0o777|os.ModeSymlink)
 }
 
+// Readlink returns the target stored for link without resolving it.
 func (fs *Memory) Readlink(link string) (string, error) {
 	f, has := fs.s.Get(link)
 	if !has {
