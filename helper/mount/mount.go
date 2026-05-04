@@ -16,7 +16,7 @@ import (
 var separator = string(filepath.Separator)
 
 // Mount is a helper that allows to emulate the behavior of mount in memory.
-// Very usufull to create a temporal dir, on filesystem where is a performance
+// Very useful to create a temporal dir, on filesystem where is a performance
 // penalty in doing so.
 type Mount struct {
 	underlying billy.Filesystem

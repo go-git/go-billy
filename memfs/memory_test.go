@@ -5,8 +5,10 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -313,6 +315,110 @@ func TestSymlink2(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestChrootSymlinkResolution(t *testing.T) {
+	fs := New()
+	require.NoError(t, util.WriteFile(fs, "file", []byte("outer"), 0o644))
+	require.NoError(t, util.WriteFile(fs, "dir/file", []byte("outer-dir"), 0o644))
+
+	chroot, err := fs.Chroot("base")
+	require.NoError(t, err)
+	require.NoError(t, chroot.MkdirAll("nested", 0o755))
+	require.NoError(t, chroot.Symlink("../../file", "nested/file-link"))
+	require.NoError(t, chroot.Symlink("../../dir", "nested/dir-link"))
+
+	fi, err := chroot.Lstat("nested/file-link")
+	require.NoError(t, err)
+	assert.True(t, fi.Mode()&os.ModeSymlink != 0)
+
+	target, err := chroot.Readlink("nested/file-link")
+	require.NoError(t, err)
+	assert.Equal(t, filepath.FromSlash("../../file"), target)
+
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{
+			name: "create",
+			run: func() error {
+				f, err := chroot.Create("nested/file-link")
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "open file",
+			run: func() error {
+				f, err := chroot.OpenFile("nested/file-link", os.O_RDONLY, 0)
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "open",
+			run: func() error {
+				f, err := chroot.Open("nested/file-link")
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "stat",
+			run: func() error {
+				_, err := chroot.Stat("nested/file-link")
+				return err
+			},
+		},
+		{
+			name: "read dir",
+			run: func() error {
+				_, err := chroot.ReadDir("nested/dir-link")
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.ErrorIs(t, tt.run(), billy.ErrCrossedBoundary)
+		})
+	}
+
+	require.NoError(t, fs.Symlink("file", "root-link"))
+	rootChroot, err := fs.Chroot("root-link")
+	require.NoError(t, err)
+
+	_, err = rootChroot.Open("/")
+	require.ErrorIs(t, err, billy.ErrCrossedBoundary)
+
+	_, err = rootChroot.Stat("/")
+	require.ErrorIs(t, err, billy.ErrCrossedBoundary)
+
+	data, err := util.ReadFile(fs, "file")
+	require.NoError(t, err)
+	assert.Equal(t, []byte("outer"), data)
+}
+
+func TestChrootSymlinkResolutionLoop(t *testing.T) {
+	fs := New()
+	require.NoError(t, fs.Symlink("b", "a"))
+	require.NoError(t, fs.Symlink("a", "b"))
+
+	f, err := fs.Open("a")
+	assert.Nil(t, f)
+	require.ErrorIs(t, err, syscall.ELOOP)
+
+	var pathErr *os.PathError
+	require.ErrorAs(t, err, &pathErr)
+	assert.Equal(t, "open", pathErr.Op)
 }
 
 func TestJoin(t *testing.T) {
