@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	. "github.com/go-git/go-billy/v6" //nolint
+	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,9 +131,15 @@ func TestFS_SymlinkWithChrootCrossBounders(t *testing.T) {
 		err = qux.Symlink("../../file", "qux/link")
 		assert.Equal(t, err, nil)
 
-		fi, err := qux.Stat("qux/link")
+		fi, err := qux.Lstat("qux/link")
 		assert.NotNil(t, fi)
-		assert.Equal(t, err, nil)
+		assert.NoError(t, err)
+
+		if _, ok := qux.(*osfs.BoundOS); ok {
+			fi, err = qux.Stat("qux/link")
+			assert.Nil(t, fi, fs)
+			assert.ErrorIs(t, err, os.ErrNotExist)
+		}
 	})
 }
 
