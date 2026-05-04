@@ -230,7 +230,7 @@ func (h *Mount) mustRelToMountpoint(path string) string {
 
 func (h *Mount) isMountpoint(path string) bool {
 	path = cleanPath(path)
-	return strings.HasPrefix(path, h.mountpoint)
+	return path == h.mountpoint || strings.HasPrefix(path, h.mountpoint+separator)
 }
 
 func cleanPath(path string) string {

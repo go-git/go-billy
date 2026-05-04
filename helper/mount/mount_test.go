@@ -94,6 +94,17 @@ func TestOpenInMount(t *testing.T) {
 	assert.Equal(t, source.OpenArgs[0], filepath.Join("bar", "qux"))
 }
 
+func TestOpenMountPointPrefix(t *testing.T) {
+	helper, underlying, source := setup()
+	f, err := helper.Open("foobar/qux")
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join("foobar", "qux"), f.Name())
+
+	assert.Len(t, underlying.OpenArgs, 1)
+	assert.Equal(t, filepath.Join("foobar", "qux"), underlying.OpenArgs[0])
+	assert.Empty(t, source.OpenArgs)
+}
+
 func TestOpenFile(t *testing.T) {
 	helper, underlying, source := setup()
 	f, err := helper.OpenFile("bar/qux", 42, 0o777)
@@ -345,6 +356,28 @@ func TestReadlinkInMount(t *testing.T) {
 	assert.Empty(t, underlying.ReadlinkArgs)
 	assert.Len(t, source.ReadlinkArgs, 1)
 	assert.Equal(t, source.ReadlinkArgs[0], filepath.Join("bar", "qux"))
+}
+
+func TestIsMountpoint(t *testing.T) {
+	helper, _, _ := setup()
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "foo", want: true},
+		{path: "/foo", want: true},
+		{path: "foo/bar", want: true},
+		{path: "/foo/bar", want: true},
+		{path: "foobar", want: false},
+		{path: "/foobar/qux", want: false},
+		{path: "bar/foo", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			assert.Equal(t, tt.want, helper.isMountpoint(tt.path))
+		})
+	}
 }
 
 func TestUnderlyingNotSupported(t *testing.T) {
