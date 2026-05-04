@@ -6,8 +6,10 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/internal/test"
 	"github.com/go-git/go-billy/v6/memfs"
+	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-billy/v6/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,4 +104,66 @@ func TestWriteFile_Sync(t *testing.T) {
 
 	assert.Len(t, fs.CallLogger.Calls, 1)
 	assert.Equal(t, "Sync TestWriteFile.txt", fs.CallLogger.Calls[0])
+}
+
+func TestRemoveAllWithScopedFilesystems(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) (billy.Basic, string, func(t *testing.T))
+		wantErr error
+	}{
+		{
+			name: "bound os sibling file",
+			setup: func(t *testing.T) (billy.Basic, string, func(t *testing.T)) {
+				t.Helper()
+
+				tmp := t.TempDir()
+				base := filepath.Join(tmp, "base")
+				require.NoError(t, os.MkdirAll(base, 0o755))
+
+				sibling := filepath.Join(tmp, "sibling")
+				require.NoError(t, os.WriteFile(sibling, []byte("keep"), 0o644))
+
+				return osfs.New(base), "../sibling", func(t *testing.T) {
+					t.Helper()
+					data, err := os.ReadFile(sibling)
+					require.NoError(t, err)
+					assert.Equal(t, []byte("keep"), data)
+				}
+			},
+		},
+		{
+			name: "nested memory parent file",
+			setup: func(t *testing.T) (billy.Basic, string, func(t *testing.T)) {
+				t.Helper()
+
+				root := memfs.New()
+				require.NoError(t, util.WriteFile(root, "/parent-file", []byte("keep"), 0o644))
+
+				sub, err := root.Chroot("/sub")
+				require.NoError(t, err)
+
+				return sub, "../parent-file", func(t *testing.T) {
+					t.Helper()
+					data, err := util.ReadFile(root, "/parent-file")
+					require.NoError(t, err)
+					assert.Equal(t, []byte("keep"), data)
+				}
+			},
+			wantErr: billy.ErrCrossedBoundary,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, path, verify := tt.setup(t)
+			err := util.RemoveAll(fs, path)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			verify(t)
+		})
+	}
 }

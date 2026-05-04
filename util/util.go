@@ -23,8 +23,6 @@ const (
 // can but returns the first error it encounters. If the path does not exist,
 // RemoveAll returns nil (no error).
 func RemoveAll(fs billy.Basic, path string) error {
-	fs, path = getUnderlyingAndPath(fs, path)
-
 	if r, ok := fs.(removerAll); ok {
 		return r.RemoveAll(path)
 	}
@@ -232,22 +230,6 @@ func getTempDir(fs billy.Basic) string {
 	}
 
 	return ".tmp"
-}
-
-type underlying interface {
-	Underlying() billy.Basic
-}
-
-func getUnderlyingAndPath(fs billy.Basic, path string) (billy.Basic, string) {
-	u, ok := fs.(underlying)
-	if !ok {
-		return fs, path
-	}
-	if ch, ok := fs.(billy.Chroot); ok {
-		path = fs.Join(ch.Root(), path)
-	}
-
-	return u.Underlying(), path
 }
 
 // ReadFile reads the named file and returns the contents from the given filesystem.
