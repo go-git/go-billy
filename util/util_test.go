@@ -3,6 +3,7 @@ package util_test
 import (
 	"bytes"
 	"fmt"
+	iofs "io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -247,4 +248,65 @@ func TestRemoveAllWithScopedFilesystems(t *testing.T) {
 			verify(t)
 		})
 	}
+}
+
+func TestRemoveAllDoesNotFollowSymlinkAfterRemoveFailure(t *testing.T) {
+	backing := memfs.New()
+	require.NoError(t, util.WriteFile(backing, "target/file", []byte("keep"), 0o644))
+	require.NoError(t, backing.Symlink("target", "link"))
+
+	removeErr := &os.PathError{Op: "remove", Path: "link", Err: os.ErrPermission}
+	fs := &removeFailFS{
+		Filesystem: backing,
+		path:       "link",
+		err:        removeErr,
+	}
+
+	err := util.RemoveAll(fs, "link")
+	require.ErrorIs(t, err, os.ErrPermission)
+
+	assert.Equal(t, []string{"link"}, fs.removeArgs)
+	assert.Equal(t, []string{"link"}, fs.lstatArgs)
+	assert.Empty(t, fs.statArgs)
+	assert.Empty(t, fs.readDirArgs)
+
+	data, err := util.ReadFile(backing, "target/file")
+	require.NoError(t, err)
+	assert.Equal(t, []byte("keep"), data)
+}
+
+type removeFailFS struct {
+	billy.Filesystem
+
+	path string
+	err  error
+
+	removeArgs  []string
+	statArgs    []string
+	lstatArgs   []string
+	readDirArgs []string
+}
+
+func (fs *removeFailFS) Remove(filename string) error {
+	fs.removeArgs = append(fs.removeArgs, filename)
+	if filename == fs.path {
+		return fs.err
+	}
+
+	return fs.Filesystem.Remove(filename)
+}
+
+func (fs *removeFailFS) Stat(filename string) (os.FileInfo, error) {
+	fs.statArgs = append(fs.statArgs, filename)
+	return fs.Filesystem.Stat(filename)
+}
+
+func (fs *removeFailFS) ReadDir(path string) ([]iofs.DirEntry, error) {
+	fs.readDirArgs = append(fs.readDirArgs, path)
+	return fs.Filesystem.ReadDir(path)
+}
+
+func (fs *removeFailFS) Lstat(filename string) (os.FileInfo, error) {
+	fs.lstatArgs = append(fs.lstatArgs, filename)
+	return fs.Filesystem.Lstat(filename)
 }

@@ -44,7 +44,7 @@ func removeAll(fs billy.Basic, path string) error {
 	}
 
 	// Otherwise, is this a directory we need to recurse into?
-	dir, serr := fs.Stat(path)
+	dir, serr := lstat(fs, path)
 	if serr != nil {
 		if errors.Is(serr, os.ErrNotExist) {
 			return nil
@@ -53,8 +53,8 @@ func removeAll(fs billy.Basic, path string) error {
 		return serr
 	}
 
-	if !dir.IsDir() {
-		// Not a directory; return the error from Remove.
+	if dir.Mode()&os.ModeSymlink != 0 || !dir.IsDir() {
+		// Not a directory we should recurse into; return the error from Remove.
 		return err
 	}
 
@@ -67,7 +67,7 @@ func removeAll(fs billy.Basic, path string) error {
 	fis, err := dirfs.ReadDir(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// Race. It was deleted between the Lstat and Open.
+			// Race. It was deleted between the Lstat and ReadDir.
 			// Return nil per RemoveAll's docs.
 			return nil
 		}
@@ -96,6 +96,18 @@ func removeAll(fs billy.Basic, path string) error {
 	}
 
 	return err
+}
+
+func lstat(filesystem billy.Basic, path string) (fs.FileInfo, error) {
+	if sl, ok := filesystem.(billy.Symlink); ok {
+		// Avoid following a symlink substituted after the initial Remove fails.
+		fi, err := sl.Lstat(path)
+		if err == nil || !errors.Is(err, billy.ErrNotSupported) {
+			return fi, err
+		}
+	}
+
+	return filesystem.Stat(path)
 }
 
 // WriteFile writes data to a file named by filename in the given filesystem.
