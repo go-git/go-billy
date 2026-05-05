@@ -4,8 +4,10 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	iofs "io/fs"
 	"os"
 	"testing"
+	"testing/fstest"
 
 	"github.com/go-git/go-billy/v6"
 	"github.com/stretchr/testify/assert"
@@ -175,6 +177,83 @@ func TestStat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStatClosesOpenedFile(t *testing.T) {
+	fsys := &closeCountingFS{
+		FS: fstest.MapFS{
+			"file.txt": &fstest.MapFile{Data: []byte("content")},
+		},
+	}
+	fs := &Embed{underlying: fsys}
+
+	_, err := fs.Stat("file.txt")
+	require.NoError(t, err)
+	assert.Equal(t, fsys.opens, fsys.closes)
+}
+
+func TestOpenFileClosesInternalFiles(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr string
+	}{
+		{
+			name: "file",
+			path: "file.txt",
+		},
+		{
+			name:    "directory",
+			path:    "dir",
+			wantErr: "cannot open directory",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fsys := &closeCountingFS{
+				FS: fstest.MapFS{
+					"file.txt": &fstest.MapFile{Data: []byte("content")},
+					"dir/file": &fstest.MapFile{Data: []byte("nested")},
+				},
+			}
+			fs := &Embed{underlying: fsys}
+
+			f, err := fs.OpenFile(tc.path, os.O_RDONLY, 0)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.NoError(t, f.Close())
+			}
+			assert.Equal(t, fsys.opens, fsys.closes)
+		})
+	}
+}
+
+type closeCountingFS struct {
+	iofs.FS
+	opens  int
+	closes int
+}
+
+func (fs *closeCountingFS) Open(name string) (iofs.File, error) {
+	f, err := fs.FS.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	fs.opens++
+	return &closeCountingFile{File: f, fs: fs}, nil
+}
+
+type closeCountingFile struct {
+	iofs.File
+	fs *closeCountingFS
+}
+
+func (f *closeCountingFile) Close() error {
+	f.fs.closes++
+	return f.File.Close()
 }
 
 func TestReadDir(t *testing.T) {
