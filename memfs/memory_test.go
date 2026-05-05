@@ -1,16 +1,20 @@
 package memfs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/test"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	. "gopkg.in/check.v1"
 )
@@ -283,6 +287,178 @@ func TestSymlink(t *testing.T) {
 	}
 }
 
+func TestChrootSymlinkResolution(t *testing.T) {
+	fs := New()
+	require.NoError(t, util.WriteFile(fs, "file", []byte("outer"), 0o644))
+	require.NoError(t, util.WriteFile(fs, "dir/file", []byte("outer-dir"), 0o644))
+
+	chroot, err := fs.Chroot("base")
+	require.NoError(t, err)
+	require.NoError(t, chroot.MkdirAll("nested", 0o755))
+	require.NoError(t, chroot.Symlink("../../file", "nested/file-link"))
+	require.NoError(t, chroot.Symlink("../../dir", "nested/dir-link"))
+
+	fi, err := chroot.Lstat("nested/file-link")
+	require.NoError(t, err)
+	assert.True(t, fi.Mode()&os.ModeSymlink != 0)
+
+	target, err := chroot.Readlink("nested/file-link")
+	require.NoError(t, err)
+	assert.Equal(t, filepath.FromSlash("../../file"), target)
+
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{
+			name: "create",
+			run: func() error {
+				f, err := chroot.Create("nested/file-link")
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "open file",
+			run: func() error {
+				f, err := chroot.OpenFile("nested/file-link", os.O_RDONLY, 0)
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "open",
+			run: func() error {
+				f, err := chroot.Open("nested/file-link")
+				if err == nil {
+					_ = f.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "stat",
+			run: func() error {
+				_, err := chroot.Stat("nested/file-link")
+				return err
+			},
+		},
+		{
+			name: "read dir",
+			run: func() error {
+				_, err := chroot.ReadDir("nested/dir-link")
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.ErrorIs(t, tt.run(), billy.ErrCrossedBoundary)
+		})
+	}
+
+	require.NoError(t, fs.Symlink("file", "root-link"))
+	rootChroot, err := fs.Chroot("root-link")
+	require.NoError(t, err)
+
+	_, err = rootChroot.Open("/")
+	require.ErrorIs(t, err, billy.ErrCrossedBoundary)
+
+	_, err = rootChroot.Stat("/")
+	require.ErrorIs(t, err, billy.ErrCrossedBoundary)
+
+	data, err := util.ReadFile(fs, "file")
+	require.NoError(t, err)
+	assert.Equal(t, []byte("outer"), data)
+}
+
+func (s *MemorySuite) TestChrootSymlinkResolutionLoop(c *C) {
+	tests := []struct {
+		name  string
+		setup func(c *C, fs billy.Filesystem)
+	}{
+		{
+			name: "mutual",
+			setup: func(c *C, fs billy.Filesystem) {
+				c.Assert(fs.Symlink("b", "a"), IsNil)
+				c.Assert(fs.Symlink("a", "b"), IsNil)
+			},
+		},
+		{
+			name: "self",
+			setup: func(c *C, fs billy.Filesystem) {
+				c.Assert(fs.Symlink("a", "a"), IsNil)
+			},
+		},
+		{
+			name: "self dot relative",
+			setup: func(c *C, fs billy.Filesystem) {
+				c.Assert(fs.Symlink("./a", "a"), IsNil)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		fs := New()
+		tt.setup(c, fs)
+
+		f, err := fs.Open("a")
+		c.Assert(f, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "open")
+
+		f, err = fs.Create("a")
+		c.Assert(f, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "create")
+
+		fi, err := fs.Stat("a")
+		c.Assert(fi, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "stat")
+	}
+}
+
+func (s *MemorySuite) TestChrootRootSymlinkResolutionLoop(c *C) {
+	tests := []struct {
+		name   string
+		target string
+	}{
+		{name: "self", target: "root"},
+		{name: "self dot relative", target: "./root"},
+	}
+
+	for _, tt := range tests {
+		fs := New()
+		c.Assert(fs.Symlink(tt.target, "root"), IsNil, Commentf("case: %s", tt.name))
+
+		chroot, err := fs.Chroot("root")
+		c.Assert(err, IsNil, Commentf("case: %s", tt.name))
+
+		f, err := chroot.Open("/")
+		c.Assert(f, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "open")
+
+		fi, err := chroot.Stat("/")
+		c.Assert(fi, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "stat")
+
+		entries, err := chroot.ReadDir("/")
+		c.Assert(entries, IsNil, Commentf("case: %s", tt.name))
+		requireSymlinkLoop(c, err, "readdir")
+	}
+}
+
+func requireSymlinkLoop(c *C, err error, op string) {
+	c.Assert(errors.Is(err, syscall.ELOOP), Equals, true)
+
+	var pathErr *os.PathError
+	c.Assert(errors.As(err, &pathErr), Equals, true)
+	c.Assert(pathErr.Op, Equals, op)
+}
+
 func TestJoin(t *testing.T) {
 	tests := []struct {
 		name string
@@ -325,10 +501,10 @@ func (s *MemorySuite) TestSymlink(c *C) {
 	c.Assert(err, IsNil)
 
 	f, err := s.FS.Open("test")
-	c.Assert(err, IsNil)
-	c.Assert(f, NotNil)
+	c.Assert(f, IsNil)
+	requireSymlinkLoop(c, err, "open")
 
 	fi, err := s.FS.ReadDir("test")
-	c.Assert(err, IsNil)
 	c.Assert(fi, IsNil)
+	requireSymlinkLoop(c, err, "readdir")
 }
