@@ -16,7 +16,7 @@ import (
 var separator = string(filepath.Separator)
 
 // Mount is a helper that allows to emulate the behavior of mount in memory.
-// Very usufull to create a temporal dir, on filesystem where is a performance
+// Very useful to create a temporal dir, on filesystem where is a performance
 // penalty in doing so.
 type Mount struct {
 	underlying billy.Filesystem
@@ -230,7 +230,7 @@ func (h *Mount) mustRelToMountpoint(path string) string {
 
 func (h *Mount) isMountpoint(path string) bool {
 	path = cleanPath(path)
-	return strings.HasPrefix(path, h.mountpoint)
+	return path == h.mountpoint || strings.HasPrefix(path, h.mountpoint+separator)
 }
 
 func cleanPath(path string) string {

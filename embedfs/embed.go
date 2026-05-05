@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"io/fs"
+	iofs "io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +15,7 @@ import (
 )
 
 type Embed struct {
-	underlying *embed.FS
+	underlying iofs.FS
 }
 
 func New(efs *embed.FS) billy.Filesystem {
@@ -35,11 +35,7 @@ func (fs *Embed) Root() string {
 }
 
 func (fs *Embed) Stat(filename string) (os.FileInfo, error) {
-	f, err := fs.underlying.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	return f.Stat()
+	return iofs.Stat(fs.underlying, filename)
 }
 
 func (fs *Embed) Open(filename string) (billy.File, error) {
@@ -51,12 +47,7 @@ func (fs *Embed) OpenFile(filename string, flag int, _ os.FileMode) (billy.File,
 		return nil, billy.ErrReadOnly
 	}
 
-	f, err := fs.underlying.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	fi, err := f.Stat()
+	fi, err := iofs.Stat(fs.underlying, filename)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +56,7 @@ func (fs *Embed) OpenFile(filename string, flag int, _ os.FileMode) (billy.File,
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	data, err := fs.underlying.ReadFile(filename)
+	data, err := iofs.ReadFile(fs.underlying, filename)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +79,8 @@ func (fs *Embed) Join(elem ...string) string {
 	return ""
 }
 
-func (fs *Embed) ReadDir(path string) ([]fs.DirEntry, error) {
-	return fs.underlying.ReadDir(path)
+func (fs *Embed) ReadDir(path string) ([]iofs.DirEntry, error) {
+	return iofs.ReadDir(fs.underlying, path)
 }
 
 func (fs *Embed) Capabilities() billy.Capability {
@@ -159,7 +150,7 @@ func (fs *Embed) MkdirAll(_ string, _ os.FileMode) error {
 	return billy.ErrReadOnly
 }
 
-func toFile(lazy func() *bytes.Reader, fi fs.FileInfo) billy.File {
+func toFile(lazy func() *bytes.Reader, fi iofs.FileInfo) billy.File {
 	return &file{
 		lazy: lazy,
 		fi:   fi,
@@ -169,7 +160,7 @@ func toFile(lazy func() *bytes.Reader, fi fs.FileInfo) billy.File {
 type file struct {
 	lazy   func() *bytes.Reader
 	reader *bytes.Reader
-	fi     fs.FileInfo
+	fi     iofs.FileInfo
 	once   sync.Once
 }
 

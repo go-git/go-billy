@@ -141,7 +141,7 @@ func (s *storage) Rename(from, to string) error {
 	move := [][2]string{{from, to}}
 	s.mf.RLock()
 	for pathFrom := range s.files {
-		if pathFrom == from || !strings.HasPrefix(pathFrom, from) {
+		if pathFrom == from || !isPathDescendant(pathFrom, from) {
 			continue
 		}
 
@@ -162,6 +162,10 @@ func (s *storage) Rename(from, to string) error {
 	}
 
 	return nil
+}
+
+func isPathDescendant(path, parent string) bool {
+	return strings.HasPrefix(path, parent+string(filepath.Separator))
 }
 
 func (s *storage) move(from, to string) error {

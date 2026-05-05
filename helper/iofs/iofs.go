@@ -9,6 +9,7 @@ import (
 
 	billyfs "github.com/go-git/go-billy/v6"
 	"github.com/go-git/go-billy/v6/helper/polyfill"
+	"github.com/go-git/go-billy/v6/util"
 )
 
 // Wrap adapts a billy.Filesystem to a io.fs.FS.
@@ -80,18 +81,8 @@ func (a *adapterFs) ReadFile(name string) ([]byte, error) {
 	if !validPath(name) {
 		return nil, &fs.PathError{Op: "readfile", Path: name, Err: fs.ErrInvalid}
 	}
-	stat, err := a.fs.Stat(name)
-	if err != nil {
-		return nil, err
-	}
-	b := make([]byte, stat.Size())
-	file, err := a.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	_, err = file.Read(b)
-	return b, err
+
+	return util.ReadFile(a.fs, name)
 }
 
 type adapterFile struct {
