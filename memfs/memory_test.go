@@ -408,17 +408,93 @@ func TestChrootSymlinkResolution(t *testing.T) {
 }
 
 func TestChrootSymlinkResolutionLoop(t *testing.T) {
-	fs := New()
-	require.NoError(t, fs.Symlink("b", "a"))
-	require.NoError(t, fs.Symlink("a", "b"))
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, fs billy.Filesystem)
+	}{
+		{
+			name: "mutual",
+			setup: func(t *testing.T, fs billy.Filesystem) {
+				t.Helper()
+				require.NoError(t, fs.Symlink("b", "a"))
+				require.NoError(t, fs.Symlink("a", "b"))
+			},
+		},
+		{
+			name: "self",
+			setup: func(t *testing.T, fs billy.Filesystem) {
+				t.Helper()
+				require.NoError(t, fs.Symlink("a", "a"))
+			},
+		},
+		{
+			name: "self dot relative",
+			setup: func(t *testing.T, fs billy.Filesystem) {
+				t.Helper()
+				require.NoError(t, fs.Symlink("./a", "a"))
+			},
+		},
+	}
 
-	f, err := fs.Open("a")
-	assert.Nil(t, f)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := New()
+			tt.setup(t, fs)
+
+			f, err := fs.Open("a")
+			assert.Nil(t, f)
+			requireSymlinkLoop(t, err, "open")
+
+			f, err = fs.Create("a")
+			assert.Nil(t, f)
+			requireSymlinkLoop(t, err, "create")
+
+			fi, err := fs.Stat("a")
+			assert.Nil(t, fi)
+			requireSymlinkLoop(t, err, "stat")
+		})
+	}
+}
+
+func TestChrootRootSymlinkResolutionLoop(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+	}{
+		{name: "self", target: "root"},
+		{name: "self dot relative", target: "./root"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := New()
+			require.NoError(t, fs.Symlink(tt.target, "root"))
+
+			chroot, err := fs.Chroot("root")
+			require.NoError(t, err)
+
+			f, err := chroot.Open("/")
+			assert.Nil(t, f)
+			requireSymlinkLoop(t, err, "open")
+
+			fi, err := chroot.Stat("/")
+			assert.Nil(t, fi)
+			requireSymlinkLoop(t, err, "stat")
+
+			entries, err := chroot.ReadDir("/")
+			assert.Nil(t, entries)
+			requireSymlinkLoop(t, err, "readdir")
+		})
+	}
+}
+
+func requireSymlinkLoop(t *testing.T, err error, op string) {
+	t.Helper()
 	require.ErrorIs(t, err, syscall.ELOOP)
 
 	var pathErr *os.PathError
 	require.ErrorAs(t, err, &pathErr)
-	assert.Equal(t, "open", pathErr.Op)
+	assert.Equal(t, op, pathErr.Op)
 }
 
 func TestJoin(t *testing.T) {
@@ -464,12 +540,12 @@ func TestSymlink(t *testing.T) {
 	require.NoError(t, err)
 
 	f, err := fs.Open("test")
-	require.NoError(t, err)
-	assert.NotNil(t, f)
+	assert.Nil(t, f)
+	requireSymlinkLoop(t, err, "open")
 
 	fi, err := fs.ReadDir("test")
-	require.NoError(t, err)
 	assert.Nil(t, fi)
+	requireSymlinkLoop(t, err, "readdir")
 }
 
 func TestRenameLeavesSiblingPrefix(t *testing.T) {

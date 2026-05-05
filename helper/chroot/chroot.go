@@ -41,7 +41,7 @@ func (fs *ChrootHelper) underlyingPath(filename string) (string, error) {
 	return fs.Join(fs.Root(), filename), nil
 }
 
-func (fs *ChrootHelper) followedPath(filename string, followFinal bool) (string, error) {
+func (fs *ChrootHelper) followedPath(filename string, followFinal bool, op string) (string, error) {
 	fullpath, err := fs.underlyingPath(filename)
 	if err != nil {
 		return "", err
@@ -57,7 +57,7 @@ func (fs *ChrootHelper) followedPath(filename string, followFinal bool) (string,
 		return "", err
 	}
 
-	fullpath, err = fs.resolveFollowedPath(rel, followFinal, sl)
+	fullpath, err = fs.resolveFollowedPath(rel, followFinal, op, sl)
 	if errors.Is(err, billy.ErrNotSupported) {
 		return fs.underlyingPath(filename)
 	}
@@ -65,9 +65,9 @@ func (fs *ChrootHelper) followedPath(filename string, followFinal bool) (string,
 	return fullpath, err
 }
 
-func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl billy.Symlink) (string, error) {
+func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, op string, sl billy.Symlink) (string, error) {
 	if rel == "" {
-		return fs.resolveFollowedRoot(followFinal, sl)
+		return fs.resolveFollowedRoot(followFinal, op, sl)
 	}
 
 	parts := splitRelativePath(rel)
@@ -99,7 +99,7 @@ func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl bil
 
 		followed++
 		if followed > maxFollowedSymlinks {
-			return "", &os.PathError{Op: "open", Path: currentPath, Err: syscall.ELOOP}
+			return "", symlinkLoopError(op, currentPath)
 		}
 
 		target, err := sl.Readlink(currentPath)
@@ -112,8 +112,7 @@ func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl bil
 			return "", err
 		}
 		if targetRel == currentRel {
-			resolved = currentRel
-			continue
+			return "", symlinkLoopError(op, currentPath)
 		}
 
 		parts = append(splitRelativePath(targetRel), parts...)
@@ -123,7 +122,11 @@ func (fs *ChrootHelper) resolveFollowedPath(rel string, followFinal bool, sl bil
 	return fs.Join(fs.Root(), resolved), nil
 }
 
-func (fs *ChrootHelper) resolveFollowedRoot(followFinal bool, sl billy.Symlink) (string, error) {
+func symlinkLoopError(op, path string) error {
+	return &os.PathError{Op: op, Path: path, Err: syscall.ELOOP}
+}
+
+func (fs *ChrootHelper) resolveFollowedRoot(followFinal bool, op string, sl billy.Symlink) (string, error) {
 	root := fs.Join(fs.Root(), "")
 	if !followFinal {
 		return root, nil
@@ -147,11 +150,14 @@ func (fs *ChrootHelper) resolveFollowedRoot(followFinal bool, sl billy.Symlink) 
 	}
 
 	targetRel, err := fs.linkTargetRel(root, target)
-	if err != nil || targetRel == "" {
+	if err != nil {
 		return root, err
 	}
+	if targetRel == "" {
+		return "", symlinkLoopError(op, root)
+	}
 
-	return fs.resolveFollowedPath(targetRel, followFinal, sl)
+	return fs.resolveFollowedPath(targetRel, followFinal, op, sl)
 }
 
 func (fs *ChrootHelper) relativeToRoot(filename string) (string, error) {
@@ -212,7 +218,7 @@ func isCrossBoundaries(name string) bool {
 }
 
 func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
-	fullpath, err := fs.followedPath(filename, true)
+	fullpath, err := fs.followedPath(filename, true, "create")
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +232,7 @@ func (fs *ChrootHelper) Create(filename string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
-	fullpath, err := fs.followedPath(filename, true)
+	fullpath, err := fs.followedPath(filename, true, "open")
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +246,7 @@ func (fs *ChrootHelper) Open(filename string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) OpenFile(filename string, flag int, mode fs.FileMode) (billy.File, error) {
-	fullpath, err := fs.followedPath(filename, !isCreateExclusive(flag))
+	fullpath, err := fs.followedPath(filename, !isCreateExclusive(flag), "open")
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +260,7 @@ func (fs *ChrootHelper) OpenFile(filename string, flag int, mode fs.FileMode) (b
 }
 
 func (fs *ChrootHelper) Stat(filename string) (os.FileInfo, error) {
-	fullpath, err := fs.followedPath(filename, true)
+	fullpath, err := fs.followedPath(filename, true, "stat")
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +320,7 @@ func (fs *ChrootHelper) TempFile(dir, prefix string) (billy.File, error) {
 }
 
 func (fs *ChrootHelper) ReadDir(path string) ([]fs.DirEntry, error) {
-	fullpath, err := fs.followedPath(path, true)
+	fullpath, err := fs.followedPath(path, true, "readdir")
 	if err != nil {
 		return nil, err
 	}
