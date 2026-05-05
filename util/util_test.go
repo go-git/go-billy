@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/go-git/go-billy/v6"
@@ -117,10 +118,12 @@ func TestReadFileCases(t *testing.T) {
 			name: "os fs",
 			setup: func(t *testing.T) (billy.Basic, string) {
 				t.Helper()
+				skipWithoutOSTempDir(t)
 				dir := t.TempDir()
 				content := bytes.Repeat([]byte("xyz"), 1024)
-				require.NoError(t, os.WriteFile(filepath.Join(dir, "file"), content, 0o644))
-				return osfs.New(dir), "file"
+				fs := osfs.New(dir)
+				require.NoError(t, util.WriteFile(fs, "file", content, 0o644))
+				return fs, "file"
 			},
 			want: bytes.Repeat([]byte("xyz"), 1024),
 		},
@@ -234,6 +237,7 @@ func TestRemoveAllWithScopedFilesystems(t *testing.T) {
 			name: "bound os sibling file",
 			setup: func(t *testing.T) (billy.Basic, string, func(t *testing.T)) {
 				t.Helper()
+				skipWithoutOSTempDir(t)
 
 				tmp := t.TempDir()
 				base := filepath.Join(tmp, "base")
@@ -283,6 +287,13 @@ func TestRemoveAllWithScopedFilesystems(t *testing.T) {
 			}
 			verify(t)
 		})
+	}
+}
+
+func skipWithoutOSTempDir(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "js" || runtime.GOOS == "wasip1" {
+		t.Skipf("OS temp dir not available on %s", runtime.GOOS)
 	}
 }
 
