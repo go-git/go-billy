@@ -51,6 +51,27 @@ func (s *ChrootOSSuite) TestOpenDoesNotCreateDir(c *C) {
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
+func (s *ChrootOSSuite) TestSymlinkedRoot(c *C) {
+	root := c.MkDir()
+	realRoot := filepath.Join(root, "real")
+	linkRoot := filepath.Join(root, "link")
+
+	c.Assert(os.Mkdir(realRoot, 0755), IsNil)
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		c.Skip("symlink creation is not supported")
+	}
+
+	fs := newChrootOS(linkRoot)
+
+	fi, err := fs.Stat("/")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+
+	_, err = fs.Stat(".git")
+	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, Not(Equals), billy.ErrCrossedBoundary)
+}
+
 func (s *ChrootOSSuite) TestCapabilities(c *C) {
 	_, ok := s.FS.(billy.Capable)
 	c.Assert(ok, Equals, true)
