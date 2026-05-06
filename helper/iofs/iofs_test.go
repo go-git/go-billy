@@ -2,6 +2,7 @@ package iofs
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"path/filepath"
 	"runtime"
@@ -72,6 +73,8 @@ func TestOpenForwardSlashPath(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			require.Implements(t, (*io.ReaderAt)(nil), f)
+			require.Implements(t, (*io.Seeker)(nil), f)
 			require.NoError(t, f.Close())
 		})
 	}

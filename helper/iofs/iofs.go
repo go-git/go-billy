@@ -92,6 +92,10 @@ type adapterFile struct {
 
 var _ fs.File = (*adapterFile)(nil)
 
+var _ io.ReaderAt = (*adapterFile)(nil)
+
+var _ io.Seeker = (*adapterFile)(nil)
+
 // Close closes the file, implementing fs.File (and io.Closer).
 func (a *adapterFile) Close() error {
 	return a.file.Close()
@@ -100,6 +104,14 @@ func (a *adapterFile) Close() error {
 // Read reads bytes from the file, implementing fs.File (and io.Reader).
 func (a *adapterFile) Read(b []byte) (int, error) {
 	return a.file.Read(b)
+}
+
+func (a *adapterFile) ReadAt(p []byte, off int64) (int, error) {
+	return a.file.ReadAt(p, off)
+}
+
+func (a *adapterFile) Seek(offset int64, whence int) (int64, error) {
+	return a.file.Seek(offset, whence)
 }
 
 // Stat returns file information, implementing fs.File (returning FileInfo or error).
