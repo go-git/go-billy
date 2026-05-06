@@ -51,6 +51,19 @@ func (s *ChrootOSSuite) TestOpenDoesNotCreateDir(c *C) {
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
+func (s *ChrootOSSuite) TestEmptyBaseChrootPreservesAbsolutePath(c *C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, ".git"), 0755), IsNil)
+
+	fs, err := newChrootOS("").Chroot(dir)
+	c.Assert(err, IsNil)
+	c.Assert(fs.Root(), Equals, dir)
+
+	fi, err := fs.Stat(".git")
+	c.Assert(err, IsNil)
+	c.Assert(fi.IsDir(), Equals, true)
+}
+
 func (s *ChrootOSSuite) TestSymlinkedRoot(c *C) {
 	root := c.MkDir()
 	realRoot := filepath.Join(root, "real")

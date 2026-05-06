@@ -26,7 +26,11 @@ import (
 type ChrootOS struct{}
 
 func newChrootOS(baseDir string) billy.Filesystem {
-	if resolved, err := filepath.EvalSymlinks(baseDir); err == nil {
+	if baseDir != "" {
+		resolved, err := filepath.EvalSymlinks(baseDir)
+		if err != nil {
+			return chroot.New(&ChrootOS{}, baseDir)
+		}
 		baseDir = resolved
 	}
 
