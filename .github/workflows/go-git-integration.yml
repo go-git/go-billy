@@ -1,0 +1,114 @@
+on:
+  pull_request:
+  workflow_dispatch:
+
+name: Go Git Integration
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Go stable
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+        - macos-latest
+        - windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Checkout go-billy
+      uses: actions/checkout@v4
+      with:
+        path: go-billy
+
+    - name: Select go-git branch
+      id: target
+      run: |
+        set -e
+        module_path="$(awk '$1 == "module" { print $2 }' go-billy/go.mod)"
+
+        case "${module_path}" in
+          github.com/go-git/go-billy/v6)
+            go_git_ref="main"
+            ;;
+          github.com/go-git/go-billy/v5)
+            go_git_ref="releases/v5.x"
+            ;;
+          *)
+            echo "::error::unsupported go-billy module path: ${module_path}"
+            exit 1
+            ;;
+        esac
+
+        echo "go_billy_module=${module_path}" >> "${GITHUB_OUTPUT}"
+        echo "go_git_ref=${go_git_ref}" >> "${GITHUB_OUTPUT}"
+        echo "Testing ${module_path} against go-git ${go_git_ref}"
+
+    - name: Checkout go-git
+      uses: actions/checkout@v4
+      with:
+        repository: go-git/go-git
+        ref: ${{ steps.target.outputs.go_git_ref }}
+        path: go-git
+        fetch-depth: 0
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable
+        cache-dependency-path: |
+          go-billy/go.sum
+          go-git/**/go.sum
+
+    - name: Use local go-billy
+      run: |
+        set -e
+        go_billy_dir="$(cd go-billy && pwd)"
+        go_git_dir="$(cd go-git && pwd)"
+        go_billy_module="${{ steps.target.outputs.go_billy_module }}"
+
+        if command -v cygpath >/dev/null 2>&1; then
+          go_billy="$(cygpath -m "${go_billy_dir}")"
+          go_git="$(cygpath -m "${go_git_dir}")"
+        else
+          go_billy="${go_billy_dir}"
+          go_git="${go_git_dir}"
+        fi
+
+        cd go-git
+        go_git_module="$(awk '$1 == "module" { print $2 }' go.mod)"
+        go mod edit -replace "${go_billy_module}=${go_billy}"
+        go mod tidy
+
+        if [ -f cli/go-git/go.mod ]; then
+          cd cli/go-git
+          go mod edit -replace "${go_git_module}=${go_git}"
+          go mod edit -replace "${go_billy_module}=${go_billy}"
+          go mod tidy
+        fi
+
+    - name: Configure known hosts
+      continue-on-error: true
+      if: matrix.os != 'ubuntu-latest'
+      run: |
+        mkdir -p  ~/.ssh
+        ssh-keyscan -H github.com > ~/.ssh/known_hosts
+
+    - name: Set Git config
+      run: |
+        git config --global user.email "gha@example.com"
+        git config --global user.name "GitHub Actions"
+
+    - name: Test go-git
+      working-directory: go-git
+      run: go test ./...
+
+    - name: Test go-git CLI
+      if: ${{ hashFiles('go-git/cli/go-git/go.mod') != '' }}
+      working-directory: go-git/cli/go-git
+      run: go test ./...
