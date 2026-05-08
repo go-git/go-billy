@@ -46,13 +46,28 @@ type BoundOS struct {
 }
 
 func newBoundOS(d string, _ ...bool) billy.Filesystem {
+	if d == "" {
+		d = string(os.PathSeparator)
+	}
 	return &BoundOS{baseDir: d}
 }
 
 // rootFS opens a temporary [RootOS] and returns a cleanup function that
 // closes the underlying [os.Root].
 func (fs *BoundOS) rootFS() (*RootOS, func(), error) {
+	return fs.rootFSWithCreate(false)
+}
+
+func (fs *BoundOS) rootFSWithCreate(createBase bool) (*RootOS, func(), error) {
 	r, err := os.OpenRoot(fs.baseDir)
+	if err != nil {
+		if createBase && os.IsNotExist(err) {
+			if mkErr := os.MkdirAll(fs.baseDir, defaultDirectoryMode); mkErr != nil {
+				return nil, func() {}, mkErr
+			}
+			r, err = os.OpenRoot(fs.baseDir)
+		}
+	}
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -68,7 +83,7 @@ func (fs *BoundOS) Create(name string) (billy.File, error) {
 }
 
 func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.File, error) {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(flag&os.O_CREATE != 0)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +110,7 @@ func (fs *BoundOS) Rename(from, to string) error {
 }
 
 func (fs *BoundOS) MkdirAll(name string, perm gofs.FileMode) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(true)
 	if err != nil {
 		return err
 	}
@@ -145,7 +160,7 @@ func (fs *BoundOS) RemoveAll(name string) error {
 }
 
 func (fs *BoundOS) Symlink(oldname, newname string) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(true)
 	if err != nil {
 		return err
 	}
@@ -183,7 +198,7 @@ func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
 // Chroot returns a new [BoundOS] filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(true)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +214,7 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	}
 	defer childRoot.Close()
 
-	return newBoundOS(childRoot.Name()), nil
+	return newBoundOS(filepath.Clean(childRoot.Name())), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.
