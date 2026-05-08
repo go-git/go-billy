@@ -230,7 +230,7 @@ func (fs *RootOS) Readlink(name string) (string, error) {
 		return "", translateError(err, rel)
 	}
 
-	return lnk, nil
+	return filepath.ToSlash(lnk), nil
 }
 
 func (fs *RootOS) Chmod(path string, mode gofs.FileMode) error {
@@ -297,9 +297,10 @@ func (fs *RootOS) toRelative(name string) string {
 }
 
 func (fs *RootOS) absoluteSymlinkTarget(target string) (string, bool) {
-	if !filepath.IsAbs(target) {
+	if !isRootedPath(target) {
 		return "", false
 	}
+	target = filepath.FromSlash(target)
 	rel, ok := relativeInsideBase(fs.root.Name(), target)
 	if !ok {
 		rel = cleanUnderRoot(target)
@@ -324,7 +325,16 @@ func relativeInsideBase(base, name string) (string, bool) {
 	return rel, true
 }
 
+func isRootedPath(name string) bool {
+	if filepath.IsAbs(name) {
+		return true
+	}
+	name = filepath.FromSlash(name)
+	return strings.HasPrefix(name, string(filepath.Separator))
+}
+
 func cleanUnderRoot(name string) string {
+	name = filepath.FromSlash(name)
 	vol := filepath.VolumeName(name)
 	name = name[len(vol):]
 	name = filepath.Join(string(filepath.Separator), name)

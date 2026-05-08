@@ -392,7 +392,7 @@ func TestReadlink(t *testing.T) {
 
 	got, err := fs.Readlink("symlink")
 	require.NoError(t, err)
-	assert.Equal(t, target, got)
+	assert.Equal(t, filepath.ToSlash(target), got)
 
 	_, err = fs.Readlink("../../symlink")
 	require.NoError(t, err)
