@@ -437,7 +437,7 @@ func TestRemove(t *testing.T) {
 
 func TestRemoveAll(t *testing.T) {
 	dir := t.TempDir()
-	fs := newBoundOS(dir).(*BoundOS)
+	fs := newTestBoundOS(t, dir)
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "parent", "child"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "parent", "child", "file"), []byte("anything"), 0o600))
 
@@ -448,7 +448,7 @@ func TestRemoveAll(t *testing.T) {
 
 func TestRemoveAllRemovesSymlink(t *testing.T) {
 	dir := t.TempDir()
-	fs := newBoundOS(dir).(*BoundOS)
+	fs := newTestBoundOS(t, dir)
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "target-dir"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "target-dir", "file"), []byte("target"), 0o600))
 	require.NoError(t, os.Symlink("target-dir", filepath.Join(dir, "link")))
@@ -465,7 +465,7 @@ func TestRemoveBaseDir(t *testing.T) {
 	for _, path := range tests {
 		t.Run(path, func(t *testing.T) {
 			dir := t.TempDir()
-			fs := newBoundOS(dir).(*BoundOS)
+			fs := newTestBoundOS(t, dir)
 			require.ErrorIs(t, fs.Remove(path), billy.ErrBaseDirCannotBeRemoved)
 			require.ErrorIs(t, fs.RemoveAll(path), billy.ErrBaseDirCannotBeRemoved)
 			mustExist(t, dir)
@@ -475,7 +475,7 @@ func TestRemoveBaseDir(t *testing.T) {
 
 func TestRemoveBaseDirAbsolutePath(t *testing.T) {
 	dir := t.TempDir()
-	fs := newBoundOS(dir).(*BoundOS)
+	fs := newTestBoundOS(t, dir)
 
 	require.ErrorIs(t, fs.Remove(dir), billy.ErrBaseDirCannotBeRemoved)
 	require.ErrorIs(t, fs.RemoveAll(dir), billy.ErrBaseDirCannotBeRemoved)
@@ -640,4 +640,12 @@ func requireFileContents(t *testing.T, filename string, want []byte) {
 	got, err := os.ReadFile(filename)
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
+}
+
+func newTestBoundOS(t *testing.T, dir string) *BoundOS {
+	t.Helper()
+
+	fs, ok := newBoundOS(dir).(*BoundOS)
+	require.True(t, ok)
+	return fs
 }
