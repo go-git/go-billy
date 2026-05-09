@@ -34,6 +34,13 @@ type btest struct {
 func BenchmarkCompare(b *testing.B) {
 	b.ReportAllocs()
 
+	rootDir := b.TempDir()
+	root, err := os.OpenRoot(rootDir)
+	require.NoError(b, err)
+	b.Cleanup(func() { root.Close() })
+	rootFS, err := osfs.FromRoot(root)
+	require.NoError(b, err)
+
 	tests := []btest{
 		{
 			// provide baseline comparison against direct use of os.
@@ -46,6 +53,13 @@ func BenchmarkCompare(b *testing.B) {
 			name:    "osfs.boundOS",
 			fn:      fn,
 			sut:     osfs.New(b.TempDir(), osfs.WithBoundOS()),
+			openF:   billyOpen,
+			createF: billyCreate,
+		},
+		{
+			name:    "osfs.rootOS",
+			fn:      fn,
+			sut:     rootFS,
 			openF:   billyOpen,
 			createF: billyCreate,
 		},
