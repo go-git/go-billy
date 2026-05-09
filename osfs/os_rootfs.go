@@ -15,12 +15,6 @@ import (
 	"github.com/go-git/go-billy/v6/util"
 )
 
-// ErrPathEscapesParent represents when an action leads to escaping from the
-// given dir the filesystem is bound to.
-//
-// The upstream version of this error used by [os.Root] is not public.
-var ErrPathEscapesParent = errors.New("path escapes from parent")
-
 // FromRoot creates a new [RootOS] from an [os.Root].
 // The provided root is used directly for all operations and the caller
 // is responsible for its lifecycle. Root must not be nil.
