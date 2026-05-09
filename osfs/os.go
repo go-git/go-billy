@@ -20,7 +20,14 @@ const (
 // Default Filesystem representing the root of the os filesystem.
 var Default = newBoundOS(string(os.PathSeparator))
 
-// New returns a new OS filesystem.
+// New returns a new OS filesystem rooted at baseDir.
+//
+// The returned filesystem is always a [BoundOS]: containment is enforced
+// via [os.Root], opened and closed per operation. For better performance
+// with caller-managed lifecycle, use [FromRoot] instead.
+//
+// All [Option] values are accepted for API compatibility but have no
+// effect on the returned implementation.
 func New(baseDir string, opts ...Option) billy.Filesystem {
 	o := &options{
 		deduplicatePath: true,
@@ -32,7 +39,10 @@ func New(baseDir string, opts ...Option) billy.Filesystem {
 	return newBoundOS(baseDir)
 }
 
-// WithBoundOS returns the option of using a Bound filesystem OS.
+// WithBoundOS selects the [BoundOS] implementation.
+//
+// [BoundOS] is the only OS-backed implementation returned by [New], so this
+// option is the default and is kept for API compatibility.
 func WithBoundOS() Option {
 	return func(o *options) {
 		o.Type = BoundOSFS

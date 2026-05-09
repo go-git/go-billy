@@ -14,10 +14,15 @@ import (
 	"github.com/go-git/go-billy/v6"
 )
 
+// Embed is a read-only billy.Filesystem backed by an [embed.FS]. Write
+// operations return [billy.ErrReadOnly]; symlink, chroot, lstat and tempfile
+// operations return [billy.ErrNotSupported].
 type Embed struct {
 	underlying iofs.FS
 }
 
+// New returns a read-only [billy.Filesystem] backed by efs. A nil efs is
+// treated as an empty [embed.FS].
 func New(efs *embed.FS) billy.Filesystem {
 	fs := &Embed{
 		underlying: efs,
@@ -30,6 +35,9 @@ func New(efs *embed.FS) billy.Filesystem {
 	return fs
 }
 
+// Root returns the empty string. [Embed] has no notion of a base directory:
+// paths are passed straight through to the wrapped [embed.FS], which uses
+// forward-slash paths rooted at the embedding package.
 func (fs *Embed) Root() string {
 	return ""
 }

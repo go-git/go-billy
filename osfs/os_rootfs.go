@@ -42,8 +42,10 @@ func FromRoot(root *os.Root) (*RootOS, error) {
 // Behaviours of note:
 //  1. Read and write operations can only be directed to files which descend
 //     from the root dir.
-//  2. Symlinks don't have their targets modified, and therefore can point
-//     to locations outside the root dir or to non-existent paths.
+//  2. Symlink targets are stored verbatim and not rewritten, so they may
+//     point outside the root dir or to non-existent paths. [RootOS.Readlink]
+//     returns the stored target with path separators normalised to forward
+//     slashes (see [filepath.ToSlash]).
 //  3. Operations leading to escapes to outside the [os.Root] location result
 //     in [ErrPathEscapesParent].
 type RootOS struct {
