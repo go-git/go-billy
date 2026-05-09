@@ -50,17 +50,19 @@ func newBoundOS(d string, _ ...bool) billy.Filesystem {
 	if d == "" {
 		d = string(os.PathSeparator)
 	}
+	d = hostPath(d)
 	return &BoundOS{baseDir: d}
 }
 
 // rootFS opens a temporary [RootOS] and returns a cleanup function that
 // closes the underlying [os.Root].
 func (fs *BoundOS) rootFS() (*RootOS, func(), error) {
-	return fs.rootFSWithCreate(false)
+	return fs.rootFSWithCreate("", false)
 }
 
-func (fs *BoundOS) rootFSWithCreate(createBase bool) (*RootOS, func(), error) {
-	r, err := openRootAt(fs.baseDir, createBase)
+func (fs *BoundOS) rootFSWithCreate(name string, createBase bool) (*RootOS, func(), error) {
+	rootPath := fs.operationRoot(name)
+	r, err := openRootAt(rootPath, createBase)
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -76,7 +78,7 @@ func (fs *BoundOS) Create(name string) (billy.File, error) {
 }
 
 func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.File, error) {
-	rfs, cleanup, err := fs.rootFSWithCreate(flag&os.O_CREATE != 0)
+	rfs, cleanup, err := fs.rootFSWithCreate(name, flag&os.O_CREATE != 0)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.Fi
 }
 
 func (fs *BoundOS) ReadDir(name string) ([]gofs.DirEntry, error) {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +96,7 @@ func (fs *BoundOS) ReadDir(name string) ([]gofs.DirEntry, error) {
 }
 
 func (fs *BoundOS) Rename(from, to string) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(from, false)
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (fs *BoundOS) Rename(from, to string) error {
 }
 
 func (fs *BoundOS) MkdirAll(name string, perm gofs.FileMode) error {
-	rfs, cleanup, err := fs.rootFSWithCreate(true)
+	rfs, cleanup, err := fs.rootFSWithCreate(name, true)
 	if err != nil {
 		return err
 	}
@@ -120,7 +122,7 @@ func (fs *BoundOS) Stat(name string) (os.FileInfo, error) {
 		return fs.baseInfo(false)
 	}
 
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func (fs *BoundOS) Stat(name string) (os.FileInfo, error) {
 }
 
 func (fs *BoundOS) Remove(name string) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func (fs *BoundOS) Join(elem ...string) string {
 }
 
 func (fs *BoundOS) RemoveAll(name string) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return err
 	}
@@ -157,7 +159,7 @@ func (fs *BoundOS) RemoveAll(name string) error {
 }
 
 func (fs *BoundOS) Symlink(oldname, newname string) error {
-	rfs, cleanup, err := fs.rootFSWithCreate(true)
+	rfs, cleanup, err := fs.rootFSWithCreate(newname, true)
 	if err != nil {
 		return err
 	}
@@ -170,7 +172,7 @@ func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
 		return fs.baseInfo(true)
 	}
 
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +181,7 @@ func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
 }
 
 func (fs *BoundOS) Readlink(name string) (string, error) {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return "", err
 	}
@@ -188,7 +190,7 @@ func (fs *BoundOS) Readlink(name string) (string, error) {
 }
 
 func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
-	rfs, cleanup, err := fs.rootFS()
+	rfs, cleanup, err := fs.rootFSWithCreate(path, false)
 	if err != nil {
 		return err
 	}
@@ -238,7 +240,7 @@ func (fs *BoundOS) isBaseDir(name string) bool {
 		return true
 	}
 
-	name = filepath.FromSlash(name)
+	name = hostPath(name)
 	if filepath.IsAbs(name) {
 		if rel, ok := relativeInsideBase(fs.baseDir, name); ok {
 			return cleanUnderRoot(rel) == ""
@@ -253,7 +255,7 @@ func (fs *BoundOS) chrootPath(path string) string {
 		return filepath.Clean(hostPath)
 	}
 
-	path = filepath.FromSlash(path)
+	path = hostPath(path)
 	if filepath.IsAbs(path) {
 		if rel, ok := relativeInsideBase(fs.baseDir, path); ok {
 			return filepath.Clean(filepath.Join(fs.baseDir, rel))
@@ -268,17 +270,23 @@ func (fs *BoundOS) hostAbsolutePath(path string) (string, bool) {
 		return "", false
 	}
 
-	path = filepath.FromSlash(path)
+	path = hostPath(path)
 	if filepath.VolumeName(path) != "" && filepath.IsAbs(path) {
 		return path, true
 	}
 
-	if filepath.Separator == '\\' && len(path) >= 3 &&
-		(path[0] == '\\' || path[0] == '/') && path[2] == ':' {
-		return path[1:], true
+	return "", false
+}
+
+func (fs *BoundOS) operationRoot(path string) string {
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		vol := filepath.VolumeName(hostPath)
+		if vol != "" {
+			return vol + string(filepath.Separator)
+		}
 	}
 
-	return "", false
+	return fs.baseDir
 }
 
 func (fs *BoundOS) baseInfo(lstat bool) (os.FileInfo, error) {

@@ -287,6 +287,7 @@ func (fs *RootOS) toRelative(name string) string {
 		return ""
 	}
 
+	name = hostPath(name)
 	if filepath.IsAbs(name) {
 		if rel, ok := relativeInsideBase(fs.root.Name(), name); ok {
 			return cleanUnderRoot(rel)
@@ -300,7 +301,7 @@ func (fs *RootOS) absoluteSymlinkTarget(target string) (string, bool) {
 	if !isRootedPath(target) {
 		return "", false
 	}
-	target = filepath.FromSlash(target)
+	target = hostPath(target)
 	rel, ok := relativeInsideBase(fs.root.Name(), target)
 	if !ok {
 		rel = cleanUnderRoot(target)
@@ -312,6 +313,8 @@ func (fs *RootOS) absoluteSymlinkTarget(target string) (string, bool) {
 }
 
 func relativeInsideBase(base, name string) (string, bool) {
+	base = hostPath(base)
+	name = hostPath(name)
 	rel, err := filepath.Rel(filepath.Clean(base), filepath.Clean(name))
 	if err != nil {
 		return "", false
@@ -326,32 +329,28 @@ func relativeInsideBase(base, name string) (string, bool) {
 }
 
 func isRootedPath(name string) bool {
+	name = hostPath(name)
 	if filepath.IsAbs(name) {
 		return true
 	}
-	name = filepath.FromSlash(name)
 	return strings.HasPrefix(name, string(filepath.Separator))
 }
 
 func cleanUnderRoot(name string) string {
-	name = filepath.FromSlash(name)
+	name = hostPath(name)
 	vol := filepath.VolumeName(name)
 	name = name[len(vol):]
 	name = filepath.Join(string(filepath.Separator), name)
 	return strings.TrimLeft(name, string(filepath.Separator))
 }
 
-// openChildRoot validates path and opens a child [os.Root].
-func openChildRoot(root *os.Root, path string) (*os.Root, error) {
-	if err := ensureDir(root, path); err != nil {
-		return nil, err
+func hostPath(name string) string {
+	name = filepath.FromSlash(name)
+	if filepath.Separator == '\\' && len(name) >= 3 &&
+		name[0] == '\\' && name[2] == ':' {
+		return name[1:]
 	}
-
-	childRoot, err := root.OpenRoot(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to chroot: %w", translateError(err, path))
-	}
-	return childRoot, nil
+	return name
 }
 
 func ensureDir(root *os.Root, path string) error {
