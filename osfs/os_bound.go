@@ -19,6 +19,7 @@
 package osfs
 
 import (
+	"errors"
 	gofs "io/fs"
 	"os"
 	"path/filepath"
@@ -59,15 +60,7 @@ func (fs *BoundOS) rootFS() (*RootOS, func(), error) {
 }
 
 func (fs *BoundOS) rootFSWithCreate(createBase bool) (*RootOS, func(), error) {
-	r, err := os.OpenRoot(fs.baseDir)
-	if err != nil {
-		if createBase && os.IsNotExist(err) {
-			if mkErr := os.MkdirAll(fs.baseDir, defaultDirectoryMode); mkErr != nil {
-				return nil, func() {}, mkErr
-			}
-			r, err = os.OpenRoot(fs.baseDir)
-		}
-	}
+	r, err := openRootAt(fs.baseDir, createBase)
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -123,6 +116,10 @@ func (fs *BoundOS) Open(name string) (billy.File, error) {
 }
 
 func (fs *BoundOS) Stat(name string) (os.FileInfo, error) {
+	if fs.isBaseDir(name) {
+		return fs.baseInfo(false)
+	}
+
 	rfs, cleanup, err := fs.rootFS()
 	if err != nil {
 		return nil, err
@@ -169,6 +166,10 @@ func (fs *BoundOS) Symlink(oldname, newname string) error {
 }
 
 func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
+	if fs.isBaseDir(name) {
+		return fs.baseInfo(true)
+	}
+
 	rfs, cleanup, err := fs.rootFS()
 	if err != nil {
 		return nil, err
@@ -198,8 +199,15 @@ func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
 // Chroot returns a new [BoundOS] filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
-	rfs, cleanup, err := fs.rootFSWithCreate(true)
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		return newBoundOS(hostPath), nil
+	}
+
+	rfs, cleanup, err := fs.rootFS()
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return newBoundOS(fs.chrootPath(path)), nil
+		}
 		return nil, err
 	}
 	defer cleanup()
@@ -208,8 +216,11 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	if rel == "" {
 		rel = "."
 	}
-	childRoot, err := openChildRoot(rfs.root, rel)
+	childRoot, err := rfs.root.OpenRoot(rel)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return newBoundOS(fs.chrootPath(path)), nil
+		}
 		return nil, err
 	}
 	defer childRoot.Close()
@@ -220,4 +231,128 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 // Root returns the current base dir of the billy.Filesystem.
 func (fs *BoundOS) Root() string {
 	return fs.baseDir
+}
+
+func (fs *BoundOS) isBaseDir(name string) bool {
+	if name == "" {
+		return true
+	}
+
+	name = filepath.FromSlash(name)
+	if filepath.IsAbs(name) {
+		if rel, ok := relativeInsideBase(fs.baseDir, name); ok {
+			return cleanUnderRoot(rel) == ""
+		}
+	}
+
+	return cleanUnderRoot(name) == ""
+}
+
+func (fs *BoundOS) chrootPath(path string) string {
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		return filepath.Clean(hostPath)
+	}
+
+	path = filepath.FromSlash(path)
+	if filepath.IsAbs(path) {
+		if rel, ok := relativeInsideBase(fs.baseDir, path); ok {
+			return filepath.Clean(filepath.Join(fs.baseDir, rel))
+		}
+	}
+
+	return filepath.Clean(filepath.Join(fs.baseDir, cleanUnderRoot(path)))
+}
+
+func (fs *BoundOS) hostAbsolutePath(path string) (string, bool) {
+	if fs.baseDir != string(os.PathSeparator) {
+		return "", false
+	}
+
+	path = filepath.FromSlash(path)
+	if filepath.VolumeName(path) != "" && filepath.IsAbs(path) {
+		return path, true
+	}
+
+	if filepath.Separator == '\\' && len(path) >= 3 &&
+		(path[0] == '\\' || path[0] == '/') && path[2] == ':' {
+		return path[1:], true
+	}
+
+	return "", false
+}
+
+func (fs *BoundOS) baseInfo(lstat bool) (os.FileInfo, error) {
+	base := filepath.Clean(fs.baseDir)
+	parent := filepath.Dir(base)
+	name := filepath.Base(base)
+
+	if parent == base {
+		root, err := openRootAt(base, false)
+		if err != nil {
+			return nil, err
+		}
+		defer root.Close()
+		if lstat {
+			return root.Lstat(".")
+		}
+		return root.Stat(".")
+	}
+
+	root, err := openRootAt(parent, false)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	if lstat {
+		return root.Lstat(name)
+	}
+	return root.Stat(name)
+}
+
+func openRootAt(path string, create bool) (*os.Root, error) {
+	path = filepath.Clean(path)
+	root, err := os.OpenRoot(path)
+	if err == nil || !create || !errors.Is(err, os.ErrNotExist) {
+		return root, err
+	}
+
+	ancestor, rel, err := openExistingAncestor(path)
+	if err != nil {
+		return nil, err
+	}
+	defer ancestor.Close()
+
+	if rel != "." {
+		if err := ancestor.MkdirAll(rel, defaultDirectoryMode); err != nil {
+			return nil, err
+		}
+	}
+
+	return os.OpenRoot(path)
+}
+
+func openExistingAncestor(path string) (*os.Root, string, error) {
+	path = filepath.Clean(path)
+	ancestorPath := path
+
+	for {
+		root, err := os.OpenRoot(ancestorPath)
+		if err == nil {
+			rel, relErr := filepath.Rel(ancestorPath, path)
+			if relErr != nil {
+				root.Close()
+				return nil, "", relErr
+			}
+			return root, rel, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, "", err
+		}
+
+		parent := filepath.Dir(ancestorPath)
+		if parent == ancestorPath {
+			return nil, "", err
+		}
+		ancestorPath = parent
+	}
 }

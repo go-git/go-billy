@@ -323,6 +323,18 @@ func TestChroot(t *testing.T) {
 	assert.Equal(t, filepath.Join(tmp, "test"), chrooted.Root())
 }
 
+func TestChrootMissingPathDoesNotCreate(t *testing.T) {
+	tmp := t.TempDir()
+	fs := newBoundOS(tmp)
+
+	chrooted, err := fs.Chroot("missing")
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(tmp, "missing"), chrooted.Root())
+
+	_, err = os.Stat(filepath.Join(tmp, "missing"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
 func TestChrootDotKeepsCleanRoot(t *testing.T) {
 	tmp := t.TempDir()
 	fs := newBoundOS(tmp)
@@ -351,6 +363,17 @@ func TestRoot(t *testing.T) {
 	fs := newBoundOS(dir)
 
 	assert.Equal(t, dir, fs.Root())
+}
+
+func TestStatBaseFile(t *testing.T) {
+	dir := t.TempDir()
+	name := filepath.Join(dir, "file")
+	require.NoError(t, os.WriteFile(name, []byte("content"), 0o600))
+
+	fs := newBoundOS(name)
+	fi, err := fs.Stat("/")
+	require.NoError(t, err)
+	assert.False(t, fi.IsDir())
 }
 
 func TestEmptyBaseUsesOSRoot(t *testing.T) {
@@ -382,6 +405,21 @@ func TestCreateCreatesMissingBaseDir(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	mustExist(t, filepath.Join(base, "config"))
+}
+
+func TestCreateCreatesMissingBaseDirAncestors(t *testing.T) {
+	root := t.TempDir()
+	base := filepath.Join(root, "missing", "parents", "repo.git")
+	fs := newBoundOS(base)
+
+	_, err := os.Stat(filepath.Join(root, "missing"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+
+	f, err := fs.Create(filepath.Join("objects", "info", "alternates"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	mustExist(t, filepath.Join(base, "objects", "info", "alternates"))
 }
 
 func TestReadlink(t *testing.T) {
