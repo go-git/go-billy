@@ -121,12 +121,11 @@ func (fs *RootOS) Rename(from, to string) error {
 	fromRel := fs.toRelative(from)
 	toRel := fs.toRelative(to)
 
-	err := createDir(fs.root, toRel)
-	if err == nil {
-		err = fs.root.Rename(fromRel, toRel)
+	if err := createDir(fs.root, toRel); err != nil {
+		return translateError(err, toRel)
 	}
 
-	return translateError(err, toRel)
+	return translateError(fs.root.Rename(fromRel, toRel), fmt.Sprintf("%s -> %s", fromRel, toRel))
 }
 
 func (fs *RootOS) MkdirAll(name string, perm gofs.FileMode) error {
@@ -241,6 +240,10 @@ func (fs *RootOS) Chmod(path string, mode gofs.FileMode) error {
 // the provided path with the underlying root dir. The returned filesystem
 // reuses this [RootOS]'s [os.Root] (no new file descriptor is opened),
 // so its lifecycle is tied to the parent root managed by the caller.
+//
+// If path does not yet exist under the parent root it is created (with
+// [defaultDirectoryMode]). If path exists but is not a directory an error
+// is returned.
 //
 // Containment is enforced by the parent [os.Root], not by the chroot
 // path: operations cannot escape the parent root, but a symlink within
@@ -374,7 +377,7 @@ func ensureDir(root *os.Root, path string) error {
 		return translateError(err, path)
 	}
 	if fi != nil && !fi.IsDir() {
-		return fmt.Errorf("cannot chroot: path is not dir")
+		return fmt.Errorf("cannot chroot: %q is not a dir (mode %s)", path, fi.Mode())
 	}
 	return nil
 }

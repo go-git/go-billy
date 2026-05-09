@@ -384,12 +384,15 @@ func (fs *ChrootHelper) Symlink(target, link string) error {
 	return sl.Symlink(target, link)
 }
 
-// Readlink returns the target stored for link. The returned target uses the
-// host path separator. Targets that resolve outside the chroot base, or that
-// were stored as relative paths, are returned as-is. Targets stored under the
-// chroot base (typically those rewritten by [ChrootHelper.Symlink]) are
-// translated back to be absolute relative to the chroot, so callers see paths
-// in the chroot's coordinate system rather than the underlying filesystem's.
+// Readlink returns the target stored for link.
+//
+// Relative targets are returned unchanged, preserving the original separators
+// as written by [ChrootHelper.Symlink] or the underlying filesystem. Absolute
+// targets that resolve under the chroot base are translated back to be
+// absolute relative to the chroot (using the host path separator), so callers
+// see paths in the chroot's coordinate system rather than the underlying
+// filesystem's. Absolute targets that resolve outside the base are returned
+// as written.
 func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	fullpath, err := fs.underlyingPath(link)
 	if err != nil {

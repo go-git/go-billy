@@ -20,6 +20,7 @@ package osfs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -385,9 +386,13 @@ func TestStatBaseFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(name, []byte("content"), 0o600))
 
 	fs := newBoundOS(name)
-	fi, err := fs.Stat("/")
-	require.NoError(t, err)
-	assert.False(t, fi.IsDir())
+	for _, p := range []string{"", ".", "./", "./.", "/"} {
+		t.Run(fmt.Sprintf("path=%q", p), func(t *testing.T) {
+			fi, err := fs.Stat(p)
+			require.NoError(t, err)
+			assert.False(t, fi.IsDir())
+		})
+	}
 }
 
 func TestEmptyBaseUsesOSRoot(t *testing.T) {

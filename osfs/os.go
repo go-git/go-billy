@@ -49,6 +49,18 @@ func WithBoundOS() Option {
 	}
 }
 
+// WithChrootOS previously selected the path-traversal-based ChrootOS
+// implementation. ChrootOS has been removed in favour of [BoundOS]; this
+// option is now a no-op and is kept for API compatibility with downstream
+// callers (notably go-git).
+//
+// Deprecated: use [WithBoundOS] (the default) or omit the option entirely.
+func WithChrootOS() Option {
+	return func(o *options) {
+		o.Type = ChrootOSFS
+	}
+}
+
 // WithDeduplicatePath toggles the deduplication of the base dir in the path.
 //
 // BoundOS now relies on os.Root for path containment, so this option is kept
@@ -64,10 +76,16 @@ type options struct {
 	deduplicatePath bool
 }
 
+// Type identifies an osfs implementation. The constants are retained for
+// API compatibility; only [BoundOSFS] is selectable on non-js builds.
 type Type int
 
 const (
+	// ChrootOSFS used to select the path-traversal-based ChrootOS. It is
+	// retained as a constant for source compatibility but no longer has an
+	// associated implementation; [New] always returns a [BoundOS].
 	ChrootOSFS Type = iota
+	// BoundOSFS selects the [BoundOS] implementation.
 	BoundOSFS
 )
 
