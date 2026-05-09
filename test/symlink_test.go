@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -223,7 +224,7 @@ func TestReadlinkWithAbsolutePath(t *testing.T) {
 
 		oldname, err := fs.Readlink("dir/link")
 		require.NoError(t, err)
-		assert.Equal(t, oldname, expectedSymlinkTarget)
+		assert.Equal(t, expectedSymlinkTarget, filepath.FromSlash(oldname))
 	})
 }
 

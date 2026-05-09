@@ -313,6 +313,20 @@ func TestTempFile(t *testing.T) {
 	require.NoError(t, f.Close())
 }
 
+func TestDefaultTempFileNameCanBeReopened(t *testing.T) {
+	f, err := Default.TempFile("", "go-billy-")
+	require.NoError(t, err)
+
+	name := f.Name()
+	require.True(t, filepath.IsAbs(hostPath(name)), name)
+	require.NoError(t, f.Close())
+	t.Cleanup(func() { _ = Default.Remove(name) })
+
+	reopened, err := Default.Open(name)
+	require.NoError(t, err)
+	require.NoError(t, reopened.Close())
+}
+
 func TestChroot(t *testing.T) {
 	tmp := t.TempDir()
 	fs := newBoundOS(tmp)

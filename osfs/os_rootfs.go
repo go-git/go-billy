@@ -270,6 +270,11 @@ func (fs *RootOS) Root() string {
 }
 
 func (fs *RootOS) displayName(name string) string {
+	name = hostPath(name)
+	if filepath.IsAbs(name) && isHostRoot(fs.root.Name()) {
+		return filepath.Clean(name)
+	}
+
 	rel := fs.toRelative(name)
 	if rel == "" {
 		return "."
@@ -351,6 +356,14 @@ func hostPath(name string) string {
 		return name[1:]
 	}
 	return name
+}
+
+func isHostRoot(name string) bool {
+	name = filepath.Clean(hostPath(name))
+	if !filepath.IsAbs(name) && !strings.HasPrefix(name, string(filepath.Separator)) {
+		return false
+	}
+	return filepath.Dir(name) == name
 }
 
 func ensureDir(root *os.Root, path string) error {

@@ -12,7 +12,7 @@ import (
 
 var (
 	customMode            fs.FileMode = 0o666
-	expectedSymlinkTarget             = "/dir/file"
+	expectedSymlinkTarget             = "\\dir\\file"
 )
 
 func allFS(tempDir func() string) []billy.Filesystem {
