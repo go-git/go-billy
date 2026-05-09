@@ -395,8 +395,16 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 		return "", err
 	}
 
+	rawTarget := target
+	target = filepath.FromSlash(target)
+	if filepath.Separator == '\\' && len(target) >= 3 &&
+		target[0] == '\\' && target[2] == ':' &&
+		filepath.VolumeName(fs.base) != "" {
+		target = target[1:]
+	}
+
 	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
-		return target, nil
+		return rawTarget, nil
 	}
 
 	target, err = filepath.Rel(fs.base, target)
