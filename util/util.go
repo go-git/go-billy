@@ -180,7 +180,7 @@ func TempFile(fs billy.Basic, dir, prefix string) (f billy.File, err error) {
 	}
 
 	nconflict := 0
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		name := filepath.Join(dir, prefix+nextSuffix())
 		f, err = fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, tempFileMode)
 		if errors.Is(err, os.ErrExist) {
@@ -214,7 +214,7 @@ func TempDir(fs billy.Dir, dir, prefix string) (name string, err error) {
 	}
 
 	nconflict := 0
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		try := filepath.Join(dir, prefix+nextSuffix())
 		err = fs.MkdirAll(try, tempDirectoryMode)
 		if errors.Is(err, os.ErrExist) {

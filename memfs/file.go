@@ -160,7 +160,7 @@ func (fi *fileInfo) IsDir() bool {
 	return fi.mode.IsDir()
 }
 
-func (*fileInfo) Sys() interface{} {
+func (*fileInfo) Sys() any {
 	return nil
 }
 

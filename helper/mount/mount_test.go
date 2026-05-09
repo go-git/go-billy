@@ -113,7 +113,7 @@ func TestOpenFile(t *testing.T) {
 
 	assert.Len(t, underlying.OpenFileArgs, 1)
 	assert.Equal(t, underlying.OpenFileArgs[0],
-		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
+		[3]any{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
 	assert.Empty(t, source.OpenFileArgs)
 }
 
@@ -133,7 +133,7 @@ func TestOpenFileInMount(t *testing.T) {
 	assert.Empty(t, underlying.OpenFileArgs)
 	assert.Len(t, source.OpenFileArgs, 1)
 	assert.Equal(t, source.OpenFileArgs[0],
-		[3]interface{}{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
+		[3]any{filepath.Join("bar", "qux"), 42, os.FileMode(0o777)})
 }
 
 func TestStat(t *testing.T) {
@@ -266,7 +266,7 @@ func TestMkdirAll(t *testing.T) {
 
 	assert.Len(t, underlying.MkdirAllArgs, 1)
 	assert.Equal(t, underlying.MkdirAllArgs[0],
-		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0o777)})
+		[2]any{filepath.Join("bar", "qux"), os.FileMode(0o777)})
 	assert.Empty(t, source.MkdirAllArgs)
 }
 
@@ -278,7 +278,7 @@ func TestMkdirAllInMount(t *testing.T) {
 	assert.Empty(t, underlying.MkdirAllArgs)
 	assert.Len(t, source.MkdirAllArgs, 1)
 	assert.Equal(t, source.MkdirAllArgs[0],
-		[2]interface{}{filepath.Join("bar", "qux"), os.FileMode(0o777)})
+		[2]any{filepath.Join("bar", "qux"), os.FileMode(0o777)})
 }
 
 func TestLstat(t *testing.T) {

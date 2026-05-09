@@ -65,7 +65,7 @@ func TestCreateOverwrite(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
 		t.Helper()
 
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			f, err := fs.Create("foo")
 			require.NoError(t, err)
 
