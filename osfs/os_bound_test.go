@@ -1560,7 +1560,7 @@ func TestAbsEmptyBaseDir(t *testing.T) {
 	got, err := fs.abs(filepath.FromSlash("/tmp"))
 	require.NoError(t, err)
 
-	want, err := securejoin.SecureJoin("", filepath.FromSlash("/tmp"))
+	want, err := fs.secureJoin(filepath.FromSlash("/tmp"))
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
