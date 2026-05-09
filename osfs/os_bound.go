@@ -409,7 +409,7 @@ func (fs *BoundOS) abs(filename string) (string, error) {
 		return "", err
 	}
 
-	if fs.deduplicatePath {
+	if fs.deduplicatePath && fs.baseDir != "" {
 		vol := filepath.VolumeName(fs.baseDir)
 		dup := filepath.Join(fs.baseDir, fs.baseDir[len(vol):])
 		if strings.HasPrefix(path, dup+string(filepath.Separator)) {

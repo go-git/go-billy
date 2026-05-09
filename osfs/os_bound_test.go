@@ -1553,6 +1553,18 @@ func TestAbs(t *testing.T) {
 	}
 }
 
+func TestAbsEmptyBaseDir(t *testing.T) {
+	fs, ok := newBoundOS("", true).(*BoundOS)
+	require.True(t, ok)
+
+	got, err := fs.abs(filepath.FromSlash("/tmp"))
+	require.NoError(t, err)
+
+	want, err := securejoin.SecureJoin("", filepath.FromSlash("/tmp"))
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
 func TestAbsReturnsSecureJoinError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlink creation requires additional privileges on windows")
