@@ -29,15 +29,7 @@ func New(baseDir string, opts ...Option) billy.Filesystem {
 		opt(o)
 	}
 
-	if o.Type == BoundOSFS {
-		return newBoundOS(baseDir, o.deduplicatePath)
-	}
-
-	return newChrootOS(baseDir)
-}
-
-func newChrootOS(baseDir string) billy.Filesystem {
-	return chroot.New(Default, Default.Join("/", baseDir))
+	return newBoundOS(baseDir, o.deduplicatePath)
 }
 
 // BoundOS is a fs implementation based on the js/wasm in-memory filesystem
@@ -94,13 +86,6 @@ func WithBoundOS() Option {
 	}
 }
 
-// WithChrootOS returns the option of using a Chroot filesystem OS.
-func WithChrootOS() Option {
-	return func(o *options) {
-		o.Type = ChrootOSFS
-	}
-}
-
 // WithDeduplicatePath toggles the deduplication of the base dir in the path.
 // This option is accepted for API parity with non-js builds and has no effect
 // on the js/wasm in-memory implementation.
@@ -120,6 +105,5 @@ type options struct {
 type Type int
 
 const (
-	ChrootOSFS Type = iota
-	BoundOSFS
+	BoundOSFS Type = iota
 )

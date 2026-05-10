@@ -48,14 +48,9 @@ func TestWithBoundOSReturnsBoundOS(t *testing.T) {
 	assert.IsType(t, &BoundOS{}, got)
 }
 
-func TestWithChrootOSReturnsChrootHelper(t *testing.T) {
-	got := New(t.TempDir(), WithChrootOS())
-	assert.IsType(t, &chroot.ChrootHelper{}, got)
-}
-
-func TestDefaultTypeIsChrootOSFS(t *testing.T) {
+func TestDefaultTypeIsBoundOS(t *testing.T) {
 	got := New(t.TempDir())
-	assert.IsType(t, &chroot.ChrootHelper{}, got)
+	assert.IsType(t, &BoundOS{}, got)
 }
 
 func TestBoundOSRoot(t *testing.T) {
@@ -108,11 +103,9 @@ func TestWithDeduplicatePathIsAccepted(t *testing.T) {
 // available under GOOS=js so downstream code (e.g. go-git) keeps compiling.
 var _ = New("/")
 var _ = New("/", WithBoundOS())
-var _ = New("/", WithChrootOS())
 var _ = New("/", WithDeduplicatePath(false))
 
 // Type constants must stay exported for any consumer that switches on them.
 var (
-	_ Type = ChrootOSFS
 	_ Type = BoundOSFS
 )
