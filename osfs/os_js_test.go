@@ -91,19 +91,10 @@ func TestBoundOSRejectsParentTraversal(t *testing.T) {
 	assert.ErrorIs(t, err, billy.ErrCrossedBoundary)
 }
 
-func TestWithDeduplicatePathIsAccepted(t *testing.T) {
-	// WithDeduplicatePath has no effect on the in-memory js/wasm
-	// implementation, but must remain callable for API parity with the
-	// non-js build so go-git and other consumers compile unchanged.
-	fs := New(t.TempDir(), WithBoundOS(), WithDeduplicatePath(false))
-	assert.IsType(t, &BoundOS{}, fs)
-}
-
 // API call assertions. These ensure the exported option constructors remain
 // available under GOOS=js so downstream code (e.g. go-git) keeps compiling.
 var _ = New("/")
 var _ = New("/", WithBoundOS())
-var _ = New("/", WithDeduplicatePath(false))
 
 // Type constants must stay exported for any consumer that switches on them.
 var (

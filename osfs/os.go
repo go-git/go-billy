@@ -29,9 +29,7 @@ var Default = newBoundOS(string(os.PathSeparator))
 // All [Option] values are accepted for API compatibility but have no
 // effect on the returned implementation.
 func New(baseDir string, opts ...Option) billy.Filesystem {
-	o := &options{
-		deduplicatePath: true,
-	}
+	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -49,19 +47,8 @@ func WithBoundOS() Option {
 	}
 }
 
-// WithDeduplicatePath toggles the deduplication of the base dir in the path.
-//
-// BoundOS now relies on os.Root for path containment, so this option is kept
-// for API compatibility and has no effect.
-func WithDeduplicatePath(enabled bool) Option {
-	return func(o *options) {
-		o.deduplicatePath = enabled
-	}
-}
-
 type options struct {
 	Type
-	deduplicatePath bool
 }
 
 // Type identifies an osfs implementation.

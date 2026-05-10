@@ -48,7 +48,7 @@ type BoundOS struct {
 	baseDir string
 }
 
-func newBoundOS(d string, _ ...bool) billy.Filesystem {
+func newBoundOS(d string) billy.Filesystem {
 	if d == "" {
 		d = string(os.PathSeparator)
 	}
