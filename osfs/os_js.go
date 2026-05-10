@@ -44,6 +44,12 @@ func newBoundOS(d string) billy.Filesystem {
 	}
 }
 
+// Capabilities implements the billy.Capable interface, delegating to the
+// underlying in-memory filesystem.
+func (fs *BoundOS) Capabilities() billy.Capability {
+	return billy.Capabilities(fs.Filesystem)
+}
+
 // Chroot returns a new BoundOS filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
