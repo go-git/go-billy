@@ -14,7 +14,7 @@ func TestDefault(t *testing.T) {
 	want := &BoundOS{}
 	got := Default
 
-	if reflect.TypeOf(got) != reflect.TypeOf(want) {
+	if reflect.TypeOf(got) != reflect.TypeFor[*BoundOS]() {
 		t.Errorf("wanted Default to be %T got %T", want, got)
 	}
 }

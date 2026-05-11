@@ -139,7 +139,6 @@ func TestReadFileCases(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			fs, name := tt.setup(t)
@@ -208,7 +207,7 @@ type writeErrorSyncFS struct {
 }
 
 func (fs *writeErrorSyncFS) OpenFile(filename string, flag int, mode iofs.FileMode) (billy.File, error) {
-	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]interface{}{filename, flag, mode})
+	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]any{filename, flag, mode})
 	return fs.file, nil
 }
 

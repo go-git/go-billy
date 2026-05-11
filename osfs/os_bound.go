@@ -19,402 +19,350 @@
 package osfs
 
 import (
-	"io/fs"
+	"errors"
+	gofs "io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/go-git/go-billy/v6"
+	"github.com/go-git/go-billy/v6/util"
 )
 
-var (
-	dotPrefixes   = dotPathPrefixes()
-	dotSeparators = dotPathSeparators()
-)
-
-func dotPathPrefixes() []string {
-	if filepath.Separator == '\\' {
-		return []string{"./", ".\\"}
-	}
-	return []string{"./"}
-}
-
-func dotPathSeparators() string {
-	if filepath.Separator == '\\' {
-		return `/\`
-	}
-	return `/`
-}
-
-// BoundOS is a fs implementation based on the OS filesystem which is bound to
-// a base dir.
-// Prefer this fs implementation over ChrootOS.
+// BoundOS is a fs implementation based on the OS filesystem which relies on
+// Go's [os.Root]. A new [os.Root] is opened and closed for each filesystem
+// operation to avoid holding a directory handle open.
+//
+// For better performance, prefer [RootOS] via [FromRoot] with a
+// caller-managed [os.Root].
 //
 // Behaviours of note:
-//  1. Read and write operations can only be directed to files which descends
+//  1. Read and write operations can only be directed to files which descend
 //     from the base dir.
-//  2. Symlinks don't have their targets modified, and therefore can point
-//     to locations outside the base dir or to non-existent paths.
-//  3. Readlink and Lstat ensures that the link file is located within the base
-//     dir, evaluating any symlinks that file or base dir may contain.
+//  2. Symlink targets are stored verbatim and not rewritten, so they may
+//     point outside the base dir or to non-existent paths. [BoundOS.Readlink]
+//     returns the stored target with path separators normalised to forward
+//     slashes (see [filepath.ToSlash]).
+//  3. Operations leading to escapes to outside the [os.Root] location result
+//     in [ErrPathEscapesParent].
 type BoundOS struct {
-	baseDir         string
-	deduplicatePath bool
+	baseDir string
 }
 
-func newBoundOS(d string, deduplicatePath bool) billy.Filesystem {
-	return &BoundOS{baseDir: d, deduplicatePath: deduplicatePath}
+func newBoundOS(d string) billy.Filesystem {
+	if d == "" {
+		d = string(os.PathSeparator)
+	}
+	d = hostPath(d)
+	return &BoundOS{baseDir: d}
+}
+
+// rootFS opens a temporary [RootOS] and returns a cleanup function that
+// closes the underlying [os.Root].
+func (fs *BoundOS) rootFS() (*RootOS, func(), error) {
+	return fs.rootFSWithCreate("", false)
+}
+
+func (fs *BoundOS) rootFSWithCreate(name string, createBase bool) (*RootOS, func(), error) {
+	rootPath := fs.operationRoot(name)
+	r, err := openRootAt(rootPath, createBase)
+	if err != nil {
+		return nil, func() {}, err
+	}
+	return &RootOS{root: r}, func() { r.Close() }, nil
 }
 
 func (fs *BoundOS) Capabilities() billy.Capability {
 	return boundCapabilities()
 }
 
-func (fs *BoundOS) Create(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
+func (fs *BoundOS) Create(name string) (billy.File, error) {
+	return fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, defaultCreateMode)
 }
 
-func (fs *BoundOS) OpenFile(filename string, flag int, perm fs.FileMode) (billy.File, error) {
-	name := fs.name(filename)
-	filename = fs.expandDot(filename)
-	fn, err := fs.abs(filename)
+func (fs *BoundOS) OpenFile(name string, flag int, perm gofs.FileMode) (billy.File, error) {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, flag&os.O_CREATE != 0)
 	if err != nil {
 		return nil, err
 	}
-
-	return openFile(fn, name, flag, perm, fs.createDir)
+	defer cleanup()
+	return rfs.OpenFile(name, flag, perm)
 }
 
-func (fs *BoundOS) ReadDir(path string) ([]fs.DirEntry, error) {
-	path = fs.expandDot(path)
-	dir, err := fs.abs(path)
+func (fs *BoundOS) ReadDir(name string) ([]gofs.DirEntry, error) {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
-
-	return os.ReadDir(dir)
+	defer cleanup()
+	return rfs.ReadDir(name)
 }
 
 func (fs *BoundOS) Rename(from, to string) error {
-	if fs.isBaseDir(from) {
-		return billy.ErrBaseDirCannotBeRenamed
-	}
-
-	f, err := fs.absNoFollow(from)
+	rfs, cleanup, err := fs.rootFSWithCreate(from, false)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Lstat(f); err != nil {
-		return err
-	}
+	defer cleanup()
+	return rfs.Rename(from, to)
+}
 
-	t, err := fs.absNoFollow(to)
+func (fs *BoundOS) MkdirAll(name string, perm gofs.FileMode) error {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, true)
 	if err != nil {
 		return err
 	}
+	defer cleanup()
+	return rfs.MkdirAll(name, perm)
+}
 
-	// MkdirAll for target name.
-	if err := fs.createDir(t); err != nil {
-		return err
+func (fs *BoundOS) Open(name string) (billy.File, error) {
+	return fs.OpenFile(name, os.O_RDONLY, 0)
+}
+
+func (fs *BoundOS) Stat(name string) (os.FileInfo, error) {
+	if fs.isBaseDir(name) {
+		return fs.baseInfo(false)
 	}
 
-	return os.Rename(f, t)
-}
-
-func (fs *BoundOS) MkdirAll(path string, perm fs.FileMode) error {
-	path = fs.expandDot(path)
-	dir, err := fs.abs(path)
-	if err != nil {
-		return err
-	}
-	return os.MkdirAll(dir, perm)
-}
-
-func (fs *BoundOS) Open(filename string) (billy.File, error) {
-	return fs.OpenFile(filename, os.O_RDONLY, 0)
-}
-
-func (fs *BoundOS) Stat(filename string) (os.FileInfo, error) {
-	name := filepath.Base(fs.name(filename))
-	filename = fs.expandDot(filename)
-	filename, err := fs.abs(filename)
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
-	fi, err := os.Stat(filename)
-	if err != nil {
-		return nil, err
-	}
-	return fileInfo{FileInfo: fi, name: name}, nil
+	defer cleanup()
+	return rfs.Stat(name)
 }
 
-func (fs *BoundOS) Remove(filename string) error {
-	if fs.isBaseDir(filename) {
-		return billy.ErrBaseDirCannotBeRemoved
-	}
-
-	fn, err := fs.absNoFollow(filename)
+func (fs *BoundOS) Remove(name string) error {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return err
 	}
-	return os.Remove(fn)
+	defer cleanup()
+	return rfs.Remove(name)
 }
 
 // TempFile creates a temporary file. If dir is empty, the file
-// will be created within the OS Temporary dir. If dir is provided
-// it must descend from the current base dir.
+// will be created within a .tmp dir.
 func (fs *BoundOS) TempFile(dir, prefix string) (billy.File, error) {
-	name := ""
-	if dir != "" {
-		name = fs.name(fs.Join(dir, prefix))
-	}
-	if dir != "" {
-		var err error
-		dir = fs.expandDot(dir)
-		dir, err = fs.abs(dir)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = os.Stat(dir)
-		if err != nil && os.IsNotExist(err) {
-			err = os.MkdirAll(dir, defaultDirectoryMode)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	f, err := tempFile(dir, prefix, "")
-	if err != nil {
-		return nil, err
-	}
-	if name != "" {
-		if osFile, ok := f.(*file); ok {
-			osFile.name = fs.Join(filepath.Dir(name), filepath.Base(osFile.File.Name()))
-		}
-	}
-	return f, nil
+	return util.TempFile(fs, dir, prefix)
 }
 
 func (fs *BoundOS) Join(elem ...string) string {
 	return filepath.Join(elem...)
 }
 
-func (fs *BoundOS) RemoveAll(path string) error {
-	if fs.isBaseDir(path) {
-		return billy.ErrBaseDirCannotBeRemoved
-	}
-
-	dir, err := fs.absNoFollow(path)
+func (fs *BoundOS) RemoveAll(name string) error {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return err
 	}
-	return os.RemoveAll(dir)
+	defer cleanup()
+	return rfs.RemoveAll(name)
 }
 
-func (fs *BoundOS) Symlink(target, link string) error {
-	link = fs.expandDot(link)
-	ln, err := fs.abs(link)
+func (fs *BoundOS) Symlink(oldname, newname string) error {
+	rfs, cleanup, err := fs.rootFSWithCreate(newname, true)
 	if err != nil {
 		return err
 	}
-	// MkdirAll for containing dir.
-	if err := fs.createDir(ln); err != nil {
-		return err
-	}
-	return os.Symlink(target, ln)
+	defer cleanup()
+	return rfs.Symlink(oldname, newname)
 }
 
-func (fs *BoundOS) name(p string) string {
-	name := fs.rootRelative(p)
-	if name == "" {
-		return "."
-	}
-	return name
-}
-
-func (fs *BoundOS) expandDot(p string) string {
-	if p == "." {
-		return fs.baseDir
-	}
-	for _, prefix := range dotPrefixes {
-		if strings.HasPrefix(p, prefix) {
-			p = strings.TrimLeft(strings.TrimPrefix(p, prefix), dotSeparators)
-			if p == "" {
-				return fs.baseDir
-			}
-			return p
-		}
-	}
-	return p
-}
-
-func (fs *BoundOS) isBaseDir(path string) bool {
-	if path == "" || filepath.Clean(path) == "." {
-		return true
-	}
-	path = fs.expandDot(path)
-	if filepath.Clean(path) == filepath.Clean(fs.baseDir) {
-		return true
-	}
-	abspath, err := fs.abs(path)
-	if err != nil {
-		return false
-	}
-	return filepath.Clean(abspath) == filepath.Clean(fs.baseDir)
-}
-
-func (fs *BoundOS) absNoFollow(filename string) (string, error) {
-	if fs.baseDir == "" {
-		return filepath.Clean(fs.expandDot(filename)), nil
+func (fs *BoundOS) Lstat(name string) (os.FileInfo, error) {
+	if fs.isBaseDir(name) {
+		return fs.baseInfo(true)
 	}
 
-	rel := fs.rootRelative(filename)
-	if rel == "" {
-		return fs.baseDir, nil
-	}
-
-	parent, err := fs.secureJoin(filepath.Dir(rel))
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(parent, filepath.Base(rel)), nil
-}
-
-func (fs *BoundOS) rootRelative(filename string) string {
-	filename = fs.expandDot(filename)
-	filename = filepath.Clean(filename)
-	if filepath.Clean(filename) == filepath.Clean(fs.baseDir) {
-		return ""
-	}
-	if filepath.IsAbs(filename) {
-		if isLocalToBase(fs.baseDir, filename) {
-			rel, _ := filepath.Rel(fs.baseDir, filename)
-			return cleanUnderRoot(rel)
-		}
-		return cleanUnderRoot(filename)
-	}
-	return cleanUnderRoot(filename)
-}
-
-func isLocalToBase(base, name string) bool {
-	rel, err := filepath.Rel(base, name)
-	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
-}
-
-func cleanUnderRoot(filename string) string {
-	vol := filepath.VolumeName(filename)
-	filename = filename[len(vol):]
-	filename = filepath.Join(string(filepath.Separator), filename)
-	return strings.TrimLeft(filename, string(filepath.Separator))
-}
-
-func (fs *BoundOS) Lstat(filename string) (os.FileInfo, error) {
-	filename, err := fs.absNoFollow(filename)
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return nil, err
 	}
-	return os.Lstat(filename)
+	defer cleanup()
+	return rfs.Lstat(name)
 }
 
-func (fs *BoundOS) Readlink(link string) (string, error) {
-	link, err := fs.absNoFollow(link)
+func (fs *BoundOS) Readlink(name string) (string, error) {
+	rfs, cleanup, err := fs.rootFSWithCreate(name, false)
 	if err != nil {
 		return "", err
 	}
-	return os.Readlink(link)
+	defer cleanup()
+	return rfs.Readlink(name)
 }
 
-func (fs *BoundOS) secureJoin(path string) (string, error) {
-	if filepath.Separator != '\\' {
-		return securejoin.SecureJoin(fs.baseDir, path)
-	}
-	return securejoin.SecureJoinVFS(fs.baseDir, path, boundOSVFS{})
-}
-
-type boundOSVFS struct{}
-
-func (boundOSVFS) Lstat(name string) (os.FileInfo, error) {
-	return os.Lstat(name)
-}
-
-func (boundOSVFS) Readlink(name string) (string, error) {
-	target, err := os.Readlink(name)
-	if err != nil {
-		return "", err
-	}
-	if filepath.Separator == '\\' && filepath.VolumeName(target) == "" && (strings.HasPrefix(target, `\`) || strings.HasPrefix(target, `/`)) {
-		if vol := filepath.VolumeName(name); vol != "" {
-			return vol + filepath.FromSlash(target), nil
-		}
-	}
-	return target, nil
-}
-
-func (fs *BoundOS) Chmod(path string, mode fs.FileMode) error {
-	abspath, err := fs.abs(path)
+func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
+	rfs, cleanup, err := fs.rootFSWithCreate(path, false)
 	if err != nil {
 		return err
 	}
-	return os.Chmod(abspath, mode)
+	defer cleanup()
+	return rfs.Chmod(path, mode)
 }
 
-// Chroot returns a new BoundOS filesystem, with the base dir set to the
+// Chroot returns a new [BoundOS] filesystem, with the base dir set to the
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
-	joined, err := fs.secureJoin(path)
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		return newBoundOS(hostPath), nil
+	}
+
+	rfs, cleanup, err := fs.rootFS()
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return newBoundOS(fs.chrootPath(path)), nil
+		}
 		return nil, err
 	}
-	return &BoundOS{
-		baseDir:         joined,
-		deduplicatePath: fs.deduplicatePath,
-	}, nil
+	defer cleanup()
+
+	rel := rfs.toRelative(path)
+	if rel == "" {
+		rel = "."
+	}
+	childRoot, err := rfs.root.OpenRoot(rel)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return newBoundOS(fs.chrootPath(path)), nil
+		}
+		return nil, err
+	}
+	defer childRoot.Close()
+
+	return newBoundOS(filepath.Clean(childRoot.Name())), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.
-// This is required in order for this implementation to be a drop-in
-// replacement for other upstream implementations (e.g. memory and osfs).
 func (fs *BoundOS) Root() string {
 	return fs.baseDir
 }
 
-func (fs *BoundOS) createDir(fullpath string) error {
-	dir := filepath.Dir(fullpath)
-	if dir != "." {
-		if err := os.MkdirAll(dir, defaultDirectoryMode); err != nil {
-			return err
+func (fs *BoundOS) isBaseDir(name string) bool {
+	if name == "" {
+		return true
+	}
+
+	name = hostPath(name)
+	if filepath.IsAbs(name) {
+		if rel, ok := relativeInsideBase(fs.baseDir, name); ok {
+			return cleanUnderRoot(rel) == ""
 		}
 	}
 
-	return nil
+	return cleanUnderRoot(name) == ""
 }
 
-// abs transforms filename to an absolute path, taking into account the base dir.
-// Relative paths won't be allowed to ascend the base dir, so `../file` will become
-// `/working-dir/file`.
-//
-// Note that if filename is a symlink, the returned address will be the target of the
-// symlink.
-func (fs *BoundOS) abs(filename string) (string, error) {
-	if filename == fs.baseDir {
-		filename = string(filepath.Separator)
+func (fs *BoundOS) chrootPath(path string) string {
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		return filepath.Clean(hostPath)
 	}
 
-	path, err := fs.secureJoin(filename)
-	if err != nil {
-		return "", err
-	}
-
-	if fs.deduplicatePath {
-		vol := filepath.VolumeName(fs.baseDir)
-		dup := filepath.Join(fs.baseDir, fs.baseDir[len(vol):])
-		if strings.HasPrefix(path, dup+string(filepath.Separator)) {
-			return fs.abs(path[len(dup):])
+	path = hostPath(path)
+	if filepath.IsAbs(path) {
+		if rel, ok := relativeInsideBase(fs.baseDir, path); ok {
+			return filepath.Clean(filepath.Join(fs.baseDir, rel))
 		}
 	}
-	return path, nil
+
+	return filepath.Clean(filepath.Join(fs.baseDir, cleanUnderRoot(path)))
+}
+
+func (fs *BoundOS) hostAbsolutePath(path string) (string, bool) {
+	if fs.baseDir != string(os.PathSeparator) {
+		return "", false
+	}
+
+	path = hostPath(path)
+	if filepath.VolumeName(path) != "" && filepath.IsAbs(path) {
+		return path, true
+	}
+
+	return "", false
+}
+
+func (fs *BoundOS) operationRoot(path string) string {
+	if hostPath, ok := fs.hostAbsolutePath(path); ok {
+		vol := filepath.VolumeName(hostPath)
+		if vol != "" {
+			return vol + string(filepath.Separator)
+		}
+	}
+
+	return fs.baseDir
+}
+
+func (fs *BoundOS) baseInfo(lstat bool) (os.FileInfo, error) {
+	base := filepath.Clean(fs.baseDir)
+	parent := filepath.Dir(base)
+	name := filepath.Base(base)
+
+	if parent == base {
+		root, err := openRootAt(base, false)
+		if err != nil {
+			return nil, err
+		}
+		defer root.Close()
+		if lstat {
+			return root.Lstat(".")
+		}
+		return root.Stat(".")
+	}
+
+	root, err := openRootAt(parent, false)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	if lstat {
+		return root.Lstat(name)
+	}
+	return root.Stat(name)
+}
+
+func openRootAt(path string, create bool) (*os.Root, error) {
+	path = filepath.Clean(path)
+	root, err := os.OpenRoot(path)
+	if err == nil || !create || !errors.Is(err, os.ErrNotExist) {
+		return root, err
+	}
+
+	ancestor, rel, err := openExistingAncestor(path)
+	if err != nil {
+		return nil, err
+	}
+	defer ancestor.Close()
+
+	if rel != "." {
+		if err := ancestor.MkdirAll(rel, defaultDirectoryMode); err != nil {
+			return nil, err
+		}
+	}
+
+	return os.OpenRoot(path)
+}
+
+func openExistingAncestor(path string) (*os.Root, string, error) {
+	path = filepath.Clean(path)
+	ancestorPath := path
+
+	for {
+		root, err := os.OpenRoot(ancestorPath)
+		if err == nil {
+			rel, relErr := filepath.Rel(ancestorPath, path)
+			if relErr != nil {
+				root.Close()
+				return nil, "", relErr
+			}
+			return root, rel, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, "", err
+		}
+
+		parent := filepath.Dir(ancestorPath)
+		if parent == ancestorPath {
+			return nil, "", err
+		}
+		ancestorPath = parent
+	}
 }

@@ -120,7 +120,7 @@ func TestOrder(t *testing.T) {
 	}
 
 	attempts := 30
-	for n := 0; n < attempts; n++ {
+	for range attempts {
 		actual, err := fs.ReadDir("")
 		require.NoError(t, err)
 
@@ -589,7 +589,7 @@ func TestThreadSafety(t *testing.T) {
 		wg.Done()
 	}
 
-	for i := 0; i < files; i++ {
+	for i := range files {
 		wg.Add(4)
 
 		go fnc(i, "a", false)

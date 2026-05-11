@@ -21,7 +21,7 @@ func (l *CallLogger) Log(call string, args string) {
 type BasicMock struct {
 	CreateArgs   []string
 	OpenArgs     []string
-	OpenFileArgs [][3]interface{}
+	OpenFileArgs [][3]any
 	StatArgs     []string
 	RenameArgs   [][2]string
 	RemoveArgs   []string
@@ -40,7 +40,7 @@ func (fs *BasicMock) Open(filename string) (billy.File, error) {
 }
 
 func (fs *BasicMock) OpenFile(filename string, flag int, mode fs.FileMode) (billy.File, error) {
-	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]interface{}{filename, flag, mode})
+	fs.OpenFileArgs = append(fs.OpenFileArgs, [3]any{filename, flag, mode})
 	return &FileMock{name: filename, callLogger: &fs.CallLogger}, nil
 }
 
@@ -77,7 +77,7 @@ func (fs *TempFileMock) TempFile(dir, prefix string) (billy.File, error) {
 type DirMock struct {
 	BasicMock
 	ReadDirArgs  []string
-	MkdirAllArgs [][2]interface{}
+	MkdirAllArgs [][2]any
 }
 
 func (fs *DirMock) ReadDir(path string) ([]fs.DirEntry, error) {
@@ -86,7 +86,7 @@ func (fs *DirMock) ReadDir(path string) ([]fs.DirEntry, error) {
 }
 
 func (fs *DirMock) MkdirAll(filename string, perm fs.FileMode) error {
-	fs.MkdirAllArgs = append(fs.MkdirAllArgs, [2]interface{}{filename, perm})
+	fs.MkdirAllArgs = append(fs.MkdirAllArgs, [2]any{filename, perm})
 	return nil
 }
 

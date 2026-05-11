@@ -23,9 +23,9 @@ type ChrootHelper struct { //nolint
 
 const maxFollowedSymlinks = 8 // Aligns with POSIX_SYMLOOP_MAX
 
-// New creates a new filesystem wrapping up the given 'fs'.
-// The created filesystem has its base in the given ChrootHelperectory of the
-// underlying filesystem.
+// New creates a new filesystem wrapping the given 'fs', rooted at base.
+// All paths passed to the returned filesystem are joined with base before
+// being forwarded to the underlying filesystem.
 func New(fs billy.Basic, base string) billy.Filesystem {
 	return &ChrootHelper{
 		underlying: polyfill.New(fs),
@@ -358,6 +358,11 @@ func (fs *ChrootHelper) Lstat(filename string) (os.FileInfo, error) {
 	return sl.Lstat(fullpath)
 }
 
+// Symlink creates link with the given target. Slashes in target are
+// normalised to the host separator. Absolute targets are rewritten to be
+// rooted under the chroot base before being stored, so that the link is
+// resolvable when the chroot is reopened from a different working directory.
+// Relative targets are stored as provided.
 func (fs *ChrootHelper) Symlink(target, link string) error {
 	target = filepath.FromSlash(target)
 
@@ -379,6 +384,15 @@ func (fs *ChrootHelper) Symlink(target, link string) error {
 	return sl.Symlink(target, link)
 }
 
+// Readlink returns the target stored for link.
+//
+// Relative targets are returned unchanged, preserving the original separators
+// as written by [ChrootHelper.Symlink] or the underlying filesystem. Absolute
+// targets that resolve under the chroot base are translated back to be
+// absolute relative to the chroot (using the host path separator), so callers
+// see paths in the chroot's coordinate system rather than the underlying
+// filesystem's. Absolute targets that resolve outside the base are returned
+// as written.
 func (fs *ChrootHelper) Readlink(link string) (string, error) {
 	fullpath, err := fs.underlyingPath(link)
 	if err != nil {
@@ -395,8 +409,16 @@ func (fs *ChrootHelper) Readlink(link string) (string, error) {
 		return "", err
 	}
 
+	rawTarget := target
+	target = filepath.FromSlash(target)
+	if filepath.Separator == '\\' && len(target) >= 3 &&
+		target[0] == '\\' && target[2] == ':' &&
+		filepath.VolumeName(fs.base) != "" {
+		target = target[1:]
+	}
+
 	if !filepath.IsAbs(target) && !strings.HasPrefix(target, string(filepath.Separator)) {
-		return target, nil
+		return rawTarget, nil
 	}
 
 	target, err = filepath.Rel(fs.base, target)

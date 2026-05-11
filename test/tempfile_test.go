@@ -85,10 +85,10 @@ func TestRenameTempFile(t *testing.T) {
 func TestTempFileMany(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		t.Helper()
-		for i := 0; i < 1024; i++ {
+		for range 1024 {
 			var files []billy.File
 
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				f, err := fs.TempFile("test-dir", "test-prefix")
 				require.NoError(t, err)
 				files = append(files, f)
@@ -105,10 +105,10 @@ func TestTempFileMany(t *testing.T) {
 func TestTempFileManyWithUtil(t *testing.T) {
 	eachTempFS(t, func(t *testing.T, fs tempFS) {
 		t.Helper()
-		for i := 0; i < 1024; i++ {
+		for range 1024 {
 			var files []billy.File
 
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				f, err := util.TempFile(fs, "test-dir", "test-prefix")
 				require.NoError(t, err)
 				files = append(files, f)

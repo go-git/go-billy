@@ -135,7 +135,7 @@ func TestOpenFile(t *testing.T) {
 	assert.Equal(t, f.Name(), filepath.Join("bar", "qux"))
 
 	assert.Len(t, m.OpenFileArgs, 1)
-	assert.Equal(t, m.OpenFileArgs[0], [3]interface{}{"/foo/bar/qux", 42, os.FileMode(0o777)})
+	assert.Equal(t, m.OpenFileArgs[0], [3]any{"/foo/bar/qux", 42, os.FileMode(0o777)})
 }
 
 func TestOpenFileErrCrossedBoundary(t *testing.T) {
@@ -268,7 +268,7 @@ func TestMkDirAll(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, m.MkdirAllArgs, 1)
-	assert.Equal(t, m.MkdirAllArgs[0], [2]interface{}{"/foo/bar", os.FileMode(0o777)})
+	assert.Equal(t, m.MkdirAllArgs[0], [2]any{"/foo/bar", os.FileMode(0o777)})
 }
 
 func TestMkdirAllErrCrossedBoundary(t *testing.T) {
@@ -376,6 +376,63 @@ func TestReadlinkWithRelative(t *testing.T) {
 	assert.Equal(t, m.ReadlinkArgs[0], "/foo/qux/bar")
 }
 
+func TestReadlinkPreservesRelativeTarget(t *testing.T) {
+	m := &readlinkTargetMock{target: "qux/bar"}
+
+	fs := New(m, "/foo")
+	link, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, "qux/bar", link)
+}
+
+func TestReadlinkNormalizesSlashAbsoluteTarget(t *testing.T) {
+	m := &readlinkTargetMock{target: "/foo/qux/bar"}
+
+	fs := New(m, "/foo")
+	link, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, string(os.PathSeparator)+filepath.Join("qux", "bar"), link)
+}
+
+func TestReadlinkNormalizesSlashPrefixedWindowsDriveTarget(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("windows-only path form")
+	}
+
+	m := &readlinkTargetMock{target: `/C:/repo/qux/bar`}
+
+	fs := New(m, `C:\repo`)
+	link, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, `\`+filepath.Join("qux", "bar"), link)
+}
+
+func TestReadlinkPreservesDriveLookingTargetUnderWindowsSeparatorRoot(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("windows-only path form")
+	}
+
+	m := &readlinkTargetMock{target: `\c:\test\123`}
+
+	fs := New(m, `\`)
+	link, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, `\c:\test\123`, link)
+}
+
+func TestReadlinkNormalizesSlashAbsoluteTargetUnderWindowsSeparatorRoot(t *testing.T) {
+	if filepath.Separator != '\\' {
+		t.Skip("windows-only path form")
+	}
+
+	m := &readlinkTargetMock{target: `/dir/file`}
+
+	fs := New(m, `\`)
+	link, err := fs.Readlink("link")
+	require.NoError(t, err)
+	assert.Equal(t, `\`+filepath.Join("dir", "file"), link)
+}
+
 func TestReadlinkErrCrossedBoundary(t *testing.T) {
 	m := &test.SymlinkMock{}
 
@@ -406,4 +463,14 @@ func testCapabilities(t *testing.T, basic billy.Basic) {
 	capabilities := billy.Capabilities(fs)
 
 	assert.Equal(t, capabilities, baseCapabilities)
+}
+
+type readlinkTargetMock struct {
+	test.SymlinkMock
+	target string
+}
+
+func (fs *readlinkTargetMock) Readlink(link string) (string, error) {
+	fs.ReadlinkArgs = append(fs.ReadlinkArgs, link)
+	return fs.target, nil
 }

@@ -18,43 +18,36 @@ var globalMemFs = memfs.New()
 // js/wasm environment.
 var Default = memfs.New()
 
-// New returns a new OS filesystem.
-// By default paths are deduplicated, but still enforced
-// under baseDir. For more info refer to WithDeduplicatePath.
+// New returns a new OS filesystem rooted at baseDir, backed by the
+// js/wasm in-memory filesystem.
 func New(baseDir string, opts ...Option) billy.Filesystem {
-	o := &options{
-		deduplicatePath: true,
-	}
+	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	if o.Type == BoundOSFS {
-		return newBoundOS(baseDir, o.deduplicatePath)
-	}
-
-	return newChrootOS(baseDir)
-}
-
-func newChrootOS(baseDir string) billy.Filesystem {
-	return chroot.New(Default, Default.Join("/", baseDir))
+	return newBoundOS(baseDir)
 }
 
 // BoundOS is a fs implementation based on the js/wasm in-memory filesystem
 // which is bound to a base dir.
 type BoundOS struct {
 	billy.Filesystem
-	baseDir         string
-	deduplicatePath bool
+	baseDir string
 }
 
-func newBoundOS(d string, deduplicatePath bool) billy.Filesystem {
+func newBoundOS(d string) billy.Filesystem {
 	baseDir := globalMemFs.Join("/", d)
 	return &BoundOS{
-		Filesystem:      chroot.New(globalMemFs, baseDir),
-		baseDir:         baseDir,
-		deduplicatePath: deduplicatePath,
+		Filesystem: chroot.New(globalMemFs, baseDir),
+		baseDir:    baseDir,
 	}
+}
+
+// Capabilities implements the billy.Capable interface, delegating to the
+// underlying in-memory filesystem.
+func (fs *BoundOS) Capabilities() billy.Capability {
+	return billy.Capabilities(fs.Filesystem)
 }
 
 // Chroot returns a new BoundOS filesystem, with the base dir set to the
@@ -64,7 +57,7 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	if err != nil {
 		return nil, err
 	}
-	return New(joined, WithBoundOS(), WithDeduplicatePath(fs.deduplicatePath)), nil
+	return New(joined, WithBoundOS()), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.
@@ -94,30 +87,14 @@ func WithBoundOS() Option {
 	}
 }
 
-// WithChrootOS returns the option of using a Chroot filesystem OS.
-func WithChrootOS() Option {
-	return func(o *options) {
-		o.Type = ChrootOSFS
-	}
-}
-
-// WithDeduplicatePath toggles the deduplication of the base dir in the path.
-// This option is accepted for API parity with non-js builds and has no effect
-// on the js/wasm in-memory implementation.
-func WithDeduplicatePath(enabled bool) Option {
-	return func(o *options) {
-		o.deduplicatePath = enabled
-	}
-}
+type Option func(*options)
 
 type options struct {
 	Type
-	deduplicatePath bool
 }
 
 type Type int
 
 const (
-	ChrootOSFS Type = iota
-	BoundOSFS
+	BoundOSFS Type = iota
 )

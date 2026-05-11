@@ -185,7 +185,7 @@ func TestDir_ReadDirNested(t *testing.T) {
 		}
 
 		path = "/"
-		for i := 0; i < maxNestedDirs; i++ {
+		for i := range maxNestedDirs {
 			path = fs.Join(path, strconv.Itoa(i))
 			info, err := fs.ReadDir(path)
 			require.NoError(t, err)

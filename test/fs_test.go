@@ -138,7 +138,7 @@ func TestFS_SymlinkWithChrootCrossBounders(t *testing.T) {
 		if _, ok := qux.(*osfs.BoundOS); ok {
 			fi, err = qux.Stat("qux/link")
 			assert.Nil(t, fi, fs)
-			assert.ErrorIs(t, err, os.ErrNotExist)
+			assert.ErrorIs(t, err, osfs.ErrPathEscapesParent)
 		}
 	})
 }
