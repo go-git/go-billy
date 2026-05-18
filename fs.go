@@ -177,6 +177,12 @@ type File interface {
 	Name() string
 	io.Writer
 	io.WriterAt
+	// ReadAt must be safe for concurrent calls from multiple
+	// goroutines on the same handle, matching the [io.ReaderAt]
+	// contract documented in package io. Callers performing
+	// concurrent random-access reads on a shared File rely on
+	// this; backings that cannot honour it must not satisfy
+	// [billy.File].
 	io.ReaderAt
 	io.Seeker
 	// Truncate the file.
