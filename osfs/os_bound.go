@@ -46,14 +46,26 @@ import (
 //     in [ErrPathEscapesParent].
 type BoundOS struct {
 	baseDir string
+	mmap    bool
 }
 
-func newBoundOS(d string) billy.Filesystem {
+func newBoundOS(d string) *BoundOS {
 	if d == "" {
 		d = string(os.PathSeparator)
 	}
 	d = hostPath(d)
 	return &BoundOS{baseDir: d}
+}
+
+// clone returns a new [BoundOS] rooted at d that carries over fs's
+// configurable behaviour (currently just the [WithMmap] flag). Used
+// to construct sub-filesystems via [BoundOS.Chroot] without silently
+// dropping caller-supplied options.
+func (fs *BoundOS) clone(d string) *BoundOS {
+	if d == "" {
+		d = string(os.PathSeparator)
+	}
+	return &BoundOS{baseDir: hostPath(d), mmap: fs.mmap}
 }
 
 // rootFS opens a temporary [RootOS] and returns a cleanup function that
@@ -68,7 +80,7 @@ func (fs *BoundOS) rootFSWithCreate(name string, createBase bool) (*RootOS, func
 	if err != nil {
 		return nil, func() {}, err
 	}
-	return &RootOS{root: r}, func() { r.Close() }, nil
+	return &RootOS{root: r, mmap: fs.mmap}, func() { r.Close() }, nil
 }
 
 func (fs *BoundOS) Capabilities() billy.Capability {
@@ -204,13 +216,13 @@ func (fs *BoundOS) Chmod(path string, mode gofs.FileMode) error {
 // result of joining the provided path with the underlying base dir.
 func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	if hostPath, ok := fs.hostAbsolutePath(path); ok {
-		return newBoundOS(hostPath), nil
+		return fs.clone(hostPath), nil
 	}
 
 	rfs, cleanup, err := fs.rootFS()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return newBoundOS(fs.chrootPath(path)), nil
+			return fs.clone(fs.chrootPath(path)), nil
 		}
 		return nil, err
 	}
@@ -223,13 +235,13 @@ func (fs *BoundOS) Chroot(path string) (billy.Filesystem, error) {
 	childRoot, err := rfs.root.OpenRoot(rel)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return newBoundOS(fs.chrootPath(path)), nil
+			return fs.clone(fs.chrootPath(path)), nil
 		}
 		return nil, err
 	}
 	defer childRoot.Close()
 
-	return newBoundOS(filepath.Clean(childRoot.Name())), nil
+	return fs.clone(filepath.Clean(childRoot.Name())), nil
 }
 
 // Root returns the current base dir of the billy.Filesystem.

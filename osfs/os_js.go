@@ -87,10 +87,20 @@ func WithBoundOS() Option {
 	}
 }
 
+// WithMmap is a no-op on js/wasm; the in-memory backing has no fd to
+// map. The function exists so cross-platform callers can pass the
+// option without build tags.
+func WithMmap() Option {
+	return func(o *options) {
+		o.mmap = true
+	}
+}
+
 type Option func(*options)
 
 type options struct {
 	Type
+	mmap bool
 }
 
 type Type int

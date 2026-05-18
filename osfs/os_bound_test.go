@@ -36,10 +36,8 @@ import (
 func TestBoundOSCapabilities(t *testing.T) {
 	dir := t.TempDir()
 	fs := newBoundOS(dir)
-	c, ok := fs.(billy.Capable)
-	require.True(t, ok)
 
-	assert.Equal(t, boundCapabilities(), c.Capabilities())
+	assert.Equal(t, boundCapabilities(), fs.Capabilities())
 }
 
 func TestFromRoot(t *testing.T) {
@@ -209,7 +207,7 @@ func TestOpen(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			var fs billy.Filesystem = newBoundOS(dir)
 			if tt.before != nil {
 				fs = tt.before(t, dir)
 			}
@@ -517,7 +515,7 @@ func TestRemove(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			fs := newBoundOS(dir)
+			var fs billy.Filesystem = newBoundOS(dir)
 			if tt.before != nil {
 				fs = tt.before(t, dir)
 			}
@@ -739,10 +737,13 @@ func requireFileContents(t *testing.T, filename string, want []byte) {
 	assert.Equal(t, want, got)
 }
 
-func newTestBoundOS(t *testing.T, dir string) *BoundOS {
+func newTestBoundOS(t *testing.T, dir string, opts ...Option) *BoundOS {
 	t.Helper()
 
-	fs, ok := newBoundOS(dir).(*BoundOS)
+	if len(opts) == 0 {
+		return newBoundOS(dir)
+	}
+	fs, ok := New(dir, opts...).(*BoundOS)
 	require.True(t, ok)
 	return fs
 }
