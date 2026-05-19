@@ -283,7 +283,7 @@ func TestReadDir(t *testing.T) {
 			name: "testdataDir w/ path",
 			path: "testdata",
 			fs:   &testdataDir,
-			want: []string{"empty.txt", "empty2.txt"},
+			want: []string{"concurrent.bin", "empty.txt", "empty2.txt"},
 		},
 		{
 			name:    "testdataDir return no dir names",
