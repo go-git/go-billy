@@ -6,7 +6,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/onsi/gomega v1.34.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/sys v0.43.0
+	golang.org/x/sys v0.44.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 )
 
