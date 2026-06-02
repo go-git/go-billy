@@ -31,7 +31,15 @@ func TestRootOSMmapCleanup(t *testing.T) {
 	f = nil
 	_ = f
 
-	runtime.GC()
+	for range 10 {
+		runtime.GC()
+
+		ok, err = isFileMapped(path)
+		require.NoError(t, err)
+		if !ok {
+			break
+		}
+	}
 
 	ok, err = isFileMapped(path)
 	require.NoError(t, err)

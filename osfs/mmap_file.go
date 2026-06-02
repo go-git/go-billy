@@ -68,10 +68,15 @@ func newMmapFile(f *os.File, name string) (*mmapFile, error) {
 	}
 
 	m := &mmapFile{f: f, data: data, name: name}
-	// Belt and braces for callers that forget to Close: the runtime
-	// will munmap and close the fd when m becomes unreachable. Close
-	// clears this finalizer on the orderly path.
-	m.cleanup = runtime.AddCleanup(m, mmapClean, data)
+
+	// unmap and close the file when the mmapFile is garbage collected and no
+	// Close is called before.
+	closeFunc := func(_ struct{}) {
+		_ = unix.Munmap(data)
+		_ = f.Close()
+	}
+	m.cleanup = runtime.AddCleanup(m, closeFunc, struct{}{})
+
 	return m, nil
 }
 
@@ -176,8 +181,4 @@ func (m *mmapFile) Close() error {
 	m.data = nil
 	closeErr := m.f.Close()
 	return errors.Join(munmapErr, closeErr)
-}
-
-func mmapClean(d []byte) {
-	_ = unix.Munmap(d)
 }
