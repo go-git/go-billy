@@ -34,6 +34,12 @@ type mmapFile struct {
 	cleanup runtime.Cleanup
 }
 
+// mmapResources holds the resorces to be cleaned up when mmapFile is GC.
+type mmapResources struct {
+	data []byte
+	file *os.File
+}
+
 // newMmapFile maps f read-only and returns an [*mmapFile] that owns
 // f. On success the returned handle is responsible for closing the
 // underlying [*os.File] via [(*mmapFile).Close].
@@ -71,11 +77,15 @@ func newMmapFile(f *os.File, name string) (*mmapFile, error) {
 
 	// unmap and close the file when the mmapFile is garbage collected and no
 	// Close is called before.
-	closeFunc := func(_ struct{}) {
-		_ = unix.Munmap(data)
-		_ = f.Close()
+	mr := mmapResources{
+		data: data,
+		file: f,
 	}
-	m.cleanup = runtime.AddCleanup(m, closeFunc, struct{}{})
+	closeFunc := func(res mmapResources) {
+		_ = unix.Munmap(res.data)
+		_ = res.file.Close()
+	}
+	m.cleanup = runtime.AddCleanup(m, closeFunc, mr)
 
 	return m, nil
 }
