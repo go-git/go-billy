@@ -36,6 +36,11 @@ const (
 	LockCapability
 	// SyncCapability is the ability to synchronize file contents to stable storage.
 	SyncCapability
+	// MmapCapability advertises that the filesystem MAY return read-only
+	// memory-mapped files (see the Mmap interface). Advisory only: mmap is
+	// decided per-open (read-only flag, platform, file size), so the reliable
+	// signal is a billy.Mmap type assertion on the returned File.
+	MmapCapability
 
 	// DefaultCapabilities lists all capable features supported by filesystems
 	// without Capability interface. This list should not be changed until a
@@ -203,6 +208,17 @@ type Locker interface {
 type Syncer interface {
 	// Sync commits the current contents of the file to stable storage.
 	Sync() error
+}
+
+// Mmap is implemented by a File backed by a read-only memory mapping. It
+// exposes zero-copy access to the mapped bytes. Detected via type assertion.
+// The returned slices are valid only until the File is Closed and MUST NOT be
+// mutated — the mapping is read-only and shared.
+type Mmap interface {
+	// Bytes returns the entire mapping.
+	Bytes() []byte
+	// Slice returns a zero-copy sub-window [off, off+length).
+	Slice(off, length int64) []byte
 }
 
 // Capable interface can return the available features of a filesystem.
