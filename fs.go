@@ -215,9 +215,13 @@ type Syncer interface {
 // The returned slices are valid only until the File is Closed and MUST NOT be
 // mutated — the mapping is read-only and shared.
 type Mmap interface {
-	// Bytes returns the entire mapping.
+	// Bytes returns the entire mapping. The returned slice is valid only until
+	// Close and must not be mutated — the mapping is read-only and shared.
 	Bytes() []byte
-	// Slice returns a zero-copy sub-window [off, off+length).
+	// Slice returns a zero-copy sub-window [off, off+length). off and off+length
+	// must lie within [0, len(Bytes())]; out-of-range values panic. The returned
+	// slice is valid only until Close and must not be mutated — the mapping is
+	// read-only and shared.
 	Slice(off, length int64) []byte
 }
 
