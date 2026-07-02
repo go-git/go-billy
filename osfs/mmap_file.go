@@ -30,6 +30,14 @@ type mmapFile struct {
 	mu     sync.RWMutex
 	cursor int64
 	closed bool
+
+	cleanup runtime.Cleanup
+}
+
+// mmapResources holds the resorces to be cleaned up when mmapFile is GC.
+type mmapResources struct {
+	data []byte
+	file *os.File
 }
 
 // newMmapFile maps f read-only and returns an [*mmapFile] that owns
@@ -66,10 +74,19 @@ func newMmapFile(f *os.File, name string) (*mmapFile, error) {
 	}
 
 	m := &mmapFile{f: f, data: data, name: name}
-	// Belt and braces for callers that forget to Close: the runtime
-	// will munmap and close the fd when m becomes unreachable. Close
-	// clears this finalizer on the orderly path.
-	runtime.SetFinalizer(m, (*mmapFile).Close)
+
+	// unmap and close the file when the mmapFile is garbage collected and no
+	// Close is called before.
+	mr := mmapResources{
+		data: data,
+		file: f,
+	}
+	closeFunc := func(res mmapResources) {
+		_ = unix.Munmap(res.data)
+		_ = res.file.Close()
+	}
+	m.cleanup = runtime.AddCleanup(m, closeFunc, mr)
+
 	return m, nil
 }
 
@@ -168,7 +185,7 @@ func (m *mmapFile) Close() error {
 		return os.ErrClosed
 	}
 	m.closed = true
-	runtime.SetFinalizer(m, nil)
+	m.cleanup.Stop()
 
 	munmapErr := unix.Munmap(m.data)
 	m.data = nil
