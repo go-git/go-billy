@@ -36,6 +36,9 @@ const (
 	LockCapability
 	// SyncCapability is the ability to synchronize file contents to stable storage.
 	SyncCapability
+	// CopyCapability means the fs can copy a regular file from another fs
+	// via the Copier interface.
+	CopyCapability
 
 	// DefaultCapabilities lists all capable features supported by filesystems
 	// without Capability interface. This list should not be changed until a
@@ -47,7 +50,7 @@ const (
 	// AllCapabilities lists all capable features.
 	AllCapabilities Capability = WriteCapability | ReadCapability |
 		ReadAndWriteCapability | SeekCapability | TruncateCapability |
-		LockCapability | SyncCapability
+		LockCapability | SyncCapability | CopyCapability
 )
 
 // Filesystem abstract the operations in a storage-agnostic interface.
@@ -228,3 +231,25 @@ func CapabilityCheck(fs Basic, capabilities Capability) bool {
 	fsCaps := Capabilities(fs)
 	return fsCaps&capabilities == capabilities
 }
+
+// Copier is implemented by filesystems that can copy a regular file's
+// contents (and mode) from another filesystem, optionally using
+// platform-accelerated syscalls. dstName is created or truncated.
+// Symlinks and directories are not handled; symlink sources are rejected.
+// On any platform limitation the implementation falls back to an in-process
+// byte copy, so callers never see EXDEV/ENOTSUP.
+type Copier interface {
+	CopyFrom(src Filesystem, srcName, dstName string) error
+}
+
+// UnderlyingFS is a filesystem that exposes its wrapped Basic.
+type UnderlyingFS interface{ Underlying() Basic }
+
+// RootedWrapper is a wrapper (e.g. chroot) that exposes its root and
+// underlying Basic; the root is used to translate chroot-relative names
+// into the underlying filesystem's coordinates.
+type RootedWrapper interface {
+	UnderlyingFS
+	Root() string
+}
+
