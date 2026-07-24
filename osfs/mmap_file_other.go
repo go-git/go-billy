@@ -26,3 +26,5 @@ func (m *mmapFile) WriteAt(p []byte, off int64) (int, error)      { return 0, os
 func (m *mmapFile) Seek(offset int64, whence int) (int64, error)  { return 0, os.ErrInvalid }
 func (m *mmapFile) Truncate(size int64) error                     { return os.ErrInvalid }
 func (m *mmapFile) Close() error                                  { return os.ErrInvalid }
+func (m *mmapFile) Bytes() []byte                                 { return nil }
+func (m *mmapFile) Slice(off, length int64) []byte                { return nil }
