@@ -3,11 +3,13 @@
 package osfs
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	gofs "io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/go-git/go-billy/v6"
@@ -142,6 +144,9 @@ func (fs *RootOS) ReadDir(name string) ([]gofs.DirEntry, error) {
 	if err != nil {
 		return nil, translateError(err, rel)
 	}
+	slices.SortFunc(e, func(a, b gofs.DirEntry) int {
+		return cmp.Compare(a.Name(), b.Name())
+	})
 	return e, nil
 }
 
