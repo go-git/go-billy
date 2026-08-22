@@ -178,6 +178,31 @@ func (m *mmapFile) Truncate(size int64) error {
 	return &os.PathError{Op: "truncate", Path: m.name, Err: os.ErrPermission}
 }
 
+// Bytes returns the entire mapping. The returned slice is valid only until
+// Close and must not be mutated — the mapping is read-only and shared.
+// Returns nil after Close.
+func (m *mmapFile) Bytes() []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
+		return nil
+	}
+	return m.data
+}
+
+// Slice returns a zero-copy sub-window [off, off+length). off and off+length
+// must lie within [0, len(Bytes())]; out-of-range values panic. The returned
+// slice is valid only until Close and must not be mutated — the mapping is
+// read-only and shared. Returns nil after Close.
+func (m *mmapFile) Slice(off, length int64) []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
+		return nil
+	}
+	return m.data[off : off+length]
+}
+
 func (m *mmapFile) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

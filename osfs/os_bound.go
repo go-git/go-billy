@@ -84,7 +84,11 @@ func (fs *BoundOS) rootFSWithCreate(name string, createBase bool) (*RootOS, func
 }
 
 func (fs *BoundOS) Capabilities() billy.Capability {
-	return boundCapabilities()
+	c := boundCapabilities()
+	if fs.mmap {
+		c |= billy.MmapCapability
+	}
+	return c
 }
 
 func (fs *BoundOS) Create(name string) (billy.File, error) {

@@ -57,7 +57,11 @@ type RootOS struct {
 }
 
 func (fs *RootOS) Capabilities() billy.Capability {
-	return boundCapabilities()
+	c := boundCapabilities()
+	if fs.mmap {
+		c |= billy.MmapCapability
+	}
+	return c
 }
 
 func (fs *RootOS) Create(name string) (billy.File, error) {
