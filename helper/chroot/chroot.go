@@ -1,3 +1,5 @@
+//go:build !plan9 && !windows
+
 package chroot
 
 import (
