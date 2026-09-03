@@ -816,6 +816,8 @@ func TestTruncate(t *testing.T) {
 
 func TestWriteAtDoesNotMoveSeekOffset(t *testing.T) {
 	eachBasicFS(t, func(t *testing.T, fs Basic) {
+		t.Helper()
+
 		f, err := fs.Create("foo")
 		require.NoError(t, err)
 
@@ -840,5 +842,6 @@ func TestWriteAtDoesNotMoveSeekOffset(t *testing.T) {
 		all, err := io.ReadAll(read)
 		require.NoError(t, err)
 		require.Equal(t, "HDR!0020BODYBODYBODY<EOF>", string(all))
+		require.NoError(t, read.Close())
 	})
 }
