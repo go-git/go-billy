@@ -26,6 +26,12 @@ type Option func(*options)
 // pointing at the old inode. Callers that may see the file mutate
 // underneath them should leave the option off.
 //
+// A mmap-backed file does not hold a file descriptor: the descriptor is
+// closed as soon as the mapping is established, and Stat reports the
+// FileInfo captured at open time. Each open mapping still counts against
+// the process's mapping limit (vm.max_map_count on Linux) and address
+// space, so callers holding many files open should bound them.
+//
 // The mmap-backed file is read-only by construction; it does not
 // satisfy [billy.Syncer] (Sync is meaningless on a read-only
 // mapping) or the [Locker] interface even though the surrounding

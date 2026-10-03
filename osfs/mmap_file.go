@@ -21,11 +21,14 @@ import (
 // parallel against the same handle) and serialised against Close
 // via an RWMutex so munmap cannot run while a read is in flight.
 // Write/WriteAt/Truncate return [os.ErrPermission] — the file is
-// read-only by construction.
+// read-only by construction. The underlying descriptor is closed as
+// soon as the mapping exists.
 type mmapFile struct {
-	f    *os.File
 	data []byte
 	name string
+	// info is captured at open. The descriptor is closed once the
+	// mapping exists, so Stat cannot fstat it later.
+	info os.FileInfo
 
 	mu     sync.RWMutex
 	cursor int64
@@ -34,20 +37,15 @@ type mmapFile struct {
 	cleanup runtime.Cleanup
 }
 
-// mmapResources holds the resorces to be cleaned up when mmapFile is GC.
-type mmapResources struct {
-	data []byte
-	file *os.File
-}
-
-// newMmapFile maps f read-only and returns an [*mmapFile] that owns
-// f. On success the returned handle is responsible for closing the
-// underlying [*os.File] via [(*mmapFile).Close].
+// newMmapFile maps f read-only and returns an [*mmapFile]. Once the
+// mapping is established f is closed: POSIX keeps a mapping valid after
+// its descriptor is closed, so an mmap-backed file holds no descriptor.
 //
 // If mmap is unavailable for this particular file (zero size, size
 // beyond platform int, mmap rejected by the kernel for pipes/devices
 // etc.) the function returns [errMmapUnavailable] without closing f
-// so the caller can fall back to a regular [*file] wrapper.
+// so the caller can fall back to a regular [*file] wrapper. Zero size
+// includes procfs files, which report size 0 but have content.
 //
 // Any other error (e.g. fstat failing) is propagated as-is and f is
 // closed before returning — the caller must not use it.
@@ -73,30 +71,33 @@ func newMmapFile(f *os.File, name string) (*mmapFile, error) {
 		return nil, errMmapUnavailable
 	}
 
-	m := &mmapFile{f: f, data: data, name: name}
+	// The mapping is established and is what callers read from; a
+	// close error on the now-unneeded descriptor is not actionable.
+	_ = f.Close()
 
-	// unmap and close the file when the mmapFile is garbage collected and no
-	// Close is called before.
-	mr := mmapResources{
-		data: data,
-		file: f,
-	}
-	closeFunc := func(res mmapResources) {
-		_ = unix.Munmap(res.data)
-		_ = res.file.Close()
-	}
-	m.cleanup = runtime.AddCleanup(m, closeFunc, mr)
+	m := &mmapFile{data: data, name: name, info: info}
+
+	// Unmap when the mmapFile is garbage collected without Close.
+	m.cleanup = runtime.AddCleanup(m, func(data []byte) {
+		_ = unix.Munmap(data)
+	}, data)
 
 	return m, nil
 }
 
 func (m *mmapFile) Name() string { return m.name }
 
-// Stat returns the underlying *os.File's FileInfo unchanged so that
-// f.Stat().Name() matches the basename returned by the fd-backed
-// *file across both backings.
+// Stat returns the FileInfo captured at open. Its Name() is the
+// basename, matching the fd-backed *file. Size is exact because the
+// mapping cannot grow; ModTime is the file's modification time as of
+// open and may be stale.
 func (m *mmapFile) Stat() (os.FileInfo, error) {
-	return m.f.Stat()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
+		return nil, &os.PathError{Op: "stat", Path: m.name, Err: os.ErrClosed}
+	}
+	return m.info, nil
 }
 
 // Read implements [io.Reader]. It holds the write lock because it
@@ -187,8 +188,7 @@ func (m *mmapFile) Close() error {
 	m.closed = true
 	m.cleanup.Stop()
 
-	munmapErr := unix.Munmap(m.data)
+	err := unix.Munmap(m.data)
 	m.data = nil
-	closeErr := m.f.Close()
-	return errors.Join(munmapErr, closeErr)
+	return err
 }
