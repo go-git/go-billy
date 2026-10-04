@@ -38,6 +38,14 @@ type Option func(*options)
 // filesystem advertises both capabilities. Code that type-asserts
 // against those interfaces on a handle returned by an open with
 // [WithMmap] active should be prepared for the assertion to fail.
+//
+// Files returned through the mmap path also implement [billy.BytesFile],
+// which exposes the mapped contents without copying. Not every open
+// under this option provides it (write-mode opens, platforms without
+// mmap, files mmap rejects such as empty or special files), so callers
+// must keep a Read/ReadAt fallback. ReadAt synchronises with Close on
+// every call, so hot paths issuing many small reads should call Bytes
+// once and slice instead.
 func WithMmap() Option {
 	return func(o *options) {
 		o.mmap = true

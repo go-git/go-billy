@@ -378,3 +378,32 @@ func TestOpenBackingSelection(t *testing.T) {
 // Ensure *file satisfies billy.File at compile-time so type
 // assertions in tests are guaranteed valid.
 var _ billy.File = (*file)(nil)
+
+// TestOpenFdBackingHasNoBytes pins that only the mmap backing exposes
+// Bytes on the raw osfs handle: the default backing and write-mode opens
+// under WithMmap must not. Callers must still check ok, since wrappers
+// (chroot, mount) forward Bytes and may report false.
+func TestOpenFdBackingHasNoBytes(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writePattern(t, filepath.Join(dir, "data"), 4096)
+
+	t.Run("default", func(t *testing.T) {
+		t.Parallel()
+		f, err := newTestBoundOS(t, dir).Open("data")
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		_, ok := f.(billy.BytesFile)
+		require.False(t, ok, "fd-backed %T must not implement Bytes", f)
+	})
+
+	t.Run("with-mmap-write-mode", func(t *testing.T) {
+		t.Parallel()
+		f, err := newTestBoundOS(t, dir, WithMmap()).OpenFile("data", os.O_RDWR, 0)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+		_, ok := f.(billy.BytesFile)
+		require.False(t, ok, "write-mode %T must not implement Bytes", f)
+	})
+}
