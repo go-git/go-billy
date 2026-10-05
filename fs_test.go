@@ -6,6 +6,7 @@ import (
 	. "github.com/go-git/go-billy/v6" //nolint
 	"github.com/go-git/go-billy/v6/internal/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCapabilities(t *testing.T) {
@@ -31,3 +32,23 @@ func TestCapabilities(t *testing.T) {
 	dummy := new(test.BasicMock)
 	assert.Equal(t, Capabilities(dummy), DefaultCapabilities)
 }
+
+func TestMmapCapabilityIsDistinctBit(t *testing.T) {
+	// MmapCapability must be its own bit, not overlapping any existing one,
+	// and must NOT be part of DefaultCapabilities (it is platform/config gated).
+	all := WriteCapability | ReadCapability | ReadAndWriteCapability |
+		SeekCapability | TruncateCapability | LockCapability |
+		SyncCapability
+	require.Zero(t, all&MmapCapability, "MmapCapability overlaps an existing bit")
+	require.Zero(t, DefaultCapabilities&MmapCapability,
+		"MmapCapability must not be a default capability")
+}
+
+func TestMmapInterfaceShape(t *testing.T) {
+	var _ Mmap = mmapStub{}
+}
+
+type mmapStub struct{}
+
+func (mmapStub) Bytes() []byte                  { return nil }
+func (mmapStub) Slice(off, length int64) []byte { return nil }

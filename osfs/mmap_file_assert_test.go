@@ -15,6 +15,9 @@ func assertMmapBackingWhenAvailable(t *testing.T, f billy.File) {
 	require.True(t, ok, "WithMmap should select *mmapFile on this platform, got %T", f)
 }
 
-// Ensure *mmapFile satisfies billy.File at compile-time on platforms
-// where it has a real implementation.
-var _ billy.File = (*mmapFile)(nil)
+// Ensure *mmapFile satisfies billy.File and billy.Mmap at compile-time on
+// platforms where it has a real implementation.
+var (
+	_ billy.File = (*mmapFile)(nil)
+	_ billy.Mmap = (*mmapFile)(nil)
+)

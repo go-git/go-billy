@@ -377,3 +377,23 @@ func TestOpenBackingSelection(t *testing.T) {
 // Ensure *file satisfies billy.File at compile-time so type
 // assertions in tests are guaranteed valid.
 var _ billy.File = (*file)(nil)
+
+func TestMmapFilesystemAdvertisesCapability(t *testing.T) {
+	t.Parallel()
+
+	osRoot, err := os.OpenRoot(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = osRoot.Close() })
+
+	root, err := FromRoot(osRoot, WithMmap())
+	require.NoError(t, err)
+	require.NotZero(t, root.Capabilities()&billy.MmapCapability)
+
+	plain, err := os.OpenRoot(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = plain.Close() })
+
+	plainFS, err := FromRoot(plain)
+	require.NoError(t, err)
+	require.Zero(t, plainFS.Capabilities()&billy.MmapCapability)
+}
