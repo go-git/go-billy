@@ -237,9 +237,10 @@ func TestOpenReadOnlyMmapErrorsOnWrite(t *testing.T) {
 
 // TestOpenStatNameAcrossModes pins f.Stat().Name() to the basename of
 // the opened path on both backings. *file inherits this from
-// *os.File.Stat(); *mmapFile delegates to the same. Without this
-// pin, a future change to either wrapper could surface the full
-// display path through Stat and diverge silently between modes.
+// *os.File.Stat(); *mmapFile returns the *os.File FileInfo captured at
+// open. Without this pin, a future change to either wrapper could
+// surface the full display path through Stat and diverge silently
+// between modes.
 func TestOpenStatNameAcrossModes(t *testing.T) {
 	t.Parallel()
 
