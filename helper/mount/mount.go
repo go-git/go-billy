@@ -288,3 +288,12 @@ func wrapFile(f billy.File, filename string) billy.File {
 func (f *file) Name() string {
 	return f.name
 }
+
+// Bytes implements [billy.BytesFile] by forwarding to the wrapped file.
+// It reports false when the wrapped file does not implement it.
+func (f *file) Bytes() ([]byte, bool) {
+	if b, ok := f.File.(billy.BytesFile); ok {
+		return b.Bytes()
+	}
+	return nil, false
+}

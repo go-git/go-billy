@@ -16,3 +16,6 @@ func assertMmapBackingWhenAvailable(t *testing.T, f billy.File) {
 	_, ok := f.(*file)
 	require.True(t, ok, "platform has no mmap path, expected *file, got %T", f)
 }
+
+// Ensure the stub *mmapFile keeps the same method set as the real one.
+var _ billy.BytesFile = (*mmapFile)(nil)

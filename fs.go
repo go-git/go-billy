@@ -205,6 +205,29 @@ type Syncer interface {
 	Sync() error
 }
 
+// BytesFile is a [File] whose contents can be read in place, without
+// copying, such as a file opened with
+// [github.com/go-git/go-billy/v6/osfs.WithMmap]. Discover it with a type
+// assertion. Not all filesystem implementations support it.
+type BytesFile interface {
+	File
+	// Bytes returns the file's contents without copying. ok is false when
+	// the contents are not available in place, for example once the file
+	// is closed, or when a wrapper such as a chroot forwards to a file that
+	// does not provide them. Callers must then fall back to Read or ReadAt.
+	//
+	// The returned slice is valid only until Close and must not be
+	// modified. Holding the slice does not keep the File alive, and an
+	// implementation may release the memory once the File is closed or
+	// garbage collected; using the slice after that is undefined behaviour
+	// that may crash or may silently read unrelated data, such as another
+	// file's contents. The File can be collected after its last use even
+	// while its variable is still in scope, so call Close after the last
+	// use of the slice, for example with defer f.Close(), or call
+	// runtime.KeepAlive(f) after it.
+	Bytes() (data []byte, ok bool)
+}
+
 // Capable interface can return the available features of a filesystem.
 type Capable interface {
 	// Capabilities returns the capabilities of a filesystem in bit flags.

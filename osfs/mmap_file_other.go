@@ -17,12 +17,13 @@ func newMmapFile(_ *os.File, _ string) (*mmapFile, error) {
 	return nil, errMmapUnavailable
 }
 
-func (m *mmapFile) Name() string                                  { return "" }
-func (m *mmapFile) Stat() (os.FileInfo, error)                    { return nil, os.ErrInvalid }
-func (m *mmapFile) Read(p []byte) (int, error)                    { return 0, os.ErrInvalid }
-func (m *mmapFile) ReadAt(p []byte, off int64) (int, error)       { return 0, os.ErrInvalid }
-func (m *mmapFile) Write(p []byte) (int, error)                   { return 0, os.ErrInvalid }
-func (m *mmapFile) WriteAt(p []byte, off int64) (int, error)      { return 0, os.ErrInvalid }
-func (m *mmapFile) Seek(offset int64, whence int) (int64, error)  { return 0, os.ErrInvalid }
-func (m *mmapFile) Truncate(size int64) error                     { return os.ErrInvalid }
-func (m *mmapFile) Close() error                                  { return os.ErrInvalid }
+func (m *mmapFile) Name() string                                 { return "" }
+func (m *mmapFile) Stat() (os.FileInfo, error)                   { return nil, os.ErrInvalid }
+func (m *mmapFile) Read(p []byte) (int, error)                   { return 0, os.ErrInvalid }
+func (m *mmapFile) ReadAt(p []byte, off int64) (int, error)      { return 0, os.ErrInvalid }
+func (m *mmapFile) Bytes() ([]byte, bool)                        { return nil, false }
+func (m *mmapFile) Write(p []byte) (int, error)                  { return 0, os.ErrInvalid }
+func (m *mmapFile) WriteAt(p []byte, off int64) (int, error)     { return 0, os.ErrInvalid }
+func (m *mmapFile) Seek(offset int64, whence int) (int64, error) { return 0, os.ErrInvalid }
+func (m *mmapFile) Truncate(size int64) error                    { return os.ErrInvalid }
+func (m *mmapFile) Close() error                                 { return os.ErrInvalid }

@@ -19,10 +19,12 @@ import (
 // flags. Read and Seek track a real cursor over the mapped bytes,
 // ReadAt is concurrent-safe (multiple goroutines may call it in
 // parallel against the same handle) and serialised against Close
-// via an RWMutex so munmap cannot run while a read is in flight.
-// Write/WriteAt/Truncate return [os.ErrPermission] — the file is
-// read-only by construction. The underlying descriptor is closed as
-// soon as the mapping exists.
+// via an RWMutex so munmap cannot run while a Read or ReadAt is in
+// flight. Bytes hands out the mapping itself, which the lock cannot
+// protect: Close or the GC cleanup unmaps it even while a caller
+// still reads the returned slice. Write/WriteAt/Truncate return
+// [os.ErrPermission] — the file is read-only by construction. The
+// underlying descriptor is closed as soon as the mapping exists.
 type mmapFile struct {
 	data []byte
 	name string
@@ -141,6 +143,28 @@ func (m *mmapFile) ReadAt(p []byte, off int64) (int, error) {
 		return n, io.EOF
 	}
 	return n, nil
+}
+
+// Bytes implements [billy.BytesFile], returning the mapping itself. ok is
+// false once the file has been closed.
+//
+// Writing to the read-only mapping, or reading past the end of the
+// underlying file after it is truncated, crashes the process
+// (SIGSEGV/SIGBUS) rather than returning an error. Using the slice after
+// Close, or after an unreachable File is unmapped by its GC cleanup, is
+// undefined behaviour: it may crash, or it may silently read another
+// file's data once a later mapping reuses the address. Holding the slice
+// does not keep the File alive, and the File can be collected after its
+// last use while still in scope: call Close after the last use of the
+// slice (for example with defer), or call runtime.KeepAlive on the File
+// after it.
+func (m *mmapFile) Bytes() (data []byte, ok bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
+		return nil, false
+	}
+	return m.data, true
 }
 
 func (m *mmapFile) Seek(offset int64, whence int) (int64, error) {
