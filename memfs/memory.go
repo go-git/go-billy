@@ -171,6 +171,9 @@ func (fs *Memory) ReadDir(path string) ([]gofs.DirEntry, error) {
 				return fs.ReadDir(target)
 			}
 		}
+		if !f.mode.IsDir() {
+			return nil, &os.PathError{Op: "readdir", Path: path, Err: syscall.ENOTDIR}
+		}
 	} else {
 		return nil, &os.PathError{Op: "open", Path: path, Err: syscall.ENOENT}
 	}
