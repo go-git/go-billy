@@ -137,6 +137,22 @@ func TestNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
+func TestReadDirSymlink(t *testing.T) {
+	fs := New()
+	require.NoError(t, util.WriteFile(fs, "file", nil, 0o644))
+	require.NoError(t, fs.MkdirAll("dir", 0o755))
+	require.NoError(t, fs.Symlink("file", "file-link"))
+	require.NoError(t, fs.Symlink("dir", "dir-link"))
+
+	entries, err := fs.ReadDir("file-link")
+	require.ErrorIs(t, err, syscall.ENOTDIR)
+	assert.Nil(t, entries)
+
+	entries, err = fs.ReadDir("dir-link")
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+}
+
 func TestTruncateAppend(t *testing.T) {
 	fs := New()
 	err := util.WriteFile(fs, "truncate_append", []byte("file-content"), 0o666)

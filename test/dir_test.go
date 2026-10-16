@@ -169,6 +169,21 @@ func TestDir_ReadDir(t *testing.T) {
 	})
 }
 
+func TestDir_ReadDirFile(t *testing.T) {
+	eachDirFS(t, func(t *testing.T, fs dirFS) {
+		t.Helper()
+		err := util.WriteFile(fs, "dir/file", []byte("content"), 0o644)
+		require.NoError(t, err)
+
+		entries, err := fs.ReadDir("dir/file")
+		require.Error(t, err)
+		assert.Nil(t, entries)
+
+		var pathErr *os.PathError
+		require.ErrorAs(t, err, &pathErr)
+	})
+}
+
 func TestDir_ReadDirNested(t *testing.T) {
 	eachDirFS(t, func(t *testing.T, fs dirFS) {
 		t.Helper()
