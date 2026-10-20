@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	. "github.com/go-git/go-billy/v6" //nolint
@@ -212,6 +213,120 @@ func TestOpenFileAppend(t *testing.T) {
 		f, err = fs.OpenFile("foo1", os.O_RDONLY, defaultMode)
 		require.NoError(t, err)
 		testReadClose(t, f, "foo1bar1")
+	})
+}
+
+func TestOpenFileAppendIndependentHandles(t *testing.T) {
+	for _, mode := range []int{os.O_WRONLY, os.O_RDWR} {
+		for _, initial := range []string{"", "seed\n"} {
+			t.Run(fmt.Sprintf("mode=%d/initial=%q", mode, initial), func(t *testing.T) {
+				eachBasicFS(t, func(t *testing.T, fs Basic) {
+					t.Helper()
+					require.NoError(t, util.WriteFile(fs, "log", []byte(initial), 0o666))
+					a, err := fs.OpenFile("log", mode|os.O_APPEND, 0o666)
+					require.NoError(t, err)
+					t.Cleanup(func() { assert.NoError(t, a.Close()) })
+					b, err := fs.OpenFile("log", mode|os.O_APPEND, 0o666)
+					require.NoError(t, err)
+					t.Cleanup(func() { assert.NoError(t, b.Close()) })
+					for _, call := range []struct {
+						file File
+						text string
+					}{{a, "first\n"}, {b, "second\n"}, {a, "third\n"}} {
+						n, err := io.WriteString(call.file, call.text)
+						require.NoError(t, err)
+						require.Equal(t, len(call.text), n)
+					}
+					r, err := fs.Open("log")
+					require.NoError(t, err)
+					testReadClose(t, r, initial+"first\nsecond\nthird\n")
+				})
+			})
+		}
+	}
+}
+
+func TestOpenFileAppendAfterTruncate(t *testing.T) {
+	eachBasicFS(t, func(t *testing.T, fs Basic) {
+		t.Helper()
+		require.NoError(t, util.WriteFile(fs, "log", []byte("old contents"), 0o666))
+		f, err := fs.OpenFile("log", os.O_WRONLY|os.O_APPEND, 0o666)
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, f.Close()) })
+		other, err := fs.OpenFile("log", os.O_WRONLY|os.O_TRUNC, 0o666)
+		require.NoError(t, err)
+		require.NoError(t, other.Close())
+		n, err := f.Write([]byte("new contents"))
+		require.NoError(t, err)
+		require.Equal(t, len("new contents"), n)
+		r, err := fs.Open("log")
+		require.NoError(t, err)
+		testReadClose(t, r, "new contents")
+	})
+}
+
+func TestOpenFileAppendConcurrentHandles(t *testing.T) {
+	eachBasicFS(t, func(t *testing.T, fs Basic) {
+		t.Helper()
+		const writers, records = 8, 64
+		require.NoError(t, util.WriteFile(fs, "log", []byte("header\n"), 0o666))
+		files := make([]File, writers)
+		for i := range files {
+			var err error
+			files[i], err = fs.OpenFile("log", os.O_WRONLY|os.O_APPEND, 0o666)
+			require.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, files[i].Close()) })
+		}
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for i, f := range files {
+			wg.Add(1)
+			go func(writer int, f File) {
+				defer wg.Done()
+				<-start
+				for j := 0; j < records; j++ {
+					record := fmt.Sprintf("%02d:%03d\n", writer, j)
+					if n, err := io.WriteString(f, record); n != len(record) || err != nil {
+						t.Errorf("Write = %d, %v; want %d, nil", n, err, len(record))
+						return
+					}
+				}
+			}(i, f)
+		}
+		close(start)
+		wg.Wait()
+		r, err := fs.Open("log")
+		require.NoError(t, err)
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.NoError(t, r.Close())
+		got := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+		require.Len(t, got, 1+writers*records)
+		want := []string{"header"}
+		for i := 0; i < writers; i++ {
+			for j := 0; j < records; j++ {
+				want = append(want, fmt.Sprintf("%02d:%03d", i, j))
+			}
+		}
+		slices.Sort(got)
+		slices.Sort(want)
+		assert.Equal(t, want, got)
+	})
+}
+
+func TestOpenFileAppendClosed(t *testing.T) {
+	eachBasicFS(t, func(t *testing.T, fs Basic) {
+		t.Helper()
+		require.NoError(t, util.WriteFile(fs, "log", []byte("seed"), 0o666))
+		f, err := fs.OpenFile("log", os.O_WRONLY|os.O_APPEND, 0o666)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		n, err := f.Write([]byte("extra"))
+		assert.Zero(t, n)
+		assert.ErrorIs(t, err, os.ErrClosed)
+		r, err := fs.Open("log")
+		require.NoError(t, err)
+		testReadClose(t, r, "seed")
 	})
 }
 

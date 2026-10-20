@@ -68,6 +68,22 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *file) Write(p []byte) (int, error) {
+	if isAppend(f.flag) {
+		if f.isClosed {
+			return 0, os.ErrClosed
+		}
+		if !isReadAndWrite(f.flag) && !isWriteOnly(f.flag) {
+			return 0, errors.New("write not supported")
+		}
+
+		f.content.m.Lock()
+		defer f.content.m.Unlock()
+		f.content.bytes = append(f.content.bytes, p...)
+		f.content.modTime = time.Now()
+		f.position = int64(len(f.content.bytes))
+		return len(p), nil
+	}
+
 	return f.WriteAt(p, f.position)
 }
 
