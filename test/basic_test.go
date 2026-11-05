@@ -579,6 +579,93 @@ func TestRename(t *testing.T) {
 	})
 }
 
+func TestRenameReplacesFile(t *testing.T) {
+	eachFS(t, func(t *testing.T, fs Filesystem) {
+		t.Helper()
+		require.NoError(t, util.WriteFile(fs, "source", []byte("source data"), 0o644))
+		require.NoError(t, util.WriteFile(fs, "target", []byte("target data"), 0o644))
+
+		require.NoError(t, fs.Rename("source", "target"))
+
+		_, err := fs.Stat("source")
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		data, err := util.ReadFile(fs, "target")
+		require.NoError(t, err)
+		assert.Equal(t, []byte("source data"), data)
+	})
+}
+
+func TestRenameIncompatibleTypes(t *testing.T) {
+	tests := []struct {
+		name        string
+		sourceDir   bool
+		sourceChild bool
+		targetDir   bool
+		targetChild bool
+	}{
+		{name: "file to empty directory", targetDir: true},
+		{name: "file to nonempty directory", targetDir: true, targetChild: true},
+		{name: "empty directory to file", sourceDir: true},
+		{name: "nonempty directory to file", sourceDir: true, sourceChild: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			eachFS(t, func(t *testing.T, fs Filesystem) {
+				t.Helper()
+				for _, node := range []struct {
+					name     string
+					dir      bool
+					hasChild bool
+				}{
+					{name: "source", dir: tc.sourceDir, hasChild: tc.sourceChild},
+					{name: "target", dir: tc.targetDir, hasChild: tc.targetChild},
+				} {
+					if node.dir {
+						require.NoError(t, fs.MkdirAll(node.name, 0o755))
+					}
+					if !node.dir || node.hasChild {
+						path := node.name
+						if node.dir {
+							path = fs.Join(path, "child")
+						}
+						require.NoError(t, util.WriteFile(fs, path, []byte(node.name+" data"), 0o644))
+					}
+				}
+
+				type entry struct {
+					mode    stdfs.FileMode
+					content string
+				}
+				snapshot := func() map[string]entry {
+					entries := make(map[string]entry)
+					err := util.Walk(fs, fsRoot(fs), func(path string, info stdfs.FileInfo, err error) error {
+						if err != nil {
+							return err
+						}
+						e := entry{mode: info.Mode()}
+						if !info.IsDir() {
+							data, err := util.ReadFile(fs, path)
+							if err != nil {
+								return err
+							}
+							e.content = string(data)
+						}
+						entries[path] = e
+						return nil
+					})
+					require.NoError(t, err)
+					return entries
+				}
+
+				before := snapshot()
+				assert.Error(t, fs.Rename("source", "target"))
+				assert.Equal(t, before, snapshot())
+			})
+		})
+	}
+}
+
 func fsRoot(_ Filesystem) string {
 	return string(filepath.Separator)
 }

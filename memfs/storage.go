@@ -134,8 +134,13 @@ func (s *storage) Rename(from, to string) error {
 		return billy.ErrBaseDirCannotBeRenamed
 	}
 
-	if !s.Has(from) {
+	source, has := s.Get(from)
+	if !has {
 		return os.ErrNotExist
+	}
+
+	if target, has := s.Get(to); has && source.mode.IsDir() != target.mode.IsDir() {
+		return fmt.Errorf("cannot rename %q to %q: file and directory types differ", from, to)
 	}
 
 	move := [][2]string{{from, to}}
