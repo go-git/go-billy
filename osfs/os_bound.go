@@ -320,15 +320,20 @@ func (fs *BoundOS) baseInfo(lstat bool) (os.FileInfo, error) {
 		return root.Stat(".")
 	}
 
+	if !lstat {
+		// The base dir is the boundary, not a path inside it. Resolve it on
+		// the host, as os.OpenRoot does for every other operation, so that a
+		// base dir which is a symlink to outside its parent is followed
+		// instead of being reported as an escape from the parent.
+		return os.Stat(base)
+	}
+
 	root, err := openRootAt(parent, false)
 	if err != nil {
 		return nil, err
 	}
 	defer root.Close()
-	if lstat {
-		return root.Lstat(name)
-	}
-	return root.Stat(name)
+	return root.Lstat(name)
 }
 
 func openRootAt(path string, create bool) (*os.Root, error) {
