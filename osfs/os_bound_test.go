@@ -393,6 +393,37 @@ func TestStatBaseFile(t *testing.T) {
 	}
 }
 
+// TestStatBaseSymlinkOutsideParent verifies that a base dir which is a
+// symlink to a directory outside its own parent can be stat'ed, as other
+// operations on the same base dir already follow it.
+func TestStatBaseSymlinkOutsideParent(t *testing.T) {
+	tmp := t.TempDir()
+	target := filepath.Join(tmp, "real", "repo")
+	require.NoError(t, os.MkdirAll(target, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(target, "file"), []byte("content"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(tmp, "work"), 0o700))
+	link := filepath.Join(tmp, "work", "repo")
+	require.NoError(t, os.Symlink(filepath.Join("..", "real", "repo"), link))
+
+	fs := newBoundOS(link)
+	for _, p := range []string{"", ".", "/"} {
+		t.Run(fmt.Sprintf("path=%q", p), func(t *testing.T) {
+			fi, err := fs.Stat(p)
+			require.NoError(t, err)
+			assert.True(t, fi.IsDir())
+			assert.Equal(t, "repo", fi.Name())
+		})
+	}
+
+	fi, err := fs.Stat("file")
+	require.NoError(t, err)
+	assert.False(t, fi.IsDir())
+
+	fi, err = fs.Lstat("/")
+	require.NoError(t, err)
+	assert.NotZero(t, fi.Mode()&os.ModeSymlink)
+}
+
 func TestEmptyBaseUsesOSRoot(t *testing.T) {
 	dir := t.TempDir()
 	name := filepath.Join(dir, "file")
