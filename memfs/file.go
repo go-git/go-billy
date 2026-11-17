@@ -68,7 +68,10 @@ func (f *file) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *file) Write(p []byte) (int, error) {
-	return f.WriteAt(p, f.position)
+	n, err := f.WriteAt(p, f.position)
+	f.position += int64(n)
+
+	return n, err
 }
 
 func (f *file) WriteAt(p []byte, off int64) (int, error) {
@@ -80,10 +83,8 @@ func (f *file) WriteAt(p []byte, off int64) (int, error) {
 		return 0, errors.New("write not supported")
 	}
 
-	n, err := f.content.WriteAt(p, off)
-	f.position = off + int64(n)
-
-	return n, err
+	// io.WriterAt: WriteAt must not move the seek offset.
+	return f.content.WriteAt(p, off)
 }
 
 func (f *file) Close() error {

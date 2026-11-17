@@ -813,3 +813,35 @@ func TestTruncate(t *testing.T) {
 		require.NoError(t, f.Close())
 	})
 }
+
+func TestWriteAtDoesNotMoveSeekOffset(t *testing.T) {
+	eachBasicFS(t, func(t *testing.T, fs Basic) {
+		t.Helper()
+
+		f, err := fs.Create("foo")
+		require.NoError(t, err)
+
+		_, err = f.Write([]byte("HDR!0000"))
+		require.NoError(t, err)
+		_, err = f.Write([]byte("BODYBODYBODY"))
+		require.NoError(t, err)
+
+		_, err = f.WriteAt([]byte("0020"), 4)
+		require.NoError(t, err)
+
+		off, err := f.Seek(0, io.SeekCurrent)
+		require.NoError(t, err)
+		require.Equal(t, int64(20), off)
+
+		_, err = f.Write([]byte("<EOF>"))
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+
+		read, err := fs.Open("foo")
+		require.NoError(t, err)
+		all, err := io.ReadAll(read)
+		require.NoError(t, err)
+		require.Equal(t, "HDR!0020BODYBODYBODY<EOF>", string(all))
+		require.NoError(t, read.Close())
+	})
+}
