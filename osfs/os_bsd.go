@@ -1,0 +1,42 @@
+//go:build !plan9 && !windows && !wasm && !solaris && !aix
+
+package osfs
+
+import (
+	"syscall"
+
+	"golang.org/x/sys/unix"
+)
+
+func (f *file) Lock() error {
+	f.m.Lock()
+	defer f.m.Unlock()
+
+	return unix.Flock(int(f.File.Fd()), unix.LOCK_EX)
+}
+
+func (f *file) Unlock() error {
+	f.m.Lock()
+	defer f.m.Unlock()
+
+	return unix.Flock(int(f.File.Fd()), unix.LOCK_UN)
+}
+
+func (f *file) Sync() error {
+	return f.File.Sync()
+}
+
+// umask sets umask to a new value, and returns a func which allows the
+// caller to reset it back to what it was originally.
+func umask(m int) func() {
+	old := syscall.Umask(m)
+	return func() {
+		syscall.Umask(old)
+	}
+}
+
+// Fd exposes the underlying [os.File.Fd] func, which returns the
+// system file descriptor or handle referencing the open file.
+func (f *file) Fd() (uintptr, bool) {
+	return f.File.Fd(), true
+}
