@@ -1,4 +1,4 @@
-//go:build !plan9 && !windows && !wasm
+//go:build solaris || aix
 
 package osfs
 
@@ -12,14 +12,24 @@ func (f *file) Lock() error {
 	f.m.Lock()
 	defer f.m.Unlock()
 
-	return unix.Flock(int(f.File.Fd()), unix.LOCK_EX)
+	return unix.FcntlFlock(f.File.Fd(), unix.F_SETLK, &unix.Flock_t{
+		Type: unix.F_UNLCK,
+		Whence: 0,
+		Start: 0,
+		Len: 0,
+	})
 }
 
 func (f *file) Unlock() error {
 	f.m.Lock()
 	defer f.m.Unlock()
 
-	return unix.Flock(int(f.File.Fd()), unix.LOCK_UN)
+	return unix.FcntlFlock(f.File.Fd(), unix.F_SETLK, &unix.Flock_t{
+		Type: unix.F_UNLCK,
+		Whence: 0,
+		Start: 0,
+		Len: 0,
+	})
 }
 
 func (f *file) Sync() error {
